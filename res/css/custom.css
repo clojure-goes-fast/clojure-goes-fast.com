@@ -1,0 +1,146 @@
+/* Header */
+
+header.navbar {
+    width: 100vw;
+}
+.brand {
+    padding: 0 1.5rem;
+}
+
+.brand .logo {
+    align-items: center;
+    display: inline-flex;
+    display: -ms-inline-flexbox;
+    -ms-flex-align: center;
+    height: 2rem;
+    padding: .2rem;
+    width: auto;
+}
+
+.brand .logo img {
+    display: inline;
+    height: auto;
+    width: 1.6rem;
+}
+
+.brand .logo h2 {
+    display: inline;
+    font-size: .8rem;
+    font-weight: 500;
+    margin-bottom: 0;
+    margin-left: .3rem;
+    /* margin-right: .5rem; */
+}
+
+/* Footer */
+
+footer {
+    margin-top: -1rem;
+    color: #bbb;
+    font-size: .6rem;
+}
+
+footer .footer-content {
+    padding-bottom: 0.4rem;
+}
+
+footer a {
+    color: #bbb;
+    font-weight: bold;
+}
+
+/* Index page */
+
+.big-logo {
+    height: 225px;
+    width: 225px;
+}
+
+.grid-hero {
+    padding-bottom: 2rem;
+    padding-top: 2rem;
+    /* position: relative; */
+}
+
+.grid-hero h1 {
+    color: #50596c;
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+}
+
+.grid-hero h2 {
+    color: #5b657a;
+    font-size: .9rem;
+    font-weight: 400;
+    line-height: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.grid-hero .card {
+    background: none;
+    border: 0;
+    color: #727e96;
+    padding: .5rem;
+}
+
+.grid-hero .card .card-title {
+    color: #5764c6;
+    font-size: .9rem;
+    margin-bottom: 0;
+}
+
+.grid-hero .card .card-header img {
+    width: 60px;
+}
+
+.grid-hero .card .disabled {
+    opacity: 0.5;
+}
+
+/* Blog posts */
+
+.container .blog {
+    max-width: 960px;
+    padding: 0 4rem;
+    margin: 40px auto;
+    width: calc(100vw - 12rem);
+    resize: vertical;
+}
+
+.flex-container {
+    display: flex;
+    resize: vertical;
+    height: 90vh;
+    flex-direction: column;
+    justify-content: center;
+}
+
+div.content.blog-post {
+    flex: 1 1 auto;
+    max-width: 960px;
+    padding: 0 4rem;
+    margin: 40px auto;
+    width: calc(100vw - 12rem);
+}
+
+.blog-post .back-link {
+    padding-bottom: 1rem;
+}
+
+.blog-post h1 {
+    padding-bottom: 1rem;
+}
+
+.blog-post h2 {
+    padding: 0.5rem 0;
+}
+
+.blog-post pre {
+    border-radius: .1em;
+    line-height: .85rem;
+}
+
+.blog-post pre code {
+    padding: .75rem;
+    line-height: inherit;
+}

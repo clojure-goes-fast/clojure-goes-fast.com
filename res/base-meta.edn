@@ -1,0 +1,3 @@
+{:base-url "http://clojure-goes-fast.com"
+ :site-title "Clojure Goes Fast"
+ :site-description "High-performance Clojure made simple"}
