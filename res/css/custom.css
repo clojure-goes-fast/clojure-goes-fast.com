@@ -42,6 +42,8 @@ footer {
 
 footer .footer-content {
     padding-bottom: 0.4rem;
+    padding-left: .5rem;
+    padding-right: .5rem;
 }
 
 footer a {
@@ -121,6 +123,28 @@ div.content.blog-post {
     padding: 0 4rem;
     margin: 40px auto;
     width: calc(100vw - 12rem);
+}
+
+@media (max-width: 880px) {
+    .container .blog {
+        min-width: auto;
+        padding: 0 2.5rem;
+        width: 100%;
+    }
+    div.content.blog-post {
+        min-width: auto;
+        padding: 0 2.5rem;
+        width: 100%;
+    }
+}
+
+@media (max-width: 600px) {
+    .container .blog {
+        padding: 0 .5rem;
+    }
+    div.content.blog-post {
+        padding: 0 .5rem;
+    }
 }
 
 .blog-post .back-link {
