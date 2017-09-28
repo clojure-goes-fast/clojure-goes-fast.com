@@ -168,3 +168,7 @@ div.content.blog-post {
     padding: .75rem;
     line-height: inherit;
 }
+
+br.inlist {
+    font-size: 150%;
+}
