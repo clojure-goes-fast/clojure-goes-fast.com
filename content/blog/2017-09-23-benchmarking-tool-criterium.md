@@ -10,9 +10,8 @@ box with the [time](http://clojuredocs.org/clojure.core/time) macro. `time`
 takes a single expression and executes it. When the expression finishes running,
 it will print the time it took in milliseconds.
 
-Let's see how quickly Clojure can calculate the average number of a sequence
-(when using a terribly inefficient algorithm). A **wrong** way to do this would
-be:
+Let's see how quickly Clojure can calculate the mean value of a sequence (using
+a terribly inefficient algorithm). A **wrong** way to do this would be:
 
 ```clojure-repl
 user=> (time (reduce + (map #(/ % 100.0) (range 100))))
@@ -67,7 +66,7 @@ use benchmarking tool for Clojure. It is designed as a robust replacement for
 Criterium, you should add this to your dependencies:
 
 ```clojure
-[criterim "0.4.4"] ; Per the time of writing
+[criterium "0.4.4"] ; Per the time of writing
 ```
 
 And require it in the namespace where you want to measure:
