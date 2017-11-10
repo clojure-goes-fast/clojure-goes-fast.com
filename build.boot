@@ -20,12 +20,14 @@
       io.perun.core/absolutize-url))
 
 (deftask clean-url
-  "Removes all \"index.html\" from permalinks and put them on `:clean-url`."
+  "Removes all \"index.html\" from permalinks."
   []
   (boot/with-pre-wrap fileset
     (let [files         (io.perun.core/get-meta fileset)
-          clean-url-fn  #(assoc % :clean-url
-                                (str/replace (:permalink %) #"index.html$" ""))
+          clean-url-fn  #(let [clean-link (str/replace (:permalink %) #"index.html$" "")]
+                           (-> %
+                               (assoc :permalink clean-link)
+                               (assoc :clean-url clean-link)))
           updated-files (map clean-url-fn files)]
       (io.perun.core/merge-meta fileset updated-files))))
 
