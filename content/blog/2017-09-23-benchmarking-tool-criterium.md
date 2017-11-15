@@ -22,11 +22,10 @@ user=> (time (reduce + (map #(/ % 100.0) (range 100))))
 Looks like a hundred sums and divisions take roughly 2.5 milliseconds. But this
 is very far from the truth. Unless the complete execution takes a few seconds,
 the results of `time` will include many things besides your actual expression.
-First of all, it will count in the compilation time. Clojure is a compiled
-language, remember? When you enter an expression in the REPL, it first gets
-compiled to Java bytecode and only then executed. If the running time of the
-expression itself is small, the compilation time will contribute to the majority
-of the time spent.
+First of all, it will count in the overall execution overhead. If the running
+time of the expression you measure is small, that overhead time will contribute
+to the majority of the time spent. For example, on my machine just `(time nil)`
+finishes in approximately 15 microseconds.
 
 Second inaccuracy comes from JVM itself, exactly from
 its [JIT](https://en.wikipedia.org/wiki/Just-in-time_compilation) step. Since

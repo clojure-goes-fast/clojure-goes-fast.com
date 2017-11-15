@@ -101,8 +101,9 @@ character will go). Finally, we return the output array length from the loop and
 construct a string of that size.
 
 *Note, that even though we are working with arrays directly, we still have to do
-explicit casts to `int` and `char`. It's because no Clojure functions can return
-unboxed values, even `aget`.*
+explicit casts to `int` and `char`. It's because `aget` cannot return a
+primitive type since it's the same function for any array type; so, it returns a
+boxed Object.*
 
 Whew. Look how much more text is needed just to describe this solution. At
 least, it's going to be faster.
@@ -226,9 +227,9 @@ syntax for a type hint is putting `^Klass` (e.g., `^String`) in front of an
 object.
 
 Clojure syntax allows placing the type hints in local bindings (e.g., in `let`
-or `defn` arglist), before an expression that returns an object, and before a
-function name in `defn` (to signify that the function returns objects of that
-type). Here are the examples of type hinting:
+or `defn` arglist), before an expression that returns an object, and before the
+function name or arglist in `defn` (to signify that the function returns objects
+of that type). Here are the examples of type hinting:
 
 ```clojure
 (let [^String s (something-returning-a-string)]
@@ -241,6 +242,10 @@ type). Here are the examples of type hinting:
 
 (defn ^String myfn []
   "I'm a string")
+
+(defn myfn2
+  (^String [] "I'm a string")
+  (^String [a b] "I'm a string too"))
 ```
 
 It is time to revise our `solution-2` function and place a few strategic type
