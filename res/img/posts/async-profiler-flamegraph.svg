@@ -1,0 +1,1502 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="790" onload="init(evt)" viewBox="0 0 1200 790" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="790.0" fill="url(#background)"  />
+<text text-anchor="middle" x="600.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Flame Graph</text>
+<text text-anchor="" x="10.00" y="773" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="1090.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="1090.00" y="773" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.seq (2 samples, 0.05%)</title><rect x="1175.1" y="245" width="0.6" height="15.0" fill="rgb(207,61,61)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.inc (13 samples, 0.32%)</title><rect x="24.6" y="117" width="3.8" height="15.0" fill="rgb(252,126,126)" rx="2" ry="2" />
+<text text-anchor="" x="27.61" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.throwIntOverflow (1 samples, 0.02%)</title><rect x="13.5" y="389" width="0.3" height="15.0" fill="rgb(237,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="16.51" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Compiler$FnExpr.parse (1 samples, 0.02%)</title><rect x="11.8" y="437" width="0.2" height="15.0" fill="rgb(249,121,121)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.sval (27 samples, 0.67%)</title><rect x="1176.6" y="181" width="7.8" height="15.0" fill="rgb(221,81,81)" rx="2" ry="2" />
+<text text-anchor="" x="1179.56" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.binaryGcd (5 samples, 0.12%)</title><rect x="521.7" y="85" width="1.4" height="15.0" fill="rgb(88,235,88)" rx="2" ry="2" />
+<text text-anchor="" x="524.68" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Reflector.invokeMatchingMethod (4 samples, 0.10%)</title><rect x="10.6" y="469" width="1.2" height="15.0" fill="rgb(201,51,51)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RestFn.invoke (1 samples, 0.02%)</title><rect x="12.0" y="373" width="0.3" height="15.0" fill="rgb(203,54,54)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$reduce.invokeStatic (52 samples, 1.29%)</title><rect x="1174.5" y="357" width="15.2" height="15.0" fill="rgb(244,114,114)" rx="2" ry="2" />
+<text text-anchor="" x="1177.51" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj_async_profiler/core$start.invoke (1 samples, 0.02%)</title><rect x="12.0" y="437" width="0.3" height="15.0" fill="rgb(202,53,53)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.&lt;init&gt; (8 samples, 0.20%)</title><rect x="526.7" y="53" width="2.3" height="15.0" fill="rgb(85,232,85)" rx="2" ry="2" />
+<text text-anchor="" x="529.65" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$range.invoke (1 samples, 0.02%)</title><rect x="1174.2" y="373" width="0.3" height="15.0" fill="rgb(204,57,57)" rx="2" ry="2" />
+<text text-anchor="" x="1177.22" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$seq_reduce.invokeStatic (51 samples, 1.26%)</title><rect x="1174.5" y="293" width="14.9" height="15.0" fill="rgb(216,74,74)" rx="2" ry="2" />
+<text text-anchor="" x="1177.51" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.dropFirst (1 samples, 0.02%)</title><rect x="13.8" y="229" width="0.3" height="15.0" fill="rgb(231,96,96)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.&lt;init&gt; (66 samples, 1.63%)</title><rect x="496.0" y="117" width="19.3" height="15.0" fill="rgb(70,218,70)" rx="2" ry="2" />
+<text text-anchor="" x="498.97" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$burn_cpu.invoke (4,030 samples, 99.80%)</title><rect x="12.3" y="437" width="1177.7" height="15.0" fill="rgb(253,127,127)" rx="2" ry="2" />
+<text text-anchor="" x="15.34" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >user$burn_cpu.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Class.newInstance (1 samples, 0.02%)</title><rect x="10.9" y="325" width="0.3" height="15.0" fill="rgb(109,254,109)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.getMagnitudeArray (16 samples, 0.40%)</title><rect x="468.2" y="85" width="4.7" height="15.0" fill="rgb(71,219,71)" rx="2" ry="2" />
+<text text-anchor="" x="471.21" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7807$G__7802__7816.invoke (3,967 samples, 98.24%)</title><rect x="14.4" y="277" width="1159.2" height="15.0" fill="rgb(242,111,111)" rx="2" ry="2" />
+<text text-anchor="" x="17.38" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core/protocols$fn__7807$G__7802__7816.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/ClassLoader.defineClass (1 samples, 0.02%)</title><rect x="11.8" y="389" width="0.2" height="15.0" fill="rgb(60,209,60)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange$LongChunk.count (1 samples, 0.02%)</title><rect x="29.0" y="149" width="0.3" height="15.0" fill="rgb(225,86,86)" rx="2" ry="2" />
+<text text-anchor="" x="31.99" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/reflect/Method.invoke (4 samples, 0.10%)</title><rect x="10.6" y="453" width="1.2" height="15.0" fill="rgb(90,237,90)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$eval.invoke (4,032 samples, 99.85%)</title><rect x="11.8" y="533" width="1178.2" height="15.0" fill="rgb(248,119,119)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core$eval.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.nth (4 samples, 0.10%)</title><rect x="1182.7" y="149" width="1.2" height="15.0" fill="rgb(232,97,97)" rx="2" ry="2" />
+<text text-anchor="" x="1185.69" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$RatioOps.divide (3 samples, 0.07%)</title><rect x="1188.2" y="165" width="0.9" height="15.0" fill="rgb(250,123,123)" rx="2" ry="2" />
+<text text-anchor="" x="1191.25" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.nth (1 samples, 0.02%)</title><rect x="28.7" y="149" width="0.3" height="15.0" fill="rgb(229,93,93)" rx="2" ry="2" />
+<text text-anchor="" x="31.70" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ChunkBuffer.&lt;init&gt; (2 samples, 0.05%)</title><rect x="21.4" y="133" width="0.6" height="15.0" fill="rgb(245,116,116)" rx="2" ry="2" />
+<text text-anchor="" x="24.40" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.chunkedFirst (1 samples, 0.02%)</title><rect x="1175.1" y="181" width="0.3" height="15.0" fill="rgb(225,86,86)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Long.longValue (1 samples, 0.02%)</title><rect x="31.6" y="149" width="0.3" height="15.0" fill="rgb(96,242,96)" rx="2" ry="2" />
+<text text-anchor="" x="34.62" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$into1.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="117" width="0.3" height="15.0" fill="rgb(244,114,114)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_PLUS_.invokeStatic (1 samples, 0.02%)</title><rect x="1185.3" y="197" width="0.3" height="15.0" fill="rgb(201,52,52)" rx="2" ry="2" />
+<text text-anchor="" x="1188.32" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$inc.invoke (7 samples, 0.17%)</title><rect x="1180.6" y="149" width="2.1" height="15.0" fill="rgb(240,109,109)" rx="2" ry="2" />
+<text text-anchor="" x="1183.65" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$LongOps.inc (12 samples, 0.30%)</title><rect x="24.6" y="101" width="3.5" height="15.0" fill="rgb(201,52,52)" rx="2" ry="2" />
+<text text-anchor="" x="27.61" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.normalize (1 samples, 0.02%)</title><rect x="523.7" y="69" width="0.3" height="15.0" fill="rgb(104,250,104)" rx="2" ry="2" />
+<text text-anchor="" x="526.73" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ChunkedCons.next (1 samples, 0.02%)</title><rect x="13.8" y="245" width="0.3" height="15.0" fill="rgb(205,57,57)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.reduce (3,909 samples, 96.81%)</title><rect x="31.3" y="229" width="1142.3" height="15.0" fill="rgb(238,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="34.33" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/ArrayChunk.reduce</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/nio/cs/StreamEncoder.flush (2 samples, 0.05%)</title><rect x="10.0" y="469" width="0.6" height="15.0" fill="rgb(53,203,53)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Compiler.analyze (1 samples, 0.02%)</title><rect x="11.8" y="469" width="0.2" height="15.0" fill="rgb(253,127,127)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RestFn.applyTo (4,038 samples, 100.00%)</title><rect x="10.0" y="693" width="1180.0" height="15.0" fill="rgb(212,68,68)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/RestFn.applyTo</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$eval235.invoke (4,030 samples, 99.80%)</title><rect x="12.3" y="469" width="1177.7" height="15.0" fill="rgb(215,73,73)" rx="2" ry="2" />
+<text text-anchor="" x="15.34" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >user$eval235.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$isa_QMARK_.invoke (1 samples, 0.02%)</title><rect x="12.0" y="181" width="0.3" height="15.0" fill="rgb(254,129,129)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divideOneWord (1,396 samples, 34.57%)</title><rect x="52.1" y="85" width="407.9" height="15.0" fill="rgb(60,210,60)" rx="2" ry="2" />
+<text text-anchor="" x="55.08" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/MutableBigInteger.divideOneWord</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$test_sum.invokeStatic (55 samples, 1.36%)</title><rect x="1173.9" y="389" width="16.1" height="15.0" fill="rgb(239,108,108)" rx="2" ry="2" />
+<text text-anchor="" x="1176.93" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RestFn.invoke (1 samples, 0.02%)</title><rect x="12.0" y="325" width="0.3" height="15.0" fill="rgb(200,51,51)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.gcd (1,643 samples, 40.69%)</title><rect x="495.4" y="133" width="480.1" height="15.0" fill="rgb(104,249,104)" rx="2" ry="2" />
+<text text-anchor="" x="498.38" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/BigInteger.gcd</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Integer.numberOfTrailingZeros (2 samples, 0.05%)</title><rect x="522.6" y="69" width="0.5" height="15.0" fill="rgb(54,204,54)" rx="2" ry="2" />
+<text text-anchor="" x="525.56" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj_async_profiler/core$start.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="389" width="0.3" height="15.0" fill="rgb(204,56,56)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/AFn.applyToHelper (4,038 samples, 100.00%)</title><rect x="10.0" y="677" width="1180.0" height="15.0" fill="rgb(239,107,107)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/AFn.applyToHelper</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.positiveStep (1 samples, 0.02%)</title><rect x="1174.2" y="325" width="0.3" height="15.0" fill="rgb(200,51,51)" rx="2" ry="2" />
+<text text-anchor="" x="1177.22" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.&lt;init&gt; (12 samples, 0.30%)</title><rect x="517.6" y="101" width="3.5" height="15.0" fill="rgb(76,224,76)" rx="2" ry="2" />
+<text text-anchor="" x="520.59" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.multiply (1 samples, 0.02%)</title><rect x="1188.8" y="149" width="0.3" height="15.0" fill="rgb(69,217,69)" rx="2" ry="2" />
+<text text-anchor="" x="1191.83" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$prn.doInvoke (2 samples, 0.05%)</title><rect x="10.0" y="533" width="0.6" height="15.0" fill="rgb(233,98,98)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7807$G__7802__7816.invoke (46 samples, 1.14%)</title><rect x="1175.7" y="277" width="13.4" height="15.0" fill="rgb(233,99,99)" rx="2" ry="2" />
+<text text-anchor="" x="1178.68" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$map$fn__5587.invoke (50 samples, 1.24%)</title><rect x="15.8" y="165" width="14.7" height="15.0" fill="rgb(204,56,56)" rx="2" ry="2" />
+<text text-anchor="" x="18.84" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$slurp.doInvoke (1 samples, 0.02%)</title><rect x="12.0" y="357" width="0.3" height="15.0" fill="rgb(246,117,117)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jlong_disjoint_arraycopy (224 samples, 5.55%)</title><rect x="906.3" y="101" width="65.4" height="15.0" fill="rgb(215,72,72)" rx="2" ry="2" />
+<text text-anchor="" x="909.25" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jlong_d..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>itable stub (2 samples, 0.05%)</title><rect x="1183.9" y="149" width="0.5" height="15.0" fill="rgb(214,70,70)" rx="2" ry="2" />
+<text text-anchor="" x="1186.86" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Class.getConstructor0 (1 samples, 0.02%)</title><rect x="10.9" y="309" width="0.3" height="15.0" fill="rgb(62,211,62)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Object.&lt;init&gt; (5 samples, 0.12%)</title><rect x="977.8" y="85" width="1.5" height="15.0" fill="rgb(67,216,67)" rx="2" ry="2" />
+<text text-anchor="" x="980.85" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_cons.invokeStatic (3 samples, 0.07%)</title><rect x="22.3" y="149" width="0.9" height="15.0" fill="rgb(235,102,102)" rx="2" ry="2" />
+<text text-anchor="" x="25.27" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.&lt;init&gt; (6 samples, 0.15%)</title><rect x="972.3" y="101" width="1.7" height="15.0" fill="rgb(93,239,93)" rx="2" ry="2" />
+<text text-anchor="" x="975.29" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7781$G__7776__7794.invoke (3,969 samples, 98.29%)</title><rect x="13.8" y="341" width="1159.8" height="15.0" fill="rgb(251,125,125)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core/protocols$fn__7781$G__7776__7794.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_SLASH_.invoke (3,900 samples, 96.58%)</title><rect x="34.0" y="213" width="1139.6" height="15.0" fill="rgb(205,57,57)" rx="2" ry="2" />
+<text text-anchor="" x="36.96" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core$_SLASH_.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7781$G__7776__7794.invoke (51 samples, 1.26%)</title><rect x="1174.5" y="341" width="14.9" height="15.0" fill="rgb(245,115,115)" rx="2" ry="2" />
+<text text-anchor="" x="1177.51" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$seq__5124.invokeStatic (1 samples, 0.02%)</title><rect x="28.4" y="149" width="0.3" height="15.0" fill="rgb(243,113,113)" rx="2" ry="2" />
+<text text-anchor="" x="31.41" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj_async_profiler/core$start.invoke (1 samples, 0.02%)</title><rect x="12.0" y="405" width="0.3" height="15.0" fill="rgb(214,70,70)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/MultiFn.isA (1 samples, 0.02%)</title><rect x="12.0" y="213" width="0.3" height="15.0" fill="rgb(230,94,94)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Reflector.invokeNoArgInstanceMember (4 samples, 0.10%)</title><rect x="10.6" y="485" width="1.2" height="15.0" fill="rgb(217,75,75)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.minus (2 samples, 0.05%)</title><rect x="13.2" y="405" width="0.6" height="15.0" fill="rgb(254,129,129)" rx="2" ry="2" />
+<text text-anchor="" x="16.21" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>itable stub (4 samples, 0.10%)</title><rect x="29.3" y="149" width="1.2" height="15.0" fill="rgb(203,54,54)" rx="2" ry="2" />
+<text text-anchor="" x="32.29" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$inc.invoke (1 samples, 0.02%)</title><rect x="1175.4" y="197" width="0.3" height="15.0" fill="rgb(200,50,50)" rx="2" ry="2" />
+<text text-anchor="" x="1178.39" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ASeq.&lt;init&gt; (1 samples, 0.02%)</title><rect x="23.4" y="85" width="0.3" height="15.0" fill="rgb(233,99,99)" rx="2" ry="2" />
+<text text-anchor="" x="26.44" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.inc (6 samples, 0.15%)</title><rect x="1180.9" y="117" width="1.8" height="15.0" fill="rgb(224,85,85)" rx="2" ry="2" />
+<text text-anchor="" x="1183.94" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$range.invokeStatic (1 samples, 0.02%)</title><rect x="1174.2" y="357" width="0.3" height="15.0" fill="rgb(243,113,113)" rx="2" ry="2" />
+<text text-anchor="" x="1177.22" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$map$fn__5587.invoke (2 samples, 0.05%)</title><rect x="1175.1" y="213" width="0.6" height="15.0" fill="rgb(254,129,129)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RestFn.invoke (4,038 samples, 100.00%)</title><rect x="10.0" y="661" width="1180.0" height="15.0" fill="rgb(212,67,67)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/RestFn.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$map$fn__5587.invoke (1 samples, 0.02%)</title><rect x="15.3" y="181" width="0.3" height="15.0" fill="rgb(238,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="18.26" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.&lt;init&gt; (11 samples, 0.27%)</title><rect x="976.1" y="117" width="3.2" height="15.0" fill="rgb(69,218,69)" rx="2" ry="2" />
+<text text-anchor="" x="979.09" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.intCast (1 samples, 0.02%)</title><rect x="22.0" y="133" width="0.3" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="24.98" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Number.&lt;init&gt; (6 samples, 0.15%)</title><rect x="466.5" y="69" width="1.7" height="15.0" fill="rgb(93,239,93)" rx="2" ry="2" />
+<text text-anchor="" x="469.45" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divide (1,304 samples, 32.29%)</title><rect x="525.2" y="85" width="381.1" height="15.0" fill="rgb(71,220,71)" rx="2" ry="2" />
+<text text-anchor="" x="528.19" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/MutableBigInteger.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl_read.invoke (4 samples, 0.10%)</title><rect x="10.6" y="533" width="1.2" height="15.0" fill="rgb(251,124,124)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$RatioOps.combine (1 samples, 0.02%)</title><rect x="35.4" y="165" width="0.3" height="15.0" fill="rgb(235,101,101)" rx="2" ry="2" />
+<text text-anchor="" x="38.42" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.binaryGCD (13 samples, 0.32%)</title><rect x="521.1" y="101" width="3.8" height="15.0" fill="rgb(53,202,53)" rx="2" ry="2" />
+<text text-anchor="" x="524.10" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$reduce.invokeStatic (3,969 samples, 98.29%)</title><rect x="13.8" y="357" width="1159.8" height="15.0" fill="rgb(245,115,115)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core$reduce.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.negate (13 samples, 0.32%)</title><rect x="975.5" y="133" width="3.8" height="15.0" fill="rgb(62,211,62)" rx="2" ry="2" />
+<text text-anchor="" x="978.51" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RestFn.invoke (2 samples, 0.05%)</title><rect x="10.0" y="549" width="0.6" height="15.0" fill="rgb(207,61,61)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$LongOps.isZero (1 samples, 0.02%)</title><rect x="35.1" y="165" width="0.3" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="38.13" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Long.valueOf (5 samples, 0.12%)</title><rect x="1181.2" y="69" width="1.5" height="15.0" fill="rgb(75,223,75)" rx="2" ry="2" />
+<text text-anchor="" x="1184.23" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/java/io$copy.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="293" width="0.3" height="15.0" fill="rgb(201,52,52)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.count (1 samples, 0.02%)</title><rect x="1183.6" y="133" width="0.3" height="15.0" fill="rgb(253,128,128)" rx="2" ry="2" />
+<text text-anchor="" x="1186.57" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.create (1 samples, 0.02%)</title><rect x="1174.2" y="341" width="0.3" height="15.0" fill="rgb(231,95,95)" rx="2" ry="2" />
+<text text-anchor="" x="1177.22" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/DelegatingMethodAccessorImpl.invoke (4 samples, 0.10%)</title><rect x="10.6" y="437" width="1.2" height="15.0" fill="rgb(67,216,67)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.chunkedFirst (2 samples, 0.05%)</title><rect x="23.2" y="133" width="0.5" height="15.0" fill="rgb(202,53,53)" rx="2" ry="2" />
+<text text-anchor="" x="26.15" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.sval (1 samples, 0.02%)</title><rect x="14.1" y="229" width="0.3" height="15.0" fill="rgb(244,114,114)" rx="2" ry="2" />
+<text text-anchor="" x="17.09" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl$read_eval_print__8572$fn__8573.invoke (4 samples, 0.10%)</title><rect x="10.6" y="549" width="1.2" height="15.0" fill="rgb(244,114,114)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jint_arraycopy (1 samples, 0.02%)</title><rect x="974.0" y="101" width="0.3" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="977.05" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$prn.invokeStatic (2 samples, 0.05%)</title><rect x="10.0" y="517" width="0.6" height="15.0" fill="rgb(214,70,70)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/nio/cs/StreamEncoder.writeBytes (2 samples, 0.05%)</title><rect x="10.0" y="421" width="0.6" height="15.0" fill="rgb(71,219,71)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ChunkedCons.chunkedNext (56 samples, 1.39%)</title><rect x="14.7" y="213" width="16.3" height="15.0" fill="rgb(236,103,103)" rx="2" ry="2" />
+<text text-anchor="" x="17.68" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.add (1 samples, 0.02%)</title><rect x="1185.3" y="181" width="0.3" height="15.0" fill="rgb(211,66,66)" rx="2" ry="2" />
+<text text-anchor="" x="1188.32" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Number.&lt;init&gt; (4 samples, 0.10%)</title><rect x="972.9" y="85" width="1.1" height="15.0" fill="rgb(64,213,64)" rx="2" ry="2" />
+<text text-anchor="" x="975.88" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.toBigInteger (44 samples, 1.09%)</title><rect x="460.0" y="101" width="12.9" height="15.0" fill="rgb(58,207,58)" rx="2" ry="2" />
+<text text-anchor="" x="463.02" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.inc (1 samples, 0.02%)</title><rect x="1175.4" y="165" width="0.3" height="15.0" fill="rgb(207,60,60)" rx="2" ry="2" />
+<text text-anchor="" x="1178.39" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$slurp.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="341" width="0.3" height="15.0" fill="rgb(214,70,70)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$skip_if_eol.invokeStatic (4 samples, 0.10%)</title><rect x="10.6" y="501" width="1.2" height="15.0" fill="rgb(239,107,107)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_PLUS_.invoke (1 samples, 0.02%)</title><rect x="1185.3" y="213" width="0.3" height="15.0" fill="rgb(203,55,55)" rx="2" ry="2" />
+<text text-anchor="" x="1188.32" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Compiler.eval (4,032 samples, 99.85%)</title><rect x="11.8" y="485" width="1178.2" height="15.0" fill="rgb(241,110,110)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/Compiler.eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/MethodAccessorGenerator$1.run (1 samples, 0.02%)</title><rect x="10.9" y="357" width="0.3" height="15.0" fill="rgb(70,218,70)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj_async_profiler/core$start.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="421" width="0.3" height="15.0" fill="rgb(203,54,54)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.&lt;init&gt; (1 samples, 0.02%)</title><rect x="521.4" y="85" width="0.3" height="15.0" fill="rgb(63,212,63)" rx="2" ry="2" />
+<text text-anchor="" x="524.39" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.seq (1 samples, 0.02%)</title><rect x="14.1" y="245" width="0.3" height="15.0" fill="rgb(217,75,75)" rx="2" ry="2" />
+<text text-anchor="" x="17.09" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl$fn__8581.invoke (4,038 samples, 100.00%)</title><rect x="10.0" y="581" width="1180.0" height="15.0" fill="rgb(206,59,59)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main$repl$fn__8581.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl$read_eval_print__8572.invoke (4,038 samples, 100.00%)</title><rect x="10.0" y="565" width="1180.0" height="15.0" fill="rgb(202,52,52)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main$repl$read_eval_print__8572.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$seq__5124.invokeStatic (1 samples, 0.02%)</title><rect x="14.1" y="277" width="0.3" height="15.0" fill="rgb(243,113,113)" rx="2" ry="2" />
+<text text-anchor="" x="17.09" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/util/Arrays.copyOfRange (11 samples, 0.27%)</title><rect x="1123.7" y="117" width="3.2" height="15.0" fill="rgb(97,243,97)" rx="2" ry="2" />
+<text text-anchor="" x="1126.67" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$test_div.invoke (3,969 samples, 98.29%)</title><rect x="13.8" y="405" width="1159.8" height="15.0" fill="rgb(227,90,90)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >user$test_div.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.next (1 samples, 0.02%)</title><rect x="13.8" y="261" width="0.3" height="15.0" fill="rgb(209,63,63)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Var.invoke (1 samples, 0.02%)</title><rect x="12.0" y="197" width="0.3" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.forceChunk (1 samples, 0.02%)</title><rect x="1180.4" y="117" width="0.2" height="15.0" fill="rgb(235,102,102)" rx="2" ry="2" />
+<text text-anchor="" x="1183.36" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.reduce (16 samples, 0.40%)</title><rect x="1184.4" y="229" width="4.7" height="15.0" fill="rgb(247,119,119)" rx="2" ry="2" />
+<text text-anchor="" x="1187.45" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Compiler.eval (4,032 samples, 99.85%)</title><rect x="11.8" y="501" width="1178.2" height="15.0" fill="rgb(243,112,112)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/Compiler.eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/MethodAccessorGenerator.emitInvoke (1 samples, 0.02%)</title><rect x="11.5" y="373" width="0.3" height="15.0" fill="rgb(57,206,57)" rx="2" ry="2" />
+<text text-anchor="" x="14.46" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.seq (1 samples, 0.02%)</title><rect x="14.1" y="261" width="0.3" height="15.0" fill="rgb(230,93,93)" rx="2" ry="2" />
+<text text-anchor="" x="17.09" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/MethodAccessorGenerator.generateMethod (3 samples, 0.07%)</title><rect x="10.9" y="405" width="0.9" height="15.0" fill="rgb(99,245,99)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7847.invokeStatic (45 samples, 1.11%)</title><rect x="1176.0" y="245" width="13.1" height="15.0" fill="rgb(224,85,85)" rx="2" ry="2" />
+<text text-anchor="" x="1178.97" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.divide (12 samples, 0.30%)</title><rect x="1185.6" y="181" width="3.5" height="15.0" fill="rgb(239,107,107)" rx="2" ry="2" />
+<text text-anchor="" x="1188.62" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Util.classOf (1 samples, 0.02%)</title><rect x="1189.4" y="341" width="0.3" height="15.0" fill="rgb(222,82,82)" rx="2" ry="2" />
+<text text-anchor="" x="1192.42" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/MultiFn.getFn (1 samples, 0.02%)</title><rect x="12.0" y="261" width="0.3" height="15.0" fill="rgb(231,95,95)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk.invokeStatic (1 samples, 0.02%)</title><rect x="21.1" y="149" width="0.3" height="15.0" fill="rgb(247,118,118)" rx="2" ry="2" />
+<text text-anchor="" x="24.10" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.multiply (647 samples, 16.02%)</title><rect x="984.6" y="149" width="189.0" height="15.0" fill="rgb(69,218,69)" rx="2" ry="2" />
+<text text-anchor="" x="987.57" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/BigInteger.mul..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$inc.invokeStatic (1 samples, 0.02%)</title><rect x="1175.4" y="181" width="0.3" height="15.0" fill="rgb(218,76,76)" rx="2" ry="2" />
+<text text-anchor="" x="1178.39" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$RatioOps.divide (3,894 samples, 96.43%)</title><rect x="35.7" y="165" width="1137.9" height="15.0" fill="rgb(241,111,111)" rx="2" ry="2" />
+<text text-anchor="" x="38.72" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/Numbers$RatioOps.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7847.invoke (45 samples, 1.11%)</title><rect x="1176.0" y="261" width="13.1" height="15.0" fill="rgb(218,76,76)" rx="2" ry="2" />
+<text text-anchor="" x="1178.97" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.seqFrom (1 samples, 0.02%)</title><rect x="28.4" y="117" width="0.3" height="15.0" fill="rgb(222,82,82)" rx="2" ry="2" />
+<text text-anchor="" x="31.41" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$reduce.invoke (52 samples, 1.29%)</title><rect x="1174.5" y="373" width="15.2" height="15.0" fill="rgb(248,120,120)" rx="2" ry="2" />
+<text text-anchor="" x="1177.51" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/MultiFn.getMethod (1 samples, 0.02%)</title><rect x="12.0" y="245" width="0.3" height="15.0" fill="rgb(249,122,122)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.seq (1 samples, 0.02%)</title><rect x="1189.1" y="277" width="0.3" height="15.0" fill="rgb(221,81,81)" rx="2" ry="2" />
+<text text-anchor="" x="1192.12" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.chunkedMore (1 samples, 0.02%)</title><rect x="23.7" y="133" width="0.3" height="15.0" fill="rgb(204,57,57)" rx="2" ry="2" />
+<text text-anchor="" x="26.73" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.seq (27 samples, 0.67%)</title><rect x="1176.6" y="197" width="7.8" height="15.0" fill="rgb(230,93,93)" rx="2" ry="2" />
+<text text-anchor="" x="1179.56" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl_opt.invokeStatic (4,038 samples, 100.00%)</title><rect x="10.0" y="613" width="1180.0" height="15.0" fill="rgb(252,126,126)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main$repl_opt.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/io/BufferedOutputStream.flushBuffer (2 samples, 0.05%)</title><rect x="10.0" y="373" width="0.6" height="15.0" fill="rgb(64,212,64)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl$read_eval_print__8572$fn__8575.invoke (4,032 samples, 99.85%)</title><rect x="11.8" y="549" width="1178.2" height="15.0" fill="rgb(251,124,124)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main$repl$read_eval_print__8572$fn__8575.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.toRatio (2 samples, 0.05%)</title><rect x="1188.2" y="149" width="0.6" height="15.0" fill="rgb(241,110,110)" rx="2" ry="2" />
+<text text-anchor="" x="1191.25" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.seq (55 samples, 1.36%)</title><rect x="15.0" y="197" width="16.0" height="15.0" fill="rgb(207,60,60)" rx="2" ry="2" />
+<text text-anchor="" x="17.97" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.&lt;init&gt; (19 samples, 0.47%)</title><rect x="462.7" y="85" width="5.5" height="15.0" fill="rgb(107,252,107)" rx="2" ry="2" />
+<text text-anchor="" x="465.65" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_PLUS_.invokeStatic (8 samples, 0.20%)</title><rect x="31.6" y="197" width="2.4" height="15.0" fill="rgb(253,128,128)" rx="2" ry="2" />
+<text text-anchor="" x="34.62" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.divide (3,899 samples, 96.56%)</title><rect x="34.3" y="181" width="1139.3" height="15.0" fill="rgb(238,106,106)" rx="2" ry="2" />
+<text text-anchor="" x="37.25" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/Numbers.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/ClassLoader.defineClass1 (1 samples, 0.02%)</title><rect x="11.8" y="357" width="0.2" height="15.0" fill="rgb(101,247,101)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$main.invokeStatic (4,038 samples, 100.00%)</title><rect x="10.0" y="629" width="1180.0" height="15.0" fill="rgb(238,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main$main.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$eval233.invoke (1 samples, 0.02%)</title><rect x="12.0" y="469" width="0.3" height="15.0" fill="rgb(213,69,69)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$deref.invokeStatic (1 samples, 0.02%)</title><rect x="31.0" y="229" width="0.3" height="15.0" fill="rgb(249,121,121)" rx="2" ry="2" />
+<text text-anchor="" x="34.04" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.difference (3 samples, 0.07%)</title><rect x="523.1" y="85" width="0.9" height="15.0" fill="rgb(92,238,92)" rx="2" ry="2" />
+<text text-anchor="" x="526.15" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.ops (1 samples, 0.02%)</title><rect x="1175.4" y="149" width="0.3" height="15.0" fill="rgb(209,64,64)" rx="2" ry="2" />
+<text text-anchor="" x="1178.39" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.inc (1 samples, 0.02%)</title><rect x="1180.9" y="85" width="0.3" height="15.0" fill="rgb(249,121,121)" rx="2" ry="2" />
+<text text-anchor="" x="1183.94" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divideKnuth (1,399 samples, 34.65%)</title><rect x="51.2" y="101" width="408.8" height="15.0" fill="rgb(63,212,63)" rx="2" ry="2" />
+<text text-anchor="" x="54.20" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/MutableBigInteger.divideKnuth</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.compare (3 samples, 0.07%)</title><rect x="51.2" y="85" width="0.9" height="15.0" fill="rgb(97,243,97)" rx="2" ry="2" />
+<text text-anchor="" x="54.20" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.divide (3,219 samples, 79.72%)</title><rect x="39.2" y="149" width="940.7" height="15.0" fill="rgb(225,87,87)" rx="2" ry="2" />
+<text text-anchor="" x="42.22" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/Numbers.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divide (1,305 samples, 32.32%)</title><rect x="524.9" y="101" width="381.4" height="15.0" fill="rgb(83,230,83)" rx="2" ry="2" />
+<text text-anchor="" x="527.90" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/MutableBigInteger.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.shiftLeft (48 samples, 1.19%)</title><rect x="1109.6" y="117" width="14.1" height="15.0" fill="rgb(105,250,105)" rx="2" ry="2" />
+<text text-anchor="" x="1112.64" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.clear (1 samples, 0.02%)</title><rect x="529.0" y="53" width="0.3" height="15.0" fill="rgb(106,251,106)" rx="2" ry="2" />
+<text text-anchor="" x="531.99" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.num (5 samples, 0.12%)</title><rect x="1181.2" y="85" width="1.5" height="15.0" fill="rgb(235,101,101)" rx="2" ry="2" />
+<text text-anchor="" x="1184.23" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.&lt;init&gt; (1 samples, 0.02%)</title><rect x="23.4" y="101" width="0.3" height="15.0" fill="rgb(202,54,54)" rx="2" ry="2" />
+<text text-anchor="" x="26.44" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.sval (2 samples, 0.05%)</title><rect x="1175.1" y="229" width="0.6" height="15.0" fill="rgb(227,90,90)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ChunkBuffer.&lt;init&gt; (3 samples, 0.07%)</title><rect x="1179.5" y="133" width="0.9" height="15.0" fill="rgb(236,103,103)" rx="2" ry="2" />
+<text text-anchor="" x="1182.48" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divideKnuth (1,304 samples, 32.29%)</title><rect x="525.2" y="69" width="381.1" height="15.0" fill="rgb(100,246,100)" rx="2" ry="2" />
+<text text-anchor="" x="528.19" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/MutableBigInteger.divideKnuth</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.&lt;init&gt; (3 samples, 0.07%)</title><rect x="983.4" y="101" width="0.9" height="15.0" fill="rgb(87,234,87)" rx="2" ry="2" />
+<text text-anchor="" x="986.40" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.seq (1 samples, 0.02%)</title><rect x="28.4" y="133" width="0.3" height="15.0" fill="rgb(223,83,83)" rx="2" ry="2" />
+<text text-anchor="" x="31.41" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.divideKnuth (1,448 samples, 35.86%)</title><rect x="49.7" y="117" width="423.2" height="15.0" fill="rgb(67,216,67)" rx="2" ry="2" />
+<text text-anchor="" x="52.74" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/BigInteger.divideKnuth</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$LongOps.add (1 samples, 0.02%)</title><rect x="31.6" y="165" width="0.3" height="15.0" fill="rgb(205,58,58)" rx="2" ry="2" />
+<text text-anchor="" x="34.62" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/nio/cs/StreamEncoder.implFlush (2 samples, 0.05%)</title><rect x="10.0" y="453" width="0.6" height="15.0" fill="rgb(104,249,104)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$isa_QMARK_.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="149" width="0.3" height="15.0" fill="rgb(249,122,122)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.add (8 samples, 0.20%)</title><rect x="31.6" y="181" width="2.4" height="15.0" fill="rgb(223,84,84)" rx="2" ry="2" />
+<text text-anchor="" x="34.62" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>I2C/C2I adapters (1 samples, 0.02%)</title><rect x="12.3" y="405" width="0.3" height="15.0" fill="rgb(214,71,71)" rx="2" ry="2" />
+<text text-anchor="" x="15.34" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$eval.invokeStatic (4,032 samples, 99.85%)</title><rect x="11.8" y="517" width="1178.2" height="15.0" fill="rgb(207,60,60)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core$eval.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jlong_disjoint_arraycopy (1 samples, 0.02%)</title><rect x="975.2" y="117" width="0.3" height="15.0" fill="rgb(243,113,113)" rx="2" ry="2" />
+<text text-anchor="" x="978.22" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7847.invokeStatic (3,967 samples, 98.24%)</title><rect x="14.4" y="245" width="1159.2" height="15.0" fill="rgb(200,50,50)" rx="2" ry="2" />
+<text text-anchor="" x="17.38" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core/protocols$fn__7847.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl_read.invokeStatic (4 samples, 0.10%)</title><rect x="10.6" y="517" width="1.2" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/java/io$copy.doInvoke (1 samples, 0.02%)</title><rect x="12.0" y="309" width="0.3" height="15.0" fill="rgb(218,76,76)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.forceChunk (2 samples, 0.05%)</title><rect x="23.2" y="117" width="0.5" height="15.0" fill="rgb(224,84,84)" rx="2" ry="2" />
+<text text-anchor="" x="26.15" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.ops (7 samples, 0.17%)</title><rect x="31.9" y="165" width="2.1" height="15.0" fill="rgb(229,93,93)" rx="2" ry="2" />
+<text text-anchor="" x="34.92" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_rest.invokeStatic (1 samples, 0.02%)</title><rect x="23.7" y="149" width="0.3" height="15.0" fill="rgb(242,112,112)" rx="2" ry="2" />
+<text text-anchor="" x="26.73" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.seq (2 samples, 0.05%)</title><rect x="1175.1" y="261" width="0.6" height="15.0" fill="rgb(224,85,85)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Compiler.analyzeSeq (1 samples, 0.02%)</title><rect x="11.8" y="453" width="0.2" height="15.0" fill="rgb(243,113,113)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Integer.numberOfLeadingZeros (1 samples, 0.02%)</title><rect x="524.3" y="53" width="0.3" height="15.0" fill="rgb(97,243,97)" rx="2" ry="2" />
+<text text-anchor="" x="527.31" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$inc.invokeStatic (13 samples, 0.32%)</title><rect x="24.6" y="133" width="3.8" height="15.0" fill="rgb(253,127,127)" rx="2" ry="2" />
+<text text-anchor="" x="27.61" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.bitLengthForInt (1 samples, 0.02%)</title><rect x="524.3" y="69" width="0.3" height="15.0" fill="rgb(89,236,89)" rx="2" ry="2" />
+<text text-anchor="" x="527.31" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Object.&lt;init&gt; (5 samples, 0.12%)</title><rect x="466.7" y="53" width="1.5" height="15.0" fill="rgb(77,225,77)" rx="2" ry="2" />
+<text text-anchor="" x="469.75" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$next__5108.invokeStatic (1 samples, 0.02%)</title><rect x="13.8" y="277" width="0.3" height="15.0" fill="rgb(247,118,118)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/MethodAccessorGenerator.generate (3 samples, 0.07%)</title><rect x="10.9" y="389" width="0.9" height="15.0" fill="rgb(90,237,90)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jint_disjoint_arraycopy (160 samples, 3.96%)</title><rect x="1126.9" y="117" width="46.7" height="15.0" fill="rgb(229,92,92)" rx="2" ry="2" />
+<text text-anchor="" x="1129.88" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jint..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/util/Arrays.copyOfRange (6 samples, 0.15%)</title><rect x="527.2" y="37" width="1.8" height="15.0" fill="rgb(84,231,84)" rx="2" ry="2" />
+<text text-anchor="" x="530.24" y="47.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.valueOf (1 samples, 0.02%)</title><rect x="34.8" y="149" width="0.3" height="15.0" fill="rgb(84,231,84)" rx="2" ry="2" />
+<text text-anchor="" x="37.84" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>itable stub (2 samples, 0.05%)</title><rect x="30.5" y="181" width="0.5" height="15.0" fill="rgb(240,108,108)" rx="2" ry="2" />
+<text text-anchor="" x="33.46" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_first.invokeStatic (1 samples, 0.02%)</title><rect x="1180.4" y="149" width="0.2" height="15.0" fill="rgb(212,67,67)" rx="2" ry="2" />
+<text text-anchor="" x="1183.36" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ChunkedCons.chunkedNext (27 samples, 0.67%)</title><rect x="1176.6" y="213" width="7.8" height="15.0" fill="rgb(238,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="1179.56" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Cons.next (1 samples, 0.02%)</title><rect x="22.9" y="101" width="0.3" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="25.86" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.rightShift (3 samples, 0.07%)</title><rect x="524.0" y="85" width="0.9" height="15.0" fill="rgb(63,212,63)" rx="2" ry="2" />
+<text text-anchor="" x="527.02" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$eval235.invokeStatic (4,030 samples, 99.80%)</title><rect x="12.3" y="453" width="1177.7" height="15.0" fill="rgb(242,112,112)" rx="2" ry="2" />
+<text text-anchor="" x="15.34" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >user$eval235.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.count (3 samples, 0.07%)</title><rect x="22.3" y="133" width="0.9" height="15.0" fill="rgb(254,129,129)" rx="2" ry="2" />
+<text text-anchor="" x="25.27" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$map.invokeStatic (1 samples, 0.02%)</title><rect x="1173.9" y="357" width="0.3" height="15.0" fill="rgb(243,113,113)" rx="2" ry="2" />
+<text text-anchor="" x="1176.93" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$eval233.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="453" width="0.3" height="15.0" fill="rgb(223,83,83)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.multiplyByInt (635 samples, 15.73%)</title><rect x="988.1" y="133" width="185.5" height="15.0" fill="rgb(60,210,60)" rx="2" ry="2" />
+<text text-anchor="" x="991.07" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/BigInteger.mul..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/DynamicClassLoader.defineClass (1 samples, 0.02%)</title><rect x="11.8" y="405" width="0.2" height="15.0" fill="rgb(209,63,63)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jlong_disjoint_arraycopy (31 samples, 0.77%)</title><rect x="1114.6" y="101" width="9.1" height="15.0" fill="rgb(250,123,123)" rx="2" ry="2" />
+<text text-anchor="" x="1117.61" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.nth (1 samples, 0.02%)</title><rect x="14.1" y="197" width="0.3" height="15.0" fill="rgb(234,100,100)" rx="2" ry="2" />
+<text text-anchor="" x="17.09" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/io/FileOutputStream.writeBytes (2 samples, 0.05%)</title><rect x="10.0" y="341" width="0.6" height="15.0" fill="rgb(53,203,53)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/MethodAccessorGenerator$1.run (1 samples, 0.02%)</title><rect x="10.9" y="341" width="0.3" height="15.0" fill="rgb(64,213,64)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Compiler$ObjExpr.getCompiledClass (1 samples, 0.02%)</title><rect x="11.8" y="421" width="0.2" height="15.0" fill="rgb(237,104,104)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$LongOps.add (1 samples, 0.02%)</title><rect x="1185.3" y="165" width="0.3" height="15.0" fill="rgb(215,72,72)" rx="2" ry="2" />
+<text text-anchor="" x="1188.32" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$LongOps.divide (1 samples, 0.02%)</title><rect x="34.8" y="165" width="0.3" height="15.0" fill="rgb(235,102,102)" rx="2" ry="2" />
+<text text-anchor="" x="37.84" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_next.invokeStatic (56 samples, 1.39%)</title><rect x="14.7" y="229" width="16.3" height="15.0" fill="rgb(206,59,59)" rx="2" ry="2" />
+<text text-anchor="" x="17.68" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (4,038 samples, 100%)</title><rect x="10.0" y="741" width="1180.0" height="15.0" fill="rgb(223,83,83)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="751.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.&lt;init&gt; (1 samples, 0.02%)</title><rect x="50.9" y="101" width="0.3" height="15.0" fill="rgb(108,253,108)" rx="2" ry="2" />
+<text text-anchor="" x="53.91" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$repl.invokeStatic (4,038 samples, 100.00%)</title><rect x="10.0" y="597" width="1180.0" height="15.0" fill="rgb(242,112,112)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main$repl.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$reduce.invoke (3,969 samples, 98.29%)</title><rect x="13.8" y="373" width="1159.8" height="15.0" fill="rgb(230,93,93)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core$reduce.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divideOneWord (2 samples, 0.05%)</title><rect x="979.3" y="133" width="0.6" height="15.0" fill="rgb(80,227,80)" rx="2" ry="2" />
+<text text-anchor="" x="982.31" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jlong_disjoint_arraycopy (1 samples, 0.02%)</title><rect x="495.1" y="117" width="0.3" height="15.0" fill="rgb(206,60,60)" rx="2" ry="2" />
+<text text-anchor="" x="498.09" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.toBigInteger (14 samples, 0.35%)</title><rect x="980.5" y="133" width="4.1" height="15.0" fill="rgb(249,121,121)" rx="2" ry="2" />
+<text text-anchor="" x="983.48" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/io/BufferedOutputStream.flush (2 samples, 0.05%)</title><rect x="10.0" y="389" width="0.6" height="15.0" fill="rgb(58,207,58)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LazySeq.sval (51 samples, 1.26%)</title><rect x="15.6" y="181" width="14.9" height="15.0" fill="rgb(245,116,116)" rx="2" ry="2" />
+<text text-anchor="" x="18.55" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7835.invoke (51 samples, 1.26%)</title><rect x="1174.5" y="325" width="14.9" height="15.0" fill="rgb(214,71,71)" rx="2" ry="2" />
+<text text-anchor="" x="1177.51" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.forceChunk (1 samples, 0.02%)</title><rect x="1175.1" y="165" width="0.3" height="15.0" fill="rgb(213,69,69)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Long.valueOf (12 samples, 0.30%)</title><rect x="24.6" y="69" width="3.5" height="15.0" fill="rgb(83,230,83)" rx="2" ry="2" />
+<text text-anchor="" x="27.61" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divideOneWord (1 samples, 0.02%)</title><rect x="520.8" y="85" width="0.3" height="15.0" fill="rgb(74,222,74)" rx="2" ry="2" />
+<text text-anchor="" x="523.81" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_first.invokeStatic (1 samples, 0.02%)</title><rect x="1175.1" y="197" width="0.3" height="15.0" fill="rgb(204,55,55)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$supers.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="133" width="0.3" height="15.0" fill="rgb(231,96,96)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main.main (4,038 samples, 100.00%)</title><rect x="10.0" y="725" width="1180.0" height="15.0" fill="rgb(245,116,116)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="735.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main.main</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$map$fn__5587.invoke (27 samples, 0.67%)</title><rect x="1176.6" y="165" width="7.8" height="15.0" fill="rgb(250,122,122)" rx="2" ry="2" />
+<text text-anchor="" x="1179.56" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_SLASH_.invoke (12 samples, 0.30%)</title><rect x="1185.6" y="213" width="3.5" height="15.0" fill="rgb(237,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="1188.62" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$seq_reduce.invokeStatic (3,969 samples, 98.29%)</title><rect x="13.8" y="293" width="1159.8" height="15.0" fill="rgb(234,100,100)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core/protocols$seq_reduce.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/main$main.doInvoke (4,038 samples, 100.00%)</title><rect x="10.0" y="645" width="1180.0" height="15.0" fill="rgb(236,103,103)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/main$main.doInvoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_buffer.invokeStatic (3 samples, 0.07%)</title><rect x="21.4" y="149" width="0.9" height="15.0" fill="rgb(235,101,101)" rx="2" ry="2" />
+<text text-anchor="" x="24.40" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7835.invokeStatic (51 samples, 1.26%)</title><rect x="1174.5" y="309" width="14.9" height="15.0" fill="rgb(223,83,83)" rx="2" ry="2" />
+<text text-anchor="" x="1177.51" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$flush.invokeStatic (2 samples, 0.05%)</title><rect x="10.0" y="501" width="0.6" height="15.0" fill="rgb(203,54,54)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Class.getDeclaredConstructors0 (1 samples, 0.02%)</title><rect x="10.9" y="277" width="0.3" height="15.0" fill="rgb(56,205,56)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.toRatio (16 samples, 0.40%)</title><rect x="979.9" y="149" width="4.7" height="15.0" fill="rgb(216,73,73)" rx="2" ry="2" />
+<text text-anchor="" x="982.89" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/security/AccessController.doPrivileged (1 samples, 0.02%)</title><rect x="10.9" y="373" width="0.3" height="15.0" fill="rgb(76,224,76)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$seq__5124.invokeStatic (2 samples, 0.05%)</title><rect x="1175.1" y="277" width="0.6" height="15.0" fill="rgb(247,119,119)" rx="2" ry="2" />
+<text text-anchor="" x="1178.10" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.lt (1 samples, 0.02%)</title><rect x="12.9" y="405" width="0.3" height="15.0" fill="rgb(246,117,117)" rx="2" ry="2" />
+<text text-anchor="" x="15.92" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.multiplyByInt (1 samples, 0.02%)</title><rect x="984.3" y="101" width="0.3" height="15.0" fill="rgb(71,219,71)" rx="2" ry="2" />
+<text text-anchor="" x="987.27" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7835.invoke (3,969 samples, 98.29%)</title><rect x="13.8" y="325" width="1159.8" height="15.0" fill="rgb(208,61,61)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core/protocols$fn__7835.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_first.invokeStatic (2 samples, 0.05%)</title><rect x="23.2" y="149" width="0.5" height="15.0" fill="rgb(224,85,85)" rx="2" ry="2" />
+<text text-anchor="" x="26.15" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.primitiveLeftShift (1 samples, 0.02%)</title><rect x="524.6" y="69" width="0.3" height="15.0" fill="rgb(60,209,60)" rx="2" ry="2" />
+<text text-anchor="" x="527.61" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$map$fn__5587.invoke (1 samples, 0.02%)</title><rect x="14.1" y="213" width="0.3" height="15.0" fill="rgb(209,63,63)" rx="2" ry="2" />
+<text text-anchor="" x="17.09" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$test_div.invokeStatic (3,969 samples, 98.29%)</title><rect x="13.8" y="389" width="1159.8" height="15.0" fill="rgb(202,53,53)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >user$test_div.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/ClassFileAssembler.&lt;init&gt; (1 samples, 0.02%)</title><rect x="11.2" y="373" width="0.3" height="15.0" fill="rgb(54,204,54)" rx="2" ry="2" />
+<text text-anchor="" x="14.17" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers$LongOps.inc (6 samples, 0.15%)</title><rect x="1180.9" y="101" width="1.8" height="15.0" fill="rgb(249,121,121)" rx="2" ry="2" />
+<text text-anchor="" x="1183.94" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_buffer.invokeStatic (4 samples, 0.10%)</title><rect x="1179.2" y="149" width="1.2" height="15.0" fill="rgb(232,96,96)" rx="2" ry="2" />
+<text text-anchor="" x="1182.19" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.chunkedFirst (1 samples, 0.02%)</title><rect x="1180.4" y="133" width="0.2" height="15.0" fill="rgb(227,90,90)" rx="2" ry="2" />
+<text text-anchor="" x="1183.36" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.hybridGCD (1,562 samples, 38.68%)</title><rect x="515.3" y="117" width="456.4" height="15.0" fill="rgb(70,219,70)" rx="2" ry="2" />
+<text text-anchor="" x="518.26" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/MutableBigInteger.hybridGCD</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/ClassLoader.defineClass (1 samples, 0.02%)</title><rect x="11.8" y="373" width="0.2" height="15.0" fill="rgb(84,231,84)" rx="2" ry="2" />
+<text text-anchor="" x="14.75" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$chunk_next.invokeStatic (28 samples, 0.69%)</title><rect x="1176.3" y="229" width="8.1" height="15.0" fill="rgb(216,73,73)" rx="2" ry="2" />
+<text text-anchor="" x="1179.27" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/util/Arrays.copyOf (47 samples, 1.16%)</title><rect x="501.5" y="101" width="13.8" height="15.0" fill="rgb(62,211,62)" rx="2" ry="2" />
+<text text-anchor="" x="504.52" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7847.invoke (3,967 samples, 98.24%)</title><rect x="14.4" y="261" width="1159.2" height="15.0" fill="rgb(238,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="17.38" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core/protocols$fn__7847.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Var.getRawRoot (1 samples, 0.02%)</title><rect x="1189.7" y="373" width="0.3" height="15.0" fill="rgb(212,68,68)" rx="2" ry="2" />
+<text text-anchor="" x="1192.71" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.divide (1,450 samples, 35.91%)</title><rect x="49.2" y="133" width="423.7" height="15.0" fill="rgb(75,223,75)" rx="2" ry="2" />
+<text text-anchor="" x="52.16" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/BigInteger.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Class.privateGetDeclaredConstructors (1 samples, 0.02%)</title><rect x="10.9" y="293" width="0.3" height="15.0" fill="rgb(82,229,82)" rx="2" ry="2" />
+<text text-anchor="" x="13.88" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/io/PrintStream.write (2 samples, 0.05%)</title><rect x="10.0" y="405" width="0.6" height="15.0" fill="rgb(104,250,104)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_PLUS_.invoke (8 samples, 0.20%)</title><rect x="31.6" y="213" width="2.4" height="15.0" fill="rgb(210,64,64)" rx="2" ry="2" />
+<text text-anchor="" x="34.62" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.forceChunk (1 samples, 0.02%)</title><rect x="23.7" y="117" width="0.3" height="15.0" fill="rgb(240,109,109)" rx="2" ry="2" />
+<text text-anchor="" x="26.73" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$isa_QMARK_.invokeStatic (1 samples, 0.02%)</title><rect x="12.0" y="165" width="0.3" height="15.0" fill="rgb(206,60,60)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.&lt;init&gt; (1 samples, 0.02%)</title><rect x="1109.3" y="117" width="0.3" height="15.0" fill="rgb(70,219,70)" rx="2" ry="2" />
+<text text-anchor="" x="1112.35" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$burn_cpu.invokeStatic (4,030 samples, 99.80%)</title><rect x="12.3" y="421" width="1177.7" height="15.0" fill="rgb(204,56,56)" rx="2" ry="2" />
+<text text-anchor="" x="15.34" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >user$burn_cpu.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/lang/Number.&lt;init&gt; (8 samples, 0.20%)</title><rect x="977.0" y="101" width="2.3" height="15.0" fill="rgb(56,205,56)" rx="2" ry="2" />
+<text text-anchor="" x="979.97" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.valueOf (11 samples, 0.27%)</title><rect x="981.4" y="117" width="3.2" height="15.0" fill="rgb(60,209,60)" rx="2" ry="2" />
+<text text-anchor="" x="984.35" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.toBigInteger (12 samples, 0.30%)</title><rect x="971.7" y="117" width="3.5" height="15.0" fill="rgb(92,238,92)" rx="2" ry="2" />
+<text text-anchor="" x="974.71" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.num (12 samples, 0.30%)</title><rect x="24.6" y="85" width="3.5" height="15.0" fill="rgb(232,97,97)" rx="2" ry="2" />
+<text text-anchor="" x="27.61" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/MultiFn.invoke (1 samples, 0.02%)</title><rect x="12.0" y="277" width="0.3" height="15.0" fill="rgb(244,115,115)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ArrayChunk.count (1 samples, 0.02%)</title><rect x="22.6" y="117" width="0.3" height="15.0" fill="rgb(228,91,91)" rx="2" ry="2" />
+<text text-anchor="" x="25.57" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/nio/cs/StreamEncoder.implFlushBuffer (2 samples, 0.05%)</title><rect x="10.0" y="437" width="0.6" height="15.0" fill="rgb(53,203,53)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core/protocols$fn__7835.invokeStatic (3,969 samples, 98.29%)</title><rect x="13.8" y="309" width="1159.8" height="15.0" fill="rgb(205,58,58)" rx="2" ry="2" />
+<text text-anchor="" x="16.80" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core/protocols$fn__7835.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/RT.countFrom (1 samples, 0.02%)</title><rect x="22.9" y="117" width="0.3" height="15.0" fill="rgb(203,54,54)" rx="2" ry="2" />
+<text text-anchor="" x="25.86" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>user$test_sum.invoke (56 samples, 1.39%)</title><rect x="1173.6" y="405" width="16.4" height="15.0" fill="rgb(219,79,79)" rx="2" ry="2" />
+<text text-anchor="" x="1176.64" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>jint_disjoint_arraycopy (3 samples, 0.07%)</title><rect x="974.3" y="101" width="0.9" height="15.0" fill="rgb(240,109,109)" rx="2" ry="2" />
+<text text-anchor="" x="977.34" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/io/OutputStreamWriter.flush (2 samples, 0.05%)</title><rect x="10.0" y="485" width="0.6" height="15.0" fill="rgb(98,244,98)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/MultiFn.findAndCacheBestMethod (1 samples, 0.02%)</title><rect x="12.0" y="229" width="0.3" height="15.0" fill="rgb(248,119,119)" rx="2" ry="2" />
+<text text-anchor="" x="15.05" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/ChunkBuffer.chunk (1 samples, 0.02%)</title><rect x="21.1" y="133" width="0.3" height="15.0" fill="rgb(228,91,91)" rx="2" ry="2" />
+<text text-anchor="" x="24.10" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/LongRange.rangeCount (1 samples, 0.02%)</title><rect x="23.7" y="101" width="0.3" height="15.0" fill="rgb(219,78,78)" rx="2" ry="2" />
+<text text-anchor="" x="26.73" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/BigInteger.equals (77 samples, 1.91%)</title><rect x="472.9" y="133" width="22.5" height="15.0" fill="rgb(88,235,88)" rx="2" ry="2" />
+<text text-anchor="" x="475.88" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >j..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$inc.invokeStatic (6 samples, 0.15%)</title><rect x="1180.9" y="133" width="1.8" height="15.0" fill="rgb(235,100,100)" rx="2" ry="2" />
+<text text-anchor="" x="1183.94" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_SLASH_.invokeStatic (3,900 samples, 96.58%)</title><rect x="34.0" y="197" width="1139.6" height="15.0" fill="rgb(226,88,88)" rx="2" ry="2" />
+<text text-anchor="" x="36.96" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/core$_SLASH_.invokeStatic</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Var.applyTo (4,038 samples, 100.00%)</title><rect x="10.0" y="709" width="1180.0" height="15.0" fill="rgb(250,123,123)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="719.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure/lang/Var.applyTo</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.divide (1 samples, 0.02%)</title><rect x="12.6" y="405" width="0.3" height="15.0" fill="rgb(241,110,110)" rx="2" ry="2" />
+<text text-anchor="" x="15.63" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$map.invoke (1 samples, 0.02%)</title><rect x="1173.9" y="373" width="0.3" height="15.0" fill="rgb(215,72,72)" rx="2" ry="2" />
+<text text-anchor="" x="1176.93" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$inc.invoke (15 samples, 0.37%)</title><rect x="24.0" y="149" width="4.4" height="15.0" fill="rgb(228,91,91)" rx="2" ry="2" />
+<text text-anchor="" x="27.03" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/core$_SLASH_.invokeStatic (12 samples, 0.30%)</title><rect x="1185.6" y="197" width="3.5" height="15.0" fill="rgb(203,54,54)" rx="2" ry="2" />
+<text text-anchor="" x="1188.62" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure/lang/Numbers.ops (1 samples, 0.02%)</title><rect x="28.1" y="101" width="0.3" height="15.0" fill="rgb(250,123,123)" rx="2" ry="2" />
+<text text-anchor="" x="31.12" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/io/FileOutputStream.write (2 samples, 0.05%)</title><rect x="10.0" y="357" width="0.6" height="15.0" fill="rgb(69,217,69)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java/math/MutableBigInteger.divideOneWord (1,290 samples, 31.95%)</title><rect x="529.3" y="53" width="377.0" height="15.0" fill="rgb(77,225,77)" rx="2" ry="2" />
+<text text-anchor="" x="532.28" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java/math/MutableBigInteger.divideOneWord</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun/reflect/NativeMethodAccessorImpl.invoke (4 samples, 0.10%)</title><rect x="10.6" y="421" width="1.2" height="15.0" fill="rgb(87,234,87)" rx="2" ry="2" />
+<text text-anchor="" x="13.58" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+</svg>
