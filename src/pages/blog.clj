@@ -28,6 +28,9 @@
        [:a.btn.btn-link {:href "/blog/atom.xml"
                          :target "_blank"}
         [:img {:src "/img/icons/rss.svg" :alt "Atom feed"}]]
+       [:a.btn.btn-link {:href "https://twitter.com/ClojureGoesFast"
+                         :target "_blank"}
+        [:img {:src "/img/icons/twitter.svg" :alt "Twitter"}]]
        [:a.btn.btn-link {:href "https://github.com/clojure-goes-fast/clojure-goes-fast.com"
                          :target "_blank"}
         [:img {:src "/img/icons/github.svg" :alt "Github"}]]]]
