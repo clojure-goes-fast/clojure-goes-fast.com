@@ -173,6 +173,17 @@ br.inlist {
     font-size: 150%;
 }
 
+.discussion-links img {
+    height: 1.5em;
+    margin-right: 0.5em;
+    vertical-align: middle;
+}
+
+.discussion-links a {
+    margin-left: 2em;
+    margin-right: 2em;
+}
+
 /* Comments */
 
 #isso-root .avatar {

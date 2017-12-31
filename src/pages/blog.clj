@@ -22,6 +22,16 @@
      [:span [:i (fmt-date (:date-published entry))]]
      [:h1 (:name entry)]
      (:content entry)
+     [:div.columns
+      [:div.discussion-links.column.col-12.text-center
+       (when (:reddit-link entry)
+         [:a {:href (:reddit-link entry) :target "_blank"}
+          [:img {:src "/img/icons/reddit.svg" :alt "Discussion on Reddit"}]
+          "Discussion on Reddit"])
+       (when (:hn-link entry)
+         [:a {:href (:hn-link entry) :target "_blank"}
+          [:img {:src "/img/icons/hacker-news.svg" :alt "Discussion on Hacker News"}]
+          "Discussion on Hacker News"])]]
      [:div.divider]
      (comments-thread)]]))
 

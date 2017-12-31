@@ -2,6 +2,7 @@
 name: "Benchmarking tool: Criterium"
 author: Alexander Yakushev
 date-published: 2017-09-23
+reddit-link: https://www.reddit.com/r/Clojure/comments/7241ls/benchmarking_tool_criterium/
 ---
 
 The most basic question a young performance acolyte may ask is "How long does it
