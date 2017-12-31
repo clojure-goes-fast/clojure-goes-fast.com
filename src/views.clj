@@ -42,7 +42,7 @@ ga('send', 'pageview');
   [:footer.text-center
    [:div.divider]
    [:div.footer-content
-    [:span "© 2017 Alexander Yakushev. "]
+    [:span "© 2017 " [:a {:href "mailto:alex@bytopia.org"} "Alexander Yakushev"] ". "]
     [:span "Made with " [:a {:href "https://perun.io/" :target "_blank"} "Perun"] ". "]
     [:span "Logo is derived from "
      [:a {:href "https://commons.wikimedia.org/wiki/File:Clojure_logo.svg" :target "_blank"} "Clojure logo"]

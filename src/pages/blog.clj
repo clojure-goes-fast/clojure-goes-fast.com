@@ -6,6 +6,12 @@
 (def ^:private date-format (SimpleDateFormat. "MMM dd, YYYY"))
 (defn- fmt-date [date] (.format date-format date))
 
+(defn comments-thread []
+  [:div#comments
+   [:script {:src "//bytopia.org/comments/js/embed.min.js"
+             :data-isso "//clojure-goes-fast.com/comments/"}]
+   [:section#isso-thread]])
+
 (defn blog-post [{:keys [entry]}]
   (wrap
    (str (:name entry) " - Clojure Goes Fast")
@@ -15,7 +21,9 @@
      [:div.back-link [:a {:href "/blog/"} "↰ Back to list"]]
      [:span [:i (fmt-date (:date-published entry))]]
      [:h1 (:name entry)]
-     (:content entry)]]))
+     (:content entry)
+     [:div.divider]
+     (comments-thread)]]))
 
 (defn blog-index [{:keys [meta entries]}]
   (wrap

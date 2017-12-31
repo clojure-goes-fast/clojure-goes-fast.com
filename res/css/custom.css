@@ -172,3 +172,20 @@ div.content.blog-post {
 br.inlist {
     font-size: 150%;
 }
+
+/* Comments */
+
+#isso-root .avatar {
+    background: unset;
+    height: unset;
+    line-height: unset;
+    width: 6%;
+}
+
+#isso-root .isso-comment-header {
+    line-height: 1.6;
+}
+
+#isso-thread > div.isso-postbox > div > section > p:nth-child(3) {
+    display: none;
+}
