@@ -21,13 +21,16 @@ ga('send', 'pageview');
    [:link {:rel "stylesheet" :href "https://cdnjs.cloudflare.com/ajax/libs/spectre.css/0.4.2/spectre.min.css"}]
    [:link {:rel "stylesheet" :href "https://cdnjs.cloudflare.com/ajax/libs/spectre.css/0.4.2/spectre-exp.min.css"}]
    [:link {:rel "stylesheet" :href "https://cdnjs.cloudflare.com/ajax/libs/spectre.css/0.4.2/spectre-icons.min.css"}]
-   [:link {:rel "stylesheet" :href "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/clojure.min.js"}]
    [:link {:rel "stylesheet" :href "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css"}]
    [:link {:rel "stylesheet" :href "/css/custom.css"}]
    (google-analytics)
    [:script {:src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"}]
    [:script {:src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/clojure.min.js"}]
    [:script {:src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/clojure-repl.min.js"}]
+   [:script {:src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/java.min.js"}]
+   [:script {:src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/bash.min.js"}]
+   [:script {:src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/shell.min.js"}]
+   [:script {:src "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/languages/x86asm.min.js"}]
    [:script "hljs.initHighlightingOnLoad();"]
    [:title title]])
 
