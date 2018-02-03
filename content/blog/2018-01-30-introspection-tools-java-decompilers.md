@@ -6,12 +6,12 @@ reddit-link: https://www.reddit.com/r/Clojure/comments/7tsqjr/introspection_tool
 ---
 
 As you probably are already aware of, Clojure compiles down to JVM bytecode. The
-fact that Clojure is not an interpreted language, but a compiled one makes the
+fact that Clojure is not an interpreted language but a compiled one makes the
 compilation output tangible. The resulting classes are something that we can
 scrutinize and understand. In this post, we will take a look at tools that help
 us decipher the arcane internals of JVM classfiles.
 
-### Why do you need this (and what it has to do with performance)
+### Why you need this (and what it has to do with performance)
 
 Frankly, unless you are hacking the Clojure compiler in your free time, the
 information in this post is not your first priority to learn. But understanding
@@ -56,7 +56,7 @@ let's understand how a single Clojure namespace produced four classfiles.
 - When a namespace is compiled, it produces several classes.
   `testbed/core__init.class` is a class where all the code defined in the
   namespace is executed. This includes loading and storing vars and running
-  top-level code. `core$loading...` is a class where namespace's `import`s an
+  top-level code. `core$loading...` is a class where namespace's `import`s and
   `require`s are executed. Finally, the anonymous function `core$fn__183.class`
   when invoked just adds `testbed.core` to the list of loaded namespaces.
 
@@ -108,7 +108,7 @@ happens, the `invokeStatic` and static initializer methods.
       13: return
 ```
 
-In static initializer on lines 0 and 2 we load two string constants,
+In static initializer on lines 0 and 2, we load two string constants,
 `"clojure.core"` and `"println"` onto the stack. Then, we call the static method
 `clojure.lang.RT.var` on them which returns a Var back on the stack. Finally, we
 store the resulting Var to a field `const__0`.
@@ -426,7 +426,7 @@ user> (decompile (fn [] (.substring @(volatile! "foobar") 3)))
 With the expertise obtained today, you'll be able to better understand the
 internals of Clojure compilation process and its runtime. A dynamic decompiler
 is yet another instrument under your belt that gives you a unique perspective on
-the code you are writing. I hope you will master this tool and use it make your
+the code you are writing. I hope you will master this tool and use it to make your
 Clojure programs go even faster.
 
 ### References
