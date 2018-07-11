@@ -31,10 +31,10 @@ environment.
 That, however, doesn't mean we don't want to know about those delays. The
 knowledge gives the ability to treat, or at least to predict, the lag in your
 program. It is hard to enumerate all possible sources of latency, figure out
-which exactly influence your program, and then combine them accurately. Gil Tene
-from [Azul Systems](https://www.azul.com/) chose a different approach — measure
-the outer delays from the inside of the program — and released it as a free tool
-called **jHiccup**.
+which exactly influence your program, and combine this information accurately.
+Gil Tene from [Azul Systems](https://www.azul.com/) chose a different approach —
+measure the outer delays from the inside of the program — and released it as a
+free tool called **jHiccup**.
 
 ### jHiccup
 
@@ -48,7 +48,7 @@ and real sleep time becomes the length of the system "hiccup" for this cycle.
 
 Of course, you can't expect `Thread.sleep(1)` to wake up precisely in one
 millisecond even under ideal conditions when no hiccups are happening. But
-obsessing about small fluctuations is not the point, the point is to discover
+obsessing about small fluctuations is not the point; the point is to discover
 long pauses of tens or hundreds of milliseconds or even seconds. Those can be
 caused by stop-the-world GC phases, stolen CPU cycles in virtualized
 environments, unpredicted hardware effects, and other application-independent
