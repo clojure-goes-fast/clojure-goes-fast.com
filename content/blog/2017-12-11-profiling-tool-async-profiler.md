@@ -192,14 +192,21 @@ Now, VisualVM:
 - Has much more sophisticated GUI for exploring the profiled data, with rich
   filters, different views, and on-demand aggregations.
 - Extendable with plugins that can give it even more features.
-- Unless you do hardcore number crunching in tight int-bound `for` loops, the
-  skew from safepoint bias wouldn't probably be noticeable to you.
+- It can still give you a pretty good coarse picture about the performance
+  profile if you don't look at the finest-grained methods too much.
+- When non-CPU things become involved (like I/O), VisualVM can be more useful
+  since it reports both CPU time and total time.
 - VisualVM is fully cross-platform. Async-profiler currently works only on
   GNU/Linux and MacOS.
 
 To summarize, VisualVM is a high-level holistic platform for monitoring
 different performance-related aspects of your application. It has an actual user
 interface, somewhat obscure, but still gives more clues to a beginner.
+
+*UPDATE: Since the time of this post, [Java Mission
+Control](http://www.oracle.com/technetwork/java/javaseproducts/mission-control/java-mission-control-1998576.html)
+has become free. JMC has most of the benefits of VisualVM and also isn't
+influenced by safepoints.*
 
 Async-profiler, on the other hand, is more of a low-level "hacker" tool. It
 doesn't put the profiling data into a walled garden of incompatible binary
