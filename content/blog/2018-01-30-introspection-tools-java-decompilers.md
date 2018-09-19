@@ -241,9 +241,9 @@ public final class core$foo extends AFunction
 
 This is much better! It is evident now that `clojure.core/println` is stored in
 `const__0` at initialization, and then it is called on `x` and `"Hello, World!"`
-when the function is invoked. With the decompiler, we can tell what's going at a
-glance (given that the code is trivial) where we spent minutes to the decipher
-bytecode.
+when the function is invoked. With the decompiler, we can tell what's going on
+at a glance (given that the code is trivial) where we spent minutes to decipher
+the bytecode.
 
 Let's try another one:
 
