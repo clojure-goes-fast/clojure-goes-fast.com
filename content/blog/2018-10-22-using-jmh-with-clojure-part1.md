@@ -393,7 +393,7 @@ faster.
 
 But for `size=1000`, the difference in performance is almost negligible. What's
 even more surprising is that the unsorted array has fewer branch misses than the
-sorted one (0.7 vs. 2.0)! I hypothesize that the branch prediction machinery was
+sorted one (0.3 vs. 2.0)! I hypothesize that the branch prediction machinery was
 able to "learn" the whole unsorted array since it's not too big. At the same
 time, the prediction for the sorted array has not become as sophisticated and it
 consistently mispredicts the two pivots in the sorted array (at the beginning
