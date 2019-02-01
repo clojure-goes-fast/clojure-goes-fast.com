@@ -49,6 +49,9 @@
        [:a.btn.btn-link {:href "https://twitter.com/ClojureGoesFast"
                          :target "_blank"}
         [:img {:src "/img/icons/twitter.svg" :alt "Twitter"}]]
+       [:a.btn.btn-link {:href "mailto:alex@bytopia.org"
+                         :target "_blank"}
+        [:img {:src "/img/icons/email.svg" :alt "E-mail"}]]
        [:a.btn.btn-link {:href "https://github.com/clojure-goes-fast/clojure-goes-fast.com"
                          :target "_blank"}
         [:img {:src "/img/icons/github.svg" :alt "Github"}]]]]
