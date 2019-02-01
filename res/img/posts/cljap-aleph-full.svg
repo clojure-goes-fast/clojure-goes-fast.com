@@ -1,0 +1,1986 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="774" onload="init(evt)" viewBox="0 0 1200 774" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="774.0" fill="url(#background)"  />
+<text text-anchor="middle" x="600.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Flame Graph</text>
+<text text-anchor="" x="10.00" y="757" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="1090.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="1090.00" y="757" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>reply.eval-modes.nrepl/poll-for-responses (7 samples, 0.32%)</title><rect x="10.0" y="501" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/eval3925/subscribe--3926/fn--3931 (10 samples, 0.46%)</title><rect x="32.0" y="421" width="5.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_mutex_lock_slow (7 samples, 0.32%)</title><rect x="27.7" y="389" width="3.8" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="30.74" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::PlatformEvent::park(long) (2 samples, 0.09%)</title><rect x="1174.4" y="549" width="1.1" height="15.0" fill="rgb(197,197,58)" rx="2" ry="2" />
+<text text-anchor="" x="1177.41" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>read (4 samples, 0.18%)</title><rect x="973.4" y="517" width="2.1" height="15.0" fill="rgb(224,85,85)" rx="2" ry="2" />
+<text text-anchor="" x="976.35" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.unpark (7 samples, 0.32%)</title><rect x="21.3" y="453" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.time/in/f--3484 (81 samples, 3.69%)</title><rect x="1034.1" y="549" width="43.5" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1037.10" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >mani..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>writev (49 samples, 2.23%)</title><rect x="985.7" y="181" width="26.4" height="15.0" fill="rgb(250,123,123)" rx="2" ry="2" />
+<text text-anchor="" x="988.72" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >w..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java_start(Thread*) (79 samples, 3.60%)</title><rect x="1147.5" y="661" width="42.5" height="15.0" fill="rgb(222,82,82)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>NMethodSweeper::process_nmethod(nmethod*) (7 samples, 0.32%)</title><rect x="1176.0" y="549" width="3.8" height="15.0" fill="rgb(219,219,66)" rx="2" ry="2" />
+<text text-anchor="" x="1179.02" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.IOUtil.write (52 samples, 2.37%)</title><rect x="984.1" y="229" width="28.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="987.10" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >s..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::sleep(Thread*, long, bool) (37 samples, 1.69%)</title><rect x="1094.8" y="613" width="19.9" height="15.0" fill="rgb(216,216,65)" rx="2" ry="2" />
+<text text-anchor="" x="1097.85" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.fireChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="309" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::park(bool, long) (3 samples, 0.14%)</title><rect x="11.1" y="341" width="1.6" height="15.0" fill="rgb(223,223,67)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred.success (10 samples, 0.46%)</title><rect x="32.0" y="469" width="5.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ObjectSynchronizer::deflate_idle_monitors() (3 samples, 0.14%)</title><rect x="1181.4" y="581" width="1.6" height="15.0" fill="rgb(183,183,53)" rx="2" ry="2" />
+<text text-anchor="" x="1184.40" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.transfer (78 samples, 3.55%)</title><rect x="1035.7" y="437" width="41.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1038.71" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.HttpObjectDecoder.decode (2 samples, 0.09%)</title><rect x="754.6" y="373" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.56" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.HttpServerCodec$HttpServerRequestDecoder.decode (2 samples, 0.09%)</title><rect x="754.6" y="389" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.56" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>LIR_Assembler::emit_code(BlockList*) (2 samples, 0.09%)</title><rect x="1170.1" y="501" width="1.1" height="15.0" fill="rgb(199,199,58)" rx="2" ry="2" />
+<text text-anchor="" x="1173.11" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>write (5 samples, 0.23%)</title><rect x="33.7" y="261" width="2.6" height="15.0" fill="rgb(212,67,67)" rx="2" ry="2" />
+<text text-anchor="" x="36.65" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ThreadPoolExecutor.runWorker (115 samples, 5.24%)</title><rect x="1030.9" y="645" width="61.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1033.87" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.u..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (22 samples, 1.00%)</title><rect x="754.0" y="485" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SocketChannelImpl.write (54 samples, 2.46%)</title><rect x="983.6" y="245" width="29.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="986.57" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >su..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::park(bool, long) (23 samples, 1.05%)</title><rect x="1080.3" y="517" width="12.4" height="15.0" fill="rgb(190,190,55)" rx="2" ry="2" />
+<text text-anchor="" x="1083.33" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SafepointSynchronize::begin() (5 samples, 0.23%)</title><rect x="1180.9" y="613" width="2.6" height="15.0" fill="rgb(200,200,59)" rx="2" ry="2" />
+<text text-anchor="" x="1183.86" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred.success (79 samples, 3.60%)</title><rect x="1035.2" y="501" width="42.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1038.18" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >man..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.IOUtil.read (9 samples, 0.41%)</title><rect x="766.4" y="501" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="769.38" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/handle-request (18 samples, 0.82%)</title><rect x="755.6" y="213" width="9.7" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred/fn--3771 (79 samples, 3.60%)</title><rect x="1035.2" y="485" width="42.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1038.18" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >man..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SelectorImpl.select (380 samples, 17.31%)</title><rect x="771.2" y="597" width="204.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="774.22" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sun.nio.ch.SelectorImpl.se..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Compiler.eval (3 samples, 0.14%)</title><rect x="1145.4" y="389" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>CompileQueue::get() (10 samples, 0.46%)</title><rect x="1174.4" y="597" width="5.4" height="15.0" fill="rgb(181,181,52)" rx="2" ry="2" />
+<text text-anchor="" x="1177.41" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run (81 samples, 3.69%)</title><rect x="1034.1" y="629" width="43.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1037.10" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.core/netty-request--GT-ring-request (3 samples, 0.14%)</title><rect x="755.6" y="197" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos (27 samples, 1.23%)</title><rect x="1078.2" y="581" width="14.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1081.18" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue.offer (14 samples, 0.64%)</title><rect x="1021.2" y="501" width="7.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.core.NettyRequest.assoc (2 samples, 0.09%)</title><rect x="755.6" y="149" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.text.SimpleDateFormat.format (2 samples, 0.09%)</title><rect x="1028.7" y="501" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.unpark (12 samples, 0.55%)</title><rect x="757.2" y="117" width="6.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.writeAndFlush (59 samples, 2.69%)</title><rect x="980.9" y="501" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack$SNode.tryMatch (12 samples, 0.55%)</title><rect x="757.2" y="133" width="6.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeFlush (59 samples, 2.69%)</title><rect x="980.9" y="357" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::build_loop_late(VectorSet&amp;, Node_List&amp;, Node_Stack&amp;) (6 samples, 0.27%)</title><rect x="1161.5" y="517" width="3.2" height="15.0" fill="rgb(191,191,56)" rx="2" ry="2" />
+<text text-anchor="" x="1164.51" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>RelocIterator::next() (3 samples, 0.14%)</title><rect x="1177.6" y="517" width="1.6" height="15.0" fill="rgb(181,181,52)" rx="2" ry="2" />
+<text text-anchor="" x="1180.64" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::build_loop_late_post(Node*) (6 samples, 0.27%)</title><rect x="1161.5" y="501" width="3.2" height="15.0" fill="rgb(190,190,55)" rx="2" ry="2" />
+<text text-anchor="" x="1164.51" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Listener.onSuccess (10 samples, 0.46%)</title><rect x="32.0" y="437" width="5.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/eval8494/send-response--8499 (8 samples, 0.36%)</title><rect x="32.0" y="373" width="4.3" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.concurrent.SingleThreadEventExecutor$5.run (521 samples, 23.74%)</title><rect x="750.8" y="661" width="280.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="753.79" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io.netty.util.concurrent.SingleThread..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.buffer.AbstractByteBufAllocator.ioBuffer (3 samples, 0.14%)</title><rect x="978.7" y="485" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/eval (3 samples, 0.14%)</title><rect x="1145.4" y="421" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.applyToHelper (7 samples, 0.32%)</title><rect x="10.0" y="533" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.access$1000 (42 samples, 1.91%)</title><rect x="1092.7" y="677" width="22.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1095.70" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >i..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.transfer (12 samples, 0.55%)</title><rect x="757.2" y="149" width="6.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannel$AbstractUnsafe.flush (59 samples, 2.69%)</title><rect x="980.9" y="309" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.ChannelInboundHandlerAdapter.channelRead (19 samples, 0.87%)</title><rect x="755.6" y="325" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RT.assoc (2 samples, 0.09%)</title><rect x="755.6" y="165" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.SelectedSelectionKeySetSelector.select (380 samples, 17.31%)</title><rect x="771.2" y="613" width="204.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="774.22" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io.netty.channel.nio.Selec..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue.offer (12 samples, 0.55%)</title><rect x="757.2" y="165" width="6.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.transfer (7 samples, 0.32%)</title><rect x="21.3" y="501" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.AbstractNioByteChannel$NioByteUnsafe.read (33 samples, 1.50%)</title><rect x="753.5" y="581" width="17.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="756.48" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseCFG::global_code_motion() (2 samples, 0.09%)</title><rect x="1149.7" y="517" width="1.1" height="15.0" fill="rgb(177,177,50)" rx="2" ry="2" />
+<text text-anchor="" x="1152.68" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.CombinedChannelDuplexHandler.write (5 samples, 0.23%)</title><rect x="1013.1" y="437" width="2.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1016.13" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (3 samples, 0.14%)</title><rect x="1145.4" y="661" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.write (59 samples, 2.69%)</title><rect x="980.9" y="469" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.flush0 (58 samples, 2.64%)</title><rect x="981.4" y="293" width="31.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="984.42" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/handle-request/fn--8530/fn--8531 (8 samples, 0.36%)</title><rect x="32.0" y="389" width="4.3" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>LIR_Assembler::emit_lir_list(LIR_List*) (2 samples, 0.09%)</title><rect x="1170.1" y="485" width="1.1" height="15.0" fill="rgb(204,204,60)" rx="2" ry="2" />
+<text text-anchor="" x="1173.11" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred/fn--3771 (21 samples, 0.96%)</title><rect x="26.1" y="533" width="11.3" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="29.13" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Pool.access$500 (56 samples, 2.55%)</title><rect x="1115.3" y="677" width="30.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1118.28" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.DefaultChannelPipeline.fireChannelRead (22 samples, 1.00%)</title><rect x="754.0" y="565" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/profile-for (3 samples, 0.14%)</title><rect x="1145.4" y="341" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parse::do_one_bytecode() (3 samples, 0.14%)</title><rect x="1167.4" y="485" width="1.6" height="15.0" fill="rgb(202,202,60)" rx="2" ry="2" />
+<text text-anchor="" x="1170.42" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>I2C/C2I adapters (3 samples, 0.14%)</title><rect x="1116.9" y="645" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1119.89" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>VMThread::loop() (5 samples, 0.23%)</title><rect x="1180.9" y="629" width="2.6" height="15.0" fill="rgb(192,192,56)" rx="2" ry="2" />
+<text text-anchor="" x="1183.86" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.awaitFulfill (1,323 samples, 60.27%)</title><rect x="39.0" y="613" width="711.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="42.03" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.util.concurrent.SynchronousQueue$TransferStack.awaitFulfill</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_mutexwait (6 samples, 0.27%)</title><rect x="21.8" y="389" width="3.3" height="15.0" fill="rgb(209,63,63)" rx="2" ry="2" />
+<text text-anchor="" x="24.83" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compile::Optimize() (15 samples, 0.68%)</title><rect x="1159.4" y="549" width="8.0" height="15.0" fill="rgb(184,184,53)" rx="2" ry="2" />
+<text text-anchor="" x="1162.36" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/success! (14 samples, 0.64%)</title><rect x="1021.2" y="565" width="7.5" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>JavaThread::run() (62 samples, 2.82%)</title><rect x="1147.5" y="645" width="33.4" height="15.0" fill="rgb(192,192,56)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Ja..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvsignal (4 samples, 0.18%)</title><rect x="1021.2" y="389" width="2.1" height="15.0" fill="rgb(241,111,111)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.ResourceLeakDetector.track0 (2 samples, 0.09%)</title><rect x="978.7" y="389" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/eval8494/send-response--8499/f--7890--auto----8505 (81 samples, 3.69%)</title><rect x="977.7" y="565" width="43.5" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="980.65" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >alep..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.park (4 samples, 0.18%)</title><rect x="11.1" y="373" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.netty/allocate (3 samples, 0.14%)</title><rect x="978.7" y="501" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.awaitFulfill (4 samples, 0.18%)</title><rect x="11.1" y="405" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.ChannelOutboundBuffer.removeBytes (2 samples, 0.09%)</title><rect x="982.5" y="245" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="985.49" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.unpark (9 samples, 0.41%)</title><rect x="26.7" y="453" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.invoke (7 samples, 0.32%)</title><rect x="10.0" y="677" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.KQueueArrayWrapper.interrupt (5 samples, 0.23%)</title><rect x="33.7" y="293" width="2.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="36.65" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="277" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.DefaultChannelPipeline$HeadContext.write (2 samples, 0.09%)</title><rect x="1016.4" y="437" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1019.36" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SocketDispatcher.writev (51 samples, 2.32%)</title><rect x="984.6" y="213" width="27.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="987.64" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >s..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parse::Parse(JVMState*, ciMethod*, float) (3 samples, 0.14%)</title><rect x="1167.4" y="533" width="1.6" height="15.0" fill="rgb(183,183,53)" rx="2" ry="2" />
+<text text-anchor="" x="1170.42" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (2 samples, 0.09%)</title><rect x="11.6" y="325" width="1.1" height="15.0" fill="rgb(251,125,125)" rx="2" ry="2" />
+<text text-anchor="" x="14.61" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/assoc--5401 (2 samples, 0.09%)</title><rect x="755.6" y="181" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.transfer (14 samples, 0.64%)</title><rect x="1021.2" y="485" width="7.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/catch'/fn--4017 (7 samples, 0.32%)</title><rect x="21.3" y="597" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.execute (14 samples, 0.64%)</title><rect x="1021.2" y="517" width="7.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.GregorianCalendar.computeFields (2 samples, 0.09%)</title><rect x="1028.7" y="437" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (11 samples, 0.50%)</title><rect x="1183.5" y="565" width="6.0" height="15.0" fill="rgb(242,111,111)" rx="2" ry="2" />
+<text text-anchor="" x="1186.55" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ThreadPoolExecutor.runWorker (3 samples, 0.14%)</title><rect x="1145.4" y="677" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compilation::compile_method() (7 samples, 0.32%)</title><rect x="1169.6" y="549" width="3.7" height="15.0" fill="rgb(217,217,65)" rx="2" ry="2" />
+<text text-anchor="" x="1172.57" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_body (79 samples, 3.60%)</title><rect x="1147.5" y="693" width="42.5" height="15.0" fill="rgb(234,99,99)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_pt..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>read (7 samples, 0.32%)</title><rect x="767.5" y="437" width="3.7" height="15.0" fill="rgb(200,50,50)" rx="2" ry="2" />
+<text text-anchor="" x="770.46" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parse::do_all_blocks() (3 samples, 0.14%)</title><rect x="1167.4" y="517" width="1.6" height="15.0" fill="rgb(199,199,58)" rx="2" ry="2" />
+<text text-anchor="" x="1170.42" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::idom_no_update(Node*) const (2 samples, 0.09%)</title><rect x="1163.7" y="453" width="1.0" height="15.0" fill="rgb(221,221,66)" rx="2" ry="2" />
+<text text-anchor="" x="1166.66" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.buffer.AbstractByteBufAllocator.directBuffer (3 samples, 0.14%)</title><rect x="978.7" y="453" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeWrite0 (2 samples, 0.09%)</title><rect x="1016.4" y="453" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1019.36" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.netty/write-and-flush (59 samples, 2.69%)</title><rect x="980.9" y="517" width="31.7" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >al..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.ChannelOutboundBuffer.remove (2 samples, 0.09%)</title><rect x="982.5" y="229" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="985.49" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.buffer.AbstractByteBufAllocator.directBuffer (3 samples, 0.14%)</title><rect x="978.7" y="469" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.ByteToMessageDecoder.channelRead (22 samples, 1.00%)</title><rect x="754.0" y="437" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.FutureTask.run (81 samples, 3.69%)</title><rect x="1034.1" y="597" width="43.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1037.10" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.concurrent.AbstractEventExecutor.safeExecute (99 samples, 4.51%)</title><rect x="976.6" y="613" width="53.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="979.58" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io.ne..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::javaTimeNanos() (6 samples, 0.27%)</title><rect x="747.0" y="597" width="3.3" height="15.0" fill="rgb(180,180,51)" rx="2" ry="2" />
+<text text-anchor="" x="750.03" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Compiler.eval (3 samples, 0.14%)</title><rect x="1145.4" y="405" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="357" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (2 samples, 0.09%)</title><rect x="1028.7" y="565" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>I2C/C2I adapters (2 samples, 0.09%)</title><rect x="752.4" y="629" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="755.41" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Unpark (9 samples, 0.41%)</title><rect x="26.7" y="421" width="4.8" height="15.0" fill="rgb(225,87,87)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Unpark (75 samples, 3.42%)</title><rect x="1036.3" y="373" width="40.3" height="15.0" fill="rgb(246,116,116)" rx="2" ry="2" />
+<text text-anchor="" x="1039.25" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Uns..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.HttpHeadersEncoder.encoderHeader (2 samples, 0.09%)</title><rect x="1014.2" y="373" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1017.21" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/rfc-1123-date-string (2 samples, 0.09%)</title><rect x="1028.7" y="533" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parse::do_call() (3 samples, 0.14%)</title><rect x="1167.4" y="469" width="1.6" height="15.0" fill="rgb(201,201,59)" rx="2" ry="2" />
+<text text-anchor="" x="1170.42" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.checkInterruptWhileWaiting (2 samples, 0.09%)</title><rect x="1078.2" y="565" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1081.18" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.interruptible-eval/interruptible-eval/fn--1631/fn--1634 (3 samples, 0.14%)</title><rect x="1145.4" y="629" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred.success (14 samples, 0.64%)</title><rect x="1021.2" y="549" width="7.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.invoke (7 samples, 0.32%)</title><rect x="10.0" y="597" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Pool$1.run (56 samples, 2.55%)</title><rect x="1115.3" y="693" width="30.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1118.28" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.concurrent.SingleThreadEventExecutor.execute (6 samples, 0.27%)</title><rect x="33.1" y="357" width="3.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="36.12" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.parkNanos (24 samples, 1.09%)</title><rect x="1079.8" y="565" width="12.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1082.79" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.interruptible-eval/run-next/fn--1626 (3 samples, 0.14%)</title><rect x="1145.4" y="645" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::get_late_ctrl(Node*, Node*) (6 samples, 0.27%)</title><rect x="1161.5" y="485" width="3.2" height="15.0" fill="rgb(195,195,57)" rx="2" ry="2" />
+<text text-anchor="" x="1164.51" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.ResourceLeakDetector.track (2 samples, 0.09%)</title><rect x="978.7" y="405" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.buffer.PooledUnsafeDirectByteBuf.setBytes (10 samples, 0.46%)</title><rect x="765.8" y="533" width="5.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="768.85" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>JavaThread::thread_main_inner() (62 samples, 2.82%)</title><rect x="1147.5" y="629" width="33.4" height="15.0" fill="rgb(222,222,67)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Ja..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl (3 samples, 0.14%)</title><rect x="1145.4" y="485" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>boot.user/fn--9828 (5 samples, 0.23%)</title><rect x="17.5" y="613" width="2.7" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="20.53" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/date-header-value/fn--8479 (2 samples, 0.09%)</title><rect x="1028.7" y="549" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::split_if_with_blocks_post(Node*) (2 samples, 0.09%)</title><rect x="1165.3" y="501" width="1.0" height="15.0" fill="rgb(225,225,68)" rx="2" ry="2" />
+<text text-anchor="" x="1168.27" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::unpark() (74 samples, 3.37%)</title><rect x="1036.3" y="357" width="39.7" height="15.0" fill="rgb(215,215,64)" rx="2" ry="2" />
+<text text-anchor="" x="1039.25" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Par..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.parkNanos (1,316 samples, 59.95%)</title><rect x="39.6" y="597" width="707.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="42.57" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.util.concurrent.locks.LockSupport.parkNanos</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.core.NettyRequest.assoc (2 samples, 0.09%)</title><rect x="755.6" y="133" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parse::do_one_block() (3 samples, 0.14%)</title><rect x="1167.4" y="501" width="1.6" height="15.0" fill="rgb(203,203,60)" rx="2" ry="2" />
+<text text-anchor="" x="1170.42" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.write (9 samples, 0.41%)</title><rect x="1012.6" y="501" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1015.60" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Unpark (7 samples, 0.32%)</title><rect x="21.3" y="437" width="3.8" height="15.0" fill="rgb(232,97,97)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.buffer.PooledByteBufAllocator.newDirectBuffer (3 samples, 0.14%)</title><rect x="978.7" y="437" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseLive::compute(unsigned int) (2 samples, 0.09%)</title><rect x="1158.3" y="517" width="1.1" height="15.0" fill="rgb(227,227,68)" rx="2" ry="2" />
+<text text-anchor="" x="1161.28" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::PlatformEvent::park(long) (37 samples, 1.69%)</title><rect x="1094.8" y="597" width="19.9" height="15.0" fill="rgb(177,177,50)" rx="2" ry="2" />
+<text text-anchor="" x="1097.85" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compile::Code_Gen() (22 samples, 1.00%)</title><rect x="1147.5" y="549" width="11.9" height="15.0" fill="rgb(228,228,69)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.unpark (9 samples, 0.41%)</title><rect x="26.7" y="437" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.text.SimpleDateFormat.format (2 samples, 0.09%)</title><rect x="1028.7" y="485" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.unpark (14 samples, 0.64%)</title><rect x="1021.2" y="453" width="7.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::unpark() (9 samples, 0.41%)</title><rect x="26.7" y="405" width="4.8" height="15.0" fill="rgb(222,222,67)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compilation::emit_code_body() (2 samples, 0.09%)</title><rect x="1170.1" y="517" width="1.1" height="15.0" fill="rgb(190,190,55)" rx="2" ry="2" />
+<text text-anchor="" x="1173.11" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (81 samples, 3.69%)</title><rect x="1034.1" y="565" width="43.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1037.10" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cloj..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::split_if_with_blocks(VectorSet&amp;, Node_Stack&amp;) (3 samples, 0.14%)</title><rect x="1165.3" y="517" width="1.6" height="15.0" fill="rgb(215,215,64)" rx="2" ry="2" />
+<text text-anchor="" x="1168.27" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.HttpServerExpectContinueHandler.channelRead (19 samples, 0.87%)</title><rect x="755.6" y="341" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.fireChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="405" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>reply.eval-modes.nrepl/poll-for-responses/fn--1511 (5 samples, 0.23%)</title><rect x="10.5" y="485" width="2.7" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.54" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/eval3925/subscribe--3926 (2 samples, 0.09%)</title><rect x="36.3" y="389" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="39.34" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (1,294 samples, 58.95%)</title><rect x="49.2" y="533" width="695.7" height="15.0" fill="rgb(245,115,115)" rx="2" ry="2" />
+<text text-anchor="" x="52.24" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >__psynch_cvwait</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.KQueueArrayWrapper.kevent0 (376 samples, 17.13%)</title><rect x="771.2" y="533" width="202.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="774.22" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sun.nio.ch.KQueueArrayWrap..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take (28 samples, 1.28%)</title><rect x="1077.6" y="597" width="15.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1080.64" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SelectorImpl.lockAndDoSelect (380 samples, 17.31%)</title><rect x="771.2" y="581" width="204.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="774.22" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sun.nio.ch.SelectorImpl.lo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="373" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.text.DateFormat.format (2 samples, 0.09%)</title><rect x="1028.7" y="517" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Unpark (13 samples, 0.59%)</title><rect x="1021.2" y="421" width="7.0" height="15.0" fill="rgb(235,101,101)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.NioEventLoop.wakeup (6 samples, 0.27%)</title><rect x="33.1" y="341" width="3.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="36.12" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.KQueueArrayWrapper.interrupt (5 samples, 0.23%)</title><rect x="33.7" y="277" width="2.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="36.65" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks (100 samples, 4.56%)</title><rect x="976.6" y="629" width="53.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="979.58" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io.ne..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::PlatformEvent::park(long) (11 samples, 0.50%)</title><rect x="1183.5" y="581" width="6.0" height="15.0" fill="rgb(212,212,63)" rx="2" ry="2" />
+<text text-anchor="" x="1186.55" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/catch'/fn--4017 (10 samples, 0.46%)</title><rect x="32.0" y="501" width="5.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/success! (7 samples, 0.32%)</title><rect x="21.3" y="581" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.FileDispatcherImpl.read0 (9 samples, 0.41%)</title><rect x="766.4" y="453" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="769.38" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_mutexwait (48 samples, 2.19%)</title><rect x="1049.7" y="325" width="25.8" height="15.0" fill="rgb(226,88,88)" rx="2" ry="2" />
+<text text-anchor="" x="1052.69" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.invoke (3 samples, 0.14%)</title><rect x="1145.4" y="501" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/ring-handler/process-last-content--8550 (19 samples, 0.87%)</title><rect x="755.6" y="245" width="10.2" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.fireChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="389" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::park(bool, long) (1,307 samples, 59.54%)</title><rect x="43.9" y="549" width="702.6" height="15.0" fill="rgb(224,224,67)" rx="2" ry="2" />
+<text text-anchor="" x="46.87" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Parker::park(bool, long)</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.invoke (3 samples, 0.14%)</title><rect x="1145.4" y="597" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (2,195 samples, 100%)</title><rect x="10.0" y="725" width="1180.0" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="735.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeWriteAndFlush (3 samples, 0.14%)</title><rect x="1015.8" y="469" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1018.82" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.execute (10 samples, 0.46%)</title><rect x="26.1" y="517" width="5.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="29.13" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_mutexwait (8 samples, 0.36%)</title><rect x="1023.3" y="373" width="4.3" height="15.0" fill="rgb(228,91,91)" rx="2" ry="2" />
+<text text-anchor="" x="1026.35" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (22 samples, 1.00%)</title><rect x="754.0" y="533" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>VMThread::run() (5 samples, 0.23%)</title><rect x="1180.9" y="645" width="2.6" height="15.0" fill="rgb(198,198,58)" rx="2" ry="2" />
+<text text-anchor="" x="1183.86" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (97 samples, 4.42%)</title><rect x="976.6" y="597" width="52.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="979.58" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cloju..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvsignal (25 samples, 1.14%)</title><rect x="1036.3" y="341" width="13.4" height="15.0" fill="rgb(213,69,69)" rx="2" ry="2" />
+<text text-anchor="" x="1039.25" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.core.NettyRequest.assoc_STAR_ (2 samples, 0.09%)</title><rect x="755.6" y="117" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred.success (7 samples, 0.32%)</title><rect x="21.3" y="565" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.applyTo (7 samples, 0.32%)</title><rect x="10.0" y="549" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.DefaultHttpHeaders$HeaderValueConverter.convertObject (4 samples, 0.18%)</title><rect x="1019.0" y="517" width="2.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1022.05" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (40 samples, 1.82%)</title><rect x="17.0" y="645" width="21.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="19.99" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>CompileBroker::invoke_compiler_on_method(CompileTask*) (50 samples, 2.28%)</title><rect x="1147.5" y="597" width="26.9" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >C..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack$SNode.tryMatch (7 samples, 0.32%)</title><rect x="21.3" y="485" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor$Worker$1.run (1,371 samples, 62.46%)</title><rect x="13.8" y="661" width="737.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="16.76" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io.aleph.dirigiste.Executor$Worker$1.run</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.getChars (2 samples, 0.09%)</title><rect x="1020.1" y="453" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1023.12" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue.offer (9 samples, 0.41%)</title><rect x="26.7" y="501" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.NioEventLoop.select (381 samples, 17.36%)</title><rect x="771.2" y="629" width="204.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="774.22" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io.netty.channel.nio.NioEv..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/profile-for (3 samples, 0.14%)</title><rect x="1145.4" y="357" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseChaitin::post_allocate_copy_removal() (3 samples, 0.14%)</title><rect x="1155.6" y="517" width="1.6" height="15.0" fill="rgb(177,177,50)" rx="2" ry="2" />
+<text text-anchor="" x="1158.59" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compilation::install_code(int) (2 samples, 0.09%)</title><rect x="1172.3" y="533" width="1.0" height="15.0" fill="rgb(213,213,64)" rx="2" ry="2" />
+<text text-anchor="" x="1175.26" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/str (2 samples, 0.09%)</title><rect x="18.6" y="581" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="21.60" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.writeAndFlush (59 samples, 2.69%)</title><rect x="980.9" y="485" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/success! (22 samples, 1.00%)</title><rect x="25.6" y="565" width="11.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="28.59" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Monitor::wait(bool, long, bool) (3 samples, 0.14%)</title><rect x="1174.4" y="581" width="1.6" height="15.0" fill="rgb(203,203,60)" rx="2" ry="2" />
+<text text-anchor="" x="1177.41" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.Executors$RunnableAdapter.call (81 samples, 3.69%)</title><rect x="1034.1" y="581" width="43.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1037.10" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::PlatformEvent::park(long) (47 samples, 2.14%)</title><rect x="1120.1" y="597" width="25.3" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text text-anchor="" x="1123.11" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >o..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compile::Compile(ciEnv*, C2Compiler*, ciMethod*, int, bool, bool, bool) (40 samples, 1.82%)</title><rect x="1147.5" y="565" width="21.5" height="15.0" fill="rgb(223,223,67)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >C..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_body (79 samples, 3.60%)</title><rect x="1147.5" y="677" width="42.5" height="15.0" fill="rgb(212,67,67)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_pt..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.invoke (2 samples, 0.09%)</title><rect x="18.6" y="597" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="21.60" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvsignal (4 samples, 0.18%)</title><rect x="757.2" y="53" width="2.2" height="15.0" fill="rgb(207,61,61)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>boot.user/eval9836 (3 samples, 0.14%)</title><rect x="1145.4" y="373" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.NioEventLoop.processSelectedKeys (33 samples, 1.50%)</title><rect x="753.5" y="629" width="17.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="756.48" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (22 samples, 1.00%)</title><rect x="754.0" y="549" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvsignal (2 samples, 0.09%)</title><rect x="26.7" y="389" width="1.0" height="15.0" fill="rgb(240,109,109)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.Recycler.get (2 samples, 0.09%)</title><rect x="1016.4" y="373" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1019.36" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.socket.nio.NioSocketChannel.doWrite (58 samples, 2.64%)</title><rect x="981.4" y="261" width="31.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="984.42" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeFlush0 (59 samples, 2.69%)</title><rect x="980.9" y="437" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.Executors$RunnableAdapter.call (2 samples, 0.09%)</title><rect x="1028.7" y="581" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue.offer (78 samples, 3.55%)</title><rect x="1035.7" y="453" width="41.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1038.71" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.park (24 samples, 1.09%)</title><rect x="1079.8" y="549" width="12.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1082.79" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RT.conj (2 samples, 0.09%)</title><rect x="755.6" y="85" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeFlush0 (59 samples, 2.69%)</title><rect x="980.9" y="341" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>JVM_Sleep (48 samples, 2.19%)</title><rect x="1119.6" y="629" width="25.8" height="15.0" fill="rgb(233,98,98)" rx="2" ry="2" />
+<text text-anchor="" x="1122.58" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >J..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ThreadPoolExecutor.getTask (28 samples, 1.28%)</title><rect x="1077.6" y="629" width="15.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1080.64" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Pool.startControlLoop (56 samples, 2.55%)</title><rect x="1115.3" y="661" width="30.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1118.28" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue.poll (4 samples, 0.18%)</title><rect x="11.1" y="437" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.netty/write (9 samples, 0.41%)</title><rect x="1012.6" y="517" width="4.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1015.60" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ThreadPoolExecutor$Worker.run (115 samples, 5.24%)</title><rect x="1030.9" y="661" width="61.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1033.87" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.u..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::Dominators() (2 samples, 0.09%)</title><rect x="1159.9" y="517" width="1.1" height="15.0" fill="rgb(229,229,69)" rx="2" ry="2" />
+<text text-anchor="" x="1162.90" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.unpark (14 samples, 0.64%)</title><rect x="1021.2" y="437" width="7.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>kevent (373 samples, 16.99%)</title><rect x="772.8" y="517" width="200.6" height="15.0" fill="rgb(219,78,78)" rx="2" ry="2" />
+<text text-anchor="" x="775.83" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >kevent</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.toString (4 samples, 0.18%)</title><rect x="1019.0" y="469" width="2.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1022.05" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannel$AbstractUnsafe.write (2 samples, 0.09%)</title><rect x="1016.4" y="421" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1019.36" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.core/eval8446/send-message--8453 (75 samples, 3.42%)</title><rect x="977.7" y="549" width="40.3" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="980.65" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ale..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compilation::Compilation(AbstractCompiler*, ciEnv*, ciMethod*, int, BufferBlob*) (7 samples, 0.32%)</title><rect x="1169.6" y="565" width="3.7" height="15.0" fill="rgb(184,184,53)" rx="2" ry="2" />
+<text text-anchor="" x="1172.57" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ThreadPoolExecutor$Worker.run (3 samples, 0.14%)</title><rect x="1145.4" y="693" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.DefaultHttpHeaders$HeaderValueConverter.convertObject (4 samples, 0.18%)</title><rect x="1019.0" y="501" width="2.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1022.05" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.DefaultHttpHeaders.set (4 samples, 0.18%)</title><rect x="1019.0" y="549" width="2.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1022.05" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/eval3925/chain'---3946 (10 samples, 0.46%)</title><rect x="32.0" y="405" width="5.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.write (9 samples, 0.41%)</title><rect x="1012.6" y="485" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1015.60" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseCFG::do_global_code_motion() (2 samples, 0.09%)</title><rect x="1149.7" y="533" width="1.1" height="15.0" fill="rgb(192,192,56)" rx="2" ry="2" />
+<text text-anchor="" x="1152.68" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::build_and_optimize(bool, bool) (14 samples, 0.64%)</title><rect x="1159.4" y="533" width="7.5" height="15.0" fill="rgb(201,201,59)" rx="2" ry="2" />
+<text text-anchor="" x="1162.36" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.applyToHelper (7 samples, 0.32%)</title><rect x="10.0" y="613" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (2,014 samples, 91.75%)</title><rect x="10.0" y="693" width="1082.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.AFn.run</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Node_Array::grow(unsigned int) (2 samples, 0.09%)</title><rect x="1155.6" y="501" width="1.1" height="15.0" fill="rgb(192,192,56)" rx="2" ry="2" />
+<text text-anchor="" x="1158.59" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/with-bindings-STAR- (3 samples, 0.14%)</title><rect x="1145.4" y="581" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.execute (79 samples, 3.60%)</title><rect x="1035.2" y="469" width="42.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1038.18" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io...</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Matcher::match() (2 samples, 0.09%)</title><rect x="1148.6" y="533" width="1.1" height="15.0" fill="rgb(225,225,68)" rx="2" ry="2" />
+<text text-anchor="" x="1151.61" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.transfer (4 samples, 0.18%)</title><rect x="11.1" y="421" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/eval3925/chain'---3946 (2 samples, 0.09%)</title><rect x="764.2" y="181" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="767.23" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue.poll (1,323 samples, 60.27%)</title><rect x="39.0" y="645" width="711.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="42.03" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.util.concurrent.SynchronousQueue.poll</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseChaitin::build_ifg_physical(ResourceArea*) (2 samples, 0.09%)</title><rect x="1153.4" y="517" width="1.1" height="15.0" fill="rgb(227,227,69)" rx="2" ry="2" />
+<text text-anchor="" x="1156.44" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/success! (10 samples, 0.46%)</title><rect x="32.0" y="485" width="5.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.applyTo (3 samples, 0.14%)</title><rect x="1145.4" y="549" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ciObjectFactory::get_metadata(Metadata*) (2 samples, 0.09%)</title><rect x="1173.3" y="565" width="1.1" height="15.0" fill="rgb(206,206,61)" rx="2" ry="2" />
+<text text-anchor="" x="1176.33" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (37 samples, 1.69%)</title><rect x="1094.8" y="581" width="19.9" height="15.0" fill="rgb(219,78,78)" rx="2" ry="2" />
+<text text-anchor="" x="1097.85" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl/read-eval-print--9068 (3 samples, 0.14%)</title><rect x="1145.4" y="453" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.interruptible-eval/evaluate (3 samples, 0.14%)</title><rect x="1145.4" y="613" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>WatcherThread::run() (12 samples, 0.55%)</title><rect x="1183.5" y="645" width="6.5" height="15.0" fill="rgb(183,183,52)" rx="2" ry="2" />
+<text text-anchor="" x="1186.55" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>JVM_Sleep (37 samples, 1.69%)</title><rect x="1094.8" y="629" width="19.9" height="15.0" fill="rgb(250,123,123)" rx="2" ry="2" />
+<text text-anchor="" x="1097.85" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.MessageToMessageEncoder.write (5 samples, 0.23%)</title><rect x="1013.1" y="421" width="2.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1016.13" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/handle-request/fn--8515 (13 samples, 0.59%)</title><rect x="757.2" y="197" width="7.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.DefaultHeaders.setObject (4 samples, 0.18%)</title><rect x="1019.0" y="533" width="2.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1022.05" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.AbstractQueuedSynchronizer.transferAfterCancelledWait (2 samples, 0.09%)</title><rect x="1078.2" y="549" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1081.18" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_cond_wait (2 samples, 0.09%)</title><rect x="744.9" y="533" width="1.1" height="15.0" fill="rgb(237,105,105)" rx="2" ry="2" />
+<text text-anchor="" x="747.88" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/stop (2 samples, 0.09%)</title><rect x="1145.9" y="325" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.92" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.buffer.AbstractByteBuf.writeBytes (10 samples, 0.46%)</title><rect x="765.8" y="549" width="5.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="768.85" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>reply.eval-modes.nrepl/main/fn--1519 (7 samples, 0.32%)</title><rect x="10.0" y="517" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="293" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl/read-eval-print--9068/fn--9071 (3 samples, 0.14%)</title><rect x="1145.4" y="437" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compilation::compile_java_method() (5 samples, 0.23%)</title><rect x="1169.6" y="533" width="2.7" height="15.0" fill="rgb(197,197,58)" rx="2" ry="2" />
+<text text-anchor="" x="1172.57" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.executor/thread-factory/reify--3146/f--3147 (2,007 samples, 91.44%)</title><rect x="13.8" y="677" width="1078.9" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="16.76" y="687.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >manifold.executor/thread-factory/reify--3146/f--3147</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack$SNode.tryMatch (76 samples, 3.46%)</title><rect x="1035.7" y="421" width="40.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1038.71" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.park (1,316 samples, 59.95%)</title><rect x="39.6" y="581" width="707.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="42.57" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sun.misc.Unsafe.park</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.CombinedChannelDuplexHandler.channelRead (22 samples, 1.00%)</title><rect x="754.0" y="453" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack$SNode.tryMatch (9 samples, 0.41%)</title><rect x="26.7" y="469" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.toString (4 samples, 0.18%)</title><rect x="1019.0" y="485" width="2.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1022.05" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannel$AbstractUnsafe.flush0 (58 samples, 2.64%)</title><rect x="981.4" y="277" width="31.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="984.42" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.unpark (75 samples, 3.42%)</title><rect x="1036.3" y="405" width="40.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1039.25" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.NioEventLoop.processSelectedKey (33 samples, 1.50%)</title><rect x="753.5" y="597" width="17.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="756.48" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.transport/fn-transport/fn--386 (4 samples, 0.18%)</title><rect x="11.1" y="453" width="2.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.transfer (1,323 samples, 60.27%)</title><rect x="39.0" y="629" width="711.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="42.03" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.util.concurrent.SynchronousQueue$TransferStack.transfer</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.DefaultChannelPipeline$HeadContext.flush (59 samples, 2.69%)</title><rect x="980.9" y="325" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.IOUtil.readIntoNativeBuffer (9 samples, 0.41%)</title><rect x="766.4" y="485" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="769.38" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.netty/eval7873/to-byte-buf--7876 (5 samples, 0.23%)</title><rect x="978.2" y="517" width="2.7" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="981.19" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.transport.FnTransport.recv (5 samples, 0.23%)</title><rect x="10.5" y="469" width="2.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.54" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred/fn--3771 (10 samples, 0.46%)</title><rect x="32.0" y="453" width="5.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="35.04" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Park (4 samples, 0.18%)</title><rect x="11.1" y="357" width="2.1" height="15.0" fill="rgb(200,50,50)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack.transfer (9 samples, 0.41%)</title><rect x="26.7" y="485" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="29.67" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compile::Output() (2 samples, 0.09%)</title><rect x="1147.5" y="533" width="1.1" height="15.0" fill="rgb(175,175,50)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>NMethodSweeper::possibly_sweep() (7 samples, 0.32%)</title><rect x="1176.0" y="581" width="3.8" height="15.0" fill="rgb(178,178,51)" rx="2" ry="2" />
+<text text-anchor="" x="1179.02" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Thread.sleep (49 samples, 2.23%)</title><rect x="1119.0" y="645" width="26.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1122.04" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >j..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/bound-fn-STAR-/fn--5734 (7 samples, 0.32%)</title><rect x="10.0" y="661" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue$TransferStack$SNode.tryMatch (14 samples, 0.64%)</title><rect x="1021.2" y="469" width="7.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.access$201 (81 samples, 3.69%)</title><rect x="1034.1" y="613" width="43.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1037.10" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.unpark (75 samples, 3.42%)</title><rect x="1036.3" y="389" width="40.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1039.25" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sun..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.flush (59 samples, 2.69%)</title><rect x="980.9" y="373" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ciEnv::register_method(ciMethod*, int, CodeOffsets*, int, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, int, bool, bool, RTMState) (2 samples, 0.09%)</title><rect x="1172.3" y="517" width="1.0" height="15.0" fill="rgb(190,190,55)" rx="2" ry="2" />
+<text text-anchor="" x="1175.26" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ciEnv::get_method_from_handle(Method*) (2 samples, 0.09%)</title><rect x="1173.3" y="581" width="1.1" height="15.0" fill="rgb(192,192,56)" rx="2" ry="2" />
+<text text-anchor="" x="1176.33" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.HttpObjectEncoder.encode (4 samples, 0.18%)</title><rect x="1013.7" y="405" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1016.67" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl/fn--9077 (3 samples, 0.14%)</title><rect x="1145.4" y="469" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (22 samples, 1.00%)</title><rect x="1080.3" y="501" width="11.9" height="15.0" fill="rgb(245,115,115)" rx="2" ry="2" />
+<text text-anchor="" x="1083.33" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized (33 samples, 1.50%)</title><rect x="753.5" y="613" width="17.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="756.48" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.misc.Unsafe.unpark (12 samples, 0.55%)</title><rect x="757.2" y="101" width="6.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.startControlLoop (42 samples, 1.91%)</title><rect x="1092.7" y="661" width="22.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1095.70" y="671.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >i..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.core/send-contiguous-body (75 samples, 3.42%)</title><rect x="977.7" y="533" width="40.3" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="980.65" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ale..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_mutex_lock_slow (48 samples, 2.19%)</title><rect x="1049.7" y="341" width="25.8" height="15.0" fill="rgb(252,126,126)" rx="2" ry="2" />
+<text text-anchor="" x="1052.69" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.execute (7 samples, 0.32%)</title><rect x="21.3" y="533" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Park (1,308 samples, 59.59%)</title><rect x="43.9" y="565" width="703.1" height="15.0" fill="rgb(208,62,62)" rx="2" ry="2" />
+<text text-anchor="" x="46.87" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Unsafe_Park</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/eval3925/chain'---3946 (23 samples, 1.05%)</title><rect x="25.6" y="581" width="12.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="28.59" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.fireChannelRead (22 samples, 1.00%)</title><rect x="754.0" y="501" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>SafepointSynchronize::do_cleanup_tasks() (4 samples, 0.18%)</title><rect x="1181.4" y="597" width="2.1" height="15.0" fill="rgb(203,203,60)" rx="2" ry="2" />
+<text text-anchor="" x="1184.40" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_mutexwait (7 samples, 0.32%)</title><rect x="27.7" y="373" width="3.8" height="15.0" fill="rgb(223,84,84)" rx="2" ry="2" />
+<text text-anchor="" x="30.74" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_mutex_lock_slow (7 samples, 0.32%)</title><rect x="759.4" y="53" width="3.8" height="15.0" fill="rgb(239,108,108)" rx="2" ry="2" />
+<text text-anchor="" x="762.39" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Thread.run (2,115 samples, 96.36%)</title><rect x="10.0" y="709" width="1137.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="719.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.lang.Thread.run</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.concurrent.ScheduledFutureTask.run (2 samples, 0.09%)</title><rect x="1028.7" y="597" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.GregorianCalendar.computeFields (2 samples, 0.09%)</title><rect x="1028.7" y="421" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.parkNanos (4 samples, 0.18%)</title><rect x="11.1" y="389" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="14.08" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.Calendar.setTime (2 samples, 0.09%)</title><rect x="1028.7" y="469" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/ring-handler/handle-request--8544 (18 samples, 0.82%)</title><rect x="755.6" y="229" width="9.7" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/apply (7 samples, 0.32%)</title><rect x="10.0" y="565" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>C2Compiler::compile_method(ciEnv*, ciMethod*, int) (40 samples, 1.82%)</title><rect x="1147.5" y="581" width="21.5" height="15.0" fill="rgb(224,224,68)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >C..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Listener.onSuccess (32 samples, 1.46%)</title><rect x="21.3" y="613" width="17.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server$ring_handler$reify__8572.channelRead (19 samples, 0.87%)</title><rect x="755.6" y="261" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred/fn--3771 (14 samples, 0.64%)</title><rect x="1021.2" y="533" width="7.5" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/eval3925/subscribe--3926/fn--3927 (24 samples, 1.09%)</title><rect x="25.1" y="597" width="12.9" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="28.05" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Monitor::IWait(Thread*, long) (3 samples, 0.14%)</title><rect x="1174.4" y="565" width="1.6" height="15.0" fill="rgb(228,228,69)" rx="2" ry="2" />
+<text text-anchor="" x="1177.41" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.ChannelOutboundBuffer.addMessage (2 samples, 0.09%)</title><rect x="1016.4" y="405" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1019.36" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::unpark() (11 samples, 0.50%)</title><rect x="757.2" y="69" width="6.0" height="15.0" fill="rgb(183,183,53)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>NMethodSweeper::sweep_code_cache() (7 samples, 0.32%)</title><rect x="1176.0" y="565" width="3.8" height="15.0" fill="rgb(224,224,68)" rx="2" ry="2" />
+<text text-anchor="" x="1179.02" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseChaitin::Register_Allocate() (16 samples, 0.73%)</title><rect x="1150.8" y="533" width="8.6" height="15.0" fill="rgb(201,201,59)" rx="2" ry="2" />
+<text text-anchor="" x="1153.76" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/timeout!/fn--4072 (79 samples, 3.60%)</title><rect x="1035.2" y="533" width="42.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1038.18" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >man..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeWriteAndFlush (59 samples, 2.69%)</title><rect x="980.9" y="453" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.NioEventLoop.run (521 samples, 23.74%)</title><rect x="750.8" y="645" width="280.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="753.79" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io.netty.channel.nio.NioEventLoop.run</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/eval8494/send-response--8499/fn--8507 (97 samples, 4.42%)</title><rect x="976.6" y="581" width="52.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="979.58" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >aleph..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nmethod::cleanup_inline_caches() (6 samples, 0.27%)</title><rect x="1176.0" y="533" width="3.2" height="15.0" fill="rgb(182,182,52)" rx="2" ry="2" />
+<text text-anchor="" x="1179.02" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred/fn--3771/fn--3772 (32 samples, 1.46%)</title><rect x="21.3" y="629" width="17.2" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.updateStats (2 samples, 0.09%)</title><rect x="1093.8" y="645" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1096.77" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeWrite0 (5 samples, 0.23%)</title><rect x="1013.1" y="453" width="2.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1016.13" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.ChannelOutboundBuffer$Entry.newInstance (2 samples, 0.09%)</title><rect x="1016.4" y="389" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1019.36" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ThreadStateTransition::trans_and_fence(JavaThreadState, JavaThreadState) (2 samples, 0.09%)</title><rect x="44.4" y="533" width="1.1" height="15.0" fill="rgb(194,194,57)" rx="2" ry="2" />
+<text text-anchor="" x="47.41" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.interruptible-eval/evaluate/fn--1588 (3 samples, 0.14%)</title><rect x="1145.4" y="517" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.ByteToMessageDecoder.decodeRemovalReentryProtection (2 samples, 0.09%)</title><rect x="754.6" y="405" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.56" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.KQueueSelectorImpl.updateSelectedKeys (4 samples, 0.18%)</title><rect x="973.4" y="549" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="976.35" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.IOUtil.drain (4 samples, 0.18%)</title><rect x="973.4" y="533" width="2.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="976.35" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>CompileBroker::compiler_thread_loop() (60 samples, 2.73%)</title><rect x="1147.5" y="613" width="32.3" height="15.0" fill="rgb(211,211,63)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >Co..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.nio.SelectedSelectionKeySetSelector.wakeup (6 samples, 0.27%)</title><rect x="33.1" y="325" width="3.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="36.12" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Unpark (12 samples, 0.55%)</title><rect x="757.2" y="85" width="6.5" height="15.0" fill="rgb(227,90,90)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/apply (3 samples, 0.14%)</title><rect x="1145.4" y="565" width="1.6" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.ChannelOutboundHandlerAdapter.flush (59 samples, 2.69%)</title><rect x="980.9" y="405" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.ByteToMessageDecoder.callDecode (2 samples, 0.09%)</title><rect x="754.6" y="421" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.56" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_mutexwait (7 samples, 0.32%)</title><rect x="759.4" y="37" width="3.8" height="15.0" fill="rgb(210,64,64)" rx="2" ry="2" />
+<text text-anchor="" x="762.39" y="47.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Matcher::xform(Node*, int) (2 samples, 0.09%)</title><rect x="1148.6" y="517" width="1.1" height="15.0" fill="rgb(196,196,57)" rx="2" ry="2" />
+<text text-anchor="" x="1151.61" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_mutex_lock_slow (8 samples, 0.36%)</title><rect x="1023.3" y="389" width="4.3" height="15.0" fill="rgb(237,104,104)" rx="2" ry="2" />
+<text text-anchor="" x="1026.35" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nmethod::new_nmethod(methodHandle, int, int, CodeOffsets*, int, DebugInformationRecorder*, Dependencies*, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, int) (2 samples, 0.09%)</title><rect x="1172.3" y="501" width="1.0" height="15.0" fill="rgb(176,176,50)" rx="2" ry="2" />
+<text text-anchor="" x="1175.26" y="511.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>_pthread_mutex_lock_slow (6 samples, 0.27%)</title><rect x="21.8" y="405" width="3.3" height="15.0" fill="rgb(214,71,71)" rx="2" ry="2" />
+<text text-anchor="" x="24.83" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/eval3925/chain'---3946 (2 samples, 0.09%)</title><rect x="764.2" y="197" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="767.23" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.applyTo (7 samples, 0.32%)</title><rect x="10.0" y="629" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Unsafe_Park (23 samples, 1.05%)</title><rect x="1080.3" y="533" width="12.4" height="15.0" fill="rgb(250,122,122)" rx="2" ry="2" />
+<text text-anchor="" x="1083.33" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseChaitin::Simplify() (2 samples, 0.09%)</title><rect x="1151.3" y="517" width="1.1" height="15.0" fill="rgb(219,219,66)" rx="2" ry="2" />
+<text text-anchor="" x="1154.29" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.socket.nio.NioSocketChannel.doReadBytes (10 samples, 0.46%)</title><rect x="765.8" y="565" width="5.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="768.85" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseIdealLoop::is_dominator(Node*, Node*) (4 samples, 0.18%)</title><rect x="1162.6" y="469" width="2.1" height="15.0" fill="rgb(186,186,54)" rx="2" ry="2" />
+<text text-anchor="" x="1165.58" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SocketDispatcher.read (9 samples, 0.41%)</title><rect x="766.4" y="469" width="4.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="769.38" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/apply (7 samples, 0.32%)</title><rect x="10.0" y="645" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred.success (22 samples, 1.00%)</title><rect x="25.6" y="549" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="28.59" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::unpark() (7 samples, 0.32%)</title><rect x="21.3" y="421" width="3.8" height="15.0" fill="rgb(228,228,69)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (2 samples, 0.09%)</title><rect x="1174.4" y="533" width="1.1" height="15.0" fill="rgb(210,65,65)" rx="2" ry="2" />
+<text text-anchor="" x="1177.41" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.buffer.AbstractByteBufAllocator.toLeakAwareBuffer (3 samples, 0.14%)</title><rect x="978.7" y="421" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="981.73" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/with-bindings-STAR- (7 samples, 0.32%)</title><rect x="10.0" y="581" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.CombinedChannelDuplexHandler$DelegatingChannelHandlerContext.flush (59 samples, 2.69%)</title><rect x="980.9" y="389" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashSet.cons (2 samples, 0.09%)</title><rect x="755.6" y="69" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::sleep(Thread*, long, bool) (47 samples, 2.14%)</title><rect x="1120.1" y="613" width="25.3" height="15.0" fill="rgb(180,180,51)" rx="2" ry="2" />
+<text text-anchor="" x="1123.11" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >o..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>thread_start (79 samples, 3.60%)</title><rect x="1147.5" y="709" width="42.5" height="15.0" fill="rgb(226,87,87)" rx="2" ry="2" />
+<text text-anchor="" x="1150.53" y="719.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >thr..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take (28 samples, 1.28%)</title><rect x="1077.6" y="613" width="15.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1080.64" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred/success! (79 samples, 3.60%)</title><rect x="1035.2" y="517" width="42.4" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="1038.18" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >man..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Monitor::wait(bool, long, bool) (11 samples, 0.50%)</title><rect x="1183.5" y="613" width="6.0" height="15.0" fill="rgb(227,227,69)" rx="2" ry="2" />
+<text text-anchor="" x="1186.55" y="623.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Listener.onSuccess (11 samples, 0.50%)</title><rect x="31.5" y="517" width="5.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="34.50" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.util.Recycler$Stack.pop (2 samples, 0.09%)</title><rect x="1016.4" y="357" width="1.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1019.36" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/str/fn--5451 (2 samples, 0.09%)</title><rect x="18.6" y="565" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="21.60" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead (22 samples, 1.00%)</title><rect x="754.0" y="469" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.FileDispatcherImpl.writev0 (51 samples, 2.32%)</title><rect x="984.6" y="197" width="27.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="987.64" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >s..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SocketChannelImpl.read (10 samples, 0.46%)</title><rect x="765.8" y="517" width="5.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="768.85" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead (22 samples, 1.00%)</title><rect x="754.0" y="517" width="11.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="757.02" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.applyToHelper (3 samples, 0.14%)</title><rect x="1145.4" y="533" width="1.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1148.38" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Monitor::IWait(Thread*, long) (11 samples, 0.50%)</title><rect x="1183.5" y="597" width="6.0" height="15.0" fill="rgb(227,227,68)" rx="2" ry="2" />
+<text text-anchor="" x="1186.55" y="607.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.SynchronousQueue.offer (7 samples, 0.32%)</title><rect x="21.3" y="517" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Parker::unpark() (12 samples, 0.55%)</title><rect x="1021.2" y="405" width="6.4" height="15.0" fill="rgb(228,228,69)" rx="2" ry="2" />
+<text text-anchor="" x="1024.20" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.CombinedChannelDuplexHandler.flush (59 samples, 2.69%)</title><rect x="980.9" y="421" width="31.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="983.88" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >io..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead (19 samples, 0.87%)</title><rect x="755.6" y="421" width="10.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.KQueueSelectorImpl.doSelect (380 samples, 17.31%)</title><rect x="771.2" y="565" width="204.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="774.22" y="575.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sun.nio.ch.KQueueSelectorI..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/conj--5375 (2 samples, 0.09%)</title><rect x="755.6" y="101" width="1.1" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="758.63" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__gettimeofday (7 samples, 0.32%)</title><rect x="45.5" y="533" width="3.7" height="15.0" fill="rgb(234,99,99)" rx="2" ry="2" />
+<text text-anchor="" x="48.48" y="543.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.KQueueArrayWrapper.poll (376 samples, 17.13%)</title><rect x="771.2" y="549" width="202.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="774.22" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >sun.nio.ch.KQueueArrayWrap..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.Calendar.setTimeInMillis (2 samples, 0.09%)</title><rect x="1028.7" y="453" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1031.72" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.handler.codec.http.HttpObjectEncoder.encodeHeaders (2 samples, 0.09%)</title><rect x="1014.2" y="389" width="1.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1017.21" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.KQueueSelectorImpl.wakeup (5 samples, 0.23%)</title><rect x="33.7" y="309" width="2.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="36.65" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (43 samples, 1.96%)</title><rect x="1121.7" y="581" width="23.1" height="15.0" fill="rgb(247,118,118)" rx="2" ry="2" />
+<text text-anchor="" x="1124.73" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >_..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor.execute (12 samples, 0.55%)</title><rect x="757.2" y="181" width="6.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="760.24" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.netty.channel.AbstractChannelHandlerContext.invokeWrite (5 samples, 0.23%)</title><rect x="1013.1" y="469" width="2.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1016.13" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.concurrent.locks.LockSupport.unpark (7 samples, 0.32%)</title><rect x="21.3" y="469" width="3.8" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>aleph.http.server/handle-request/fn--8515/f--3264--auto----8516 (7 samples, 0.32%)</title><rect x="17.5" y="629" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="20.53" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>PhaseChaitin::Split(unsigned int, ResourceArea*) (2 samples, 0.09%)</title><rect x="1152.4" y="517" width="1.0" height="15.0" fill="rgb(200,200,59)" rx="2" ry="2" />
+<text text-anchor="" x="1155.37" y="527.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ParseGenerator::generate(JVMState*) (3 samples, 0.14%)</title><rect x="1167.4" y="549" width="1.6" height="15.0" fill="rgb(200,200,59)" rx="2" ry="2" />
+<text text-anchor="" x="1170.42" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Thread.sleep (37 samples, 1.69%)</title><rect x="1094.8" y="645" width="19.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1097.85" y="655.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>manifold.deferred.Deferred/fn--3771 (7 samples, 0.32%)</title><rect x="21.3" y="549" width="3.8" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="24.29" y="559.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>WatcherThread::sleep() const (11 samples, 0.50%)</title><rect x="1183.5" y="629" width="6.0" height="15.0" fill="rgb(187,187,54)" rx="2" ry="2" />
+<text text-anchor="" x="1186.55" y="639.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>Compiler::compile_method(ciEnv*, ciMethod*, int) (7 samples, 0.32%)</title><rect x="1169.6" y="581" width="3.7" height="15.0" fill="rgb(217,217,65)" rx="2" ry="2" />
+<text text-anchor="" x="1172.57" y="591.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>io.aleph.dirigiste.Executor$1.run (42 samples, 1.91%)</title><rect x="1092.7" y="693" width="22.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="1095.70" y="703.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >i..</text>
+</g>
+</svg>

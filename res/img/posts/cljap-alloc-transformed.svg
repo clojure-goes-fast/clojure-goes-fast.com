@@ -1,0 +1,718 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="406" onload="init(evt)" viewBox="0 0 1200 406" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="406.0" fill="url(#background)"  />
+<text text-anchor="middle" x="600.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Flame Graph</text>
+<text text-anchor="" x="10.00" y="389" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="1090.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="1090.00" y="389" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentArrayMap$TransientArrayMap.doPersistent (2 samples, 3.57%)</title><rect x="515.7" y="133" width="42.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="518.71" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/assoc! (24 samples, 42.86%)</title><rect x="10.0" y="181" width="505.7" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.core/assoc!</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.&lt;init&gt; (1 samples, 1.79%)</title><rect x="94.3" y="69" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="97.29" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode (1 samples, 1.79%)</title><rect x="31.1" y="53" width="21.0" height="15.0" fill="rgb(103,213,213)" rx="2" ry="2" />
+<text text-anchor="" x="34.07" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable (2 samples, 3.57%)</title><rect x="410.4" y="53" width="42.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="413.36" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (2 samples, 3.57%)</title><rect x="578.9" y="117" width="42.2" height="15.0" fill="rgb(109,219,219)" rx="2" ry="2" />
+<text text-anchor="" x="581.93" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentVector$TransientVector.editableRoot (1 samples, 1.79%)</title><rect x="621.1" y="117" width="21.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="624.07" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>com.fasterxml.jackson.core.util.TextBuffer.contentsAsString (9 samples, 16.07%)</title><rect x="747.5" y="165" width="189.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="750.50" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >com.fasterxml.jackson.co..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.Arrays.copyOfRange (7 samples, 12.50%)</title><rect x="937.1" y="117" width="147.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="940.14" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.util.Arrays.c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$ArrayNode.assoc (2 samples, 3.57%)</title><rect x="136.4" y="117" width="42.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="139.43" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.ATransientMap.assoc (24 samples, 42.86%)</title><rect x="10.0" y="165" width="505.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.ATransientMap.assoc</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.doAssoc (2 samples, 3.57%)</title><rect x="10.0" y="101" width="42.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap.create (3 samples, 5.36%)</title><rect x="73.2" y="117" width="63.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="76.21" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="621.1" y="101" width="21.0" height="15.0" fill="rgb(99,210,210)" rx="2" ry="2" />
+<text text-anchor="" x="624.07" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.String.&lt;init&gt; (7 samples, 12.50%)</title><rect x="937.1" y="133" width="147.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="940.14" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.lang.String.&lt;..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.String (2 samples, 3.57%)</title><rect x="895.0" y="149" width="42.1" height="15.0" fill="rgb(105,215,215)" rx="2" ry="2" />
+<text text-anchor="" x="898.00" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc (16 samples, 28.57%)</title><rect x="178.6" y="117" width="337.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="181.57" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.PersistentHashMap$BitmapIndexedN..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="536.8" y="117" width="21.1" height="15.0" fill="rgb(53,168,168)" rx="2" ry="2" />
+<text text-anchor="" x="539.79" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>com.fasterxml.jackson.core.sym.CharsToNameCanonicalizer.findSymbol (12 samples, 21.43%)</title><rect x="937.1" y="149" width="252.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="940.14" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >com.fasterxml.jackson.core.sym.Ch..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cheshire.core/parse*... (56 samples, 100.00%)</title><rect x="10.0" y="197" width="1180.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cheshire.core/parse*...</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.valueOf (1 samples, 1.79%)</title><rect x="726.4" y="165" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="729.43" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable (1 samples, 1.79%)</title><rect x="31.1" y="69" width="21.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="34.07" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="452.5" y="53" width="21.1" height="15.0" fill="rgb(65,179,179)" rx="2" ry="2" />
+<text text-anchor="" x="455.50" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap (1 samples, 1.79%)</title><rect x="557.9" y="117" width="21.0" height="15.0" fill="rgb(88,200,200)" rx="2" ry="2" />
+<text text-anchor="" x="560.86" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long (1 samples, 1.79%)</title><rect x="726.4" y="149" width="21.1" height="15.0" fill="rgb(59,174,174)" rx="2" ry="2" />
+<text text-anchor="" x="729.43" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc (3 samples, 5.36%)</title><rect x="410.4" y="69" width="63.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="413.36" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$INode[] (2 samples, 3.57%)</title><rect x="368.2" y="101" width="42.2" height="15.0" fill="rgb(51,166,166)" rx="2" ry="2" />
+<text text-anchor="" x="371.21" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentArrayMap.asTransient (2 samples, 3.57%)</title><rect x="578.9" y="165" width="42.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="581.93" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.&lt;init&gt; (1 samples, 1.79%)</title><rect x="52.1" y="85" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="55.14" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Box (1 samples, 1.79%)</title><rect x="94.3" y="53" width="21.1" height="15.0" fill="rgb(82,194,194)" rx="2" ry="2" />
+<text text-anchor="" x="97.29" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.ATransientMap.persistent (3 samples, 5.36%)</title><rect x="515.7" y="165" width="63.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="518.71" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap.access$700 (3 samples, 5.36%)</title><rect x="410.4" y="101" width="63.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="413.36" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc (2 samples, 3.57%)</title><rect x="136.4" y="101" width="42.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="139.43" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentVector.asTransient (5 samples, 8.93%)</title><rect x="621.1" y="149" width="105.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="624.07" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/transient (7 samples, 12.50%)</title><rect x="578.9" y="181" width="147.5" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="581.93" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.core/trans..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>START (56 samples, 100.00%)</title><rect x="10.0" y="341" width="1180.0" height="15.0" fill="rgb(201,52,52)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >START</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>com.fasterxml.jackson.core.json.ReaderBasedJsonParser.nextToken (12 samples, 21.43%)</title><rect x="937.1" y="181" width="252.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="940.14" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >com.fasterxml.jackson.core.json.R..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap (1 samples, 1.79%)</title><rect x="115.4" y="85" width="21.0" height="15.0" fill="rgb(95,206,206)" rx="2" ry="2" />
+<text text-anchor="" x="118.36" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/eval15404/fn--15407/fn--15408 (56 samples, 100.00%)</title><rect x="10.0" y="261" width="1180.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clj-async-profiler.core/eval15404/fn--15407/fn--15408</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.ATransientMap.persistent (3 samples, 5.36%)</title><rect x="515.7" y="149" width="63.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="518.71" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$ArrayNode (1 samples, 1.79%)</title><rect x="178.6" y="101" width="21.0" height="15.0" fill="rgb(56,170,170)" rx="2" ry="2" />
+<text text-anchor="" x="181.57" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (3 samples, 5.36%)</title><rect x="642.1" y="101" width="63.3" height="15.0" fill="rgb(55,170,170)" rx="2" ry="2" />
+<text text-anchor="" x="645.14" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.l..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable (3 samples, 5.36%)</title><rect x="199.6" y="85" width="63.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="202.64" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode (2 samples, 3.57%)</title><rect x="199.6" y="69" width="42.2" height="15.0" fill="rgb(63,176,176)" rx="2" ry="2" />
+<text text-anchor="" x="202.64" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentArrayMap$TransientArrayMap.doAssoc (6 samples, 10.71%)</title><rect x="10.0" y="133" width="126.4" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Pe..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.doPersistent (1 samples, 1.79%)</title><rect x="557.9" y="133" width="21.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="560.86" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc (2 samples, 3.57%)</title><rect x="10.0" y="85" width="42.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (56 samples, 100%)</title><rect x="10.0" y="357" width="1180.0" height="15.0" fill="rgb(228,91,91)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentVector$TransientVector (1 samples, 1.79%)</title><rect x="705.4" y="133" width="21.0" height="15.0" fill="rgb(94,205,205)" rx="2" ry="2" />
+<text text-anchor="" x="708.36" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc (1 samples, 1.79%)</title><rect x="73.2" y="69" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="76.21" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cheshire.core/parse-string (56 samples, 100.00%)</title><rect x="10.0" y="229" width="1180.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cheshire.core/parse-string</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.Arrays.copyOfRange (7 samples, 12.50%)</title><rect x="747.5" y="133" width="147.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="750.50" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.util.Arrays.c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable (1 samples, 1.79%)</title><rect x="10.0" y="53" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentVector.asTransient (5 samples, 8.93%)</title><rect x="621.1" y="165" width="105.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="624.07" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.doAssoc (18 samples, 32.14%)</title><rect x="136.4" y="133" width="379.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="139.43" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.PersistentHashMap$TransientHashMap.doA..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.ATransientMap.assoc (24 samples, 42.86%)</title><rect x="10.0" y="149" width="505.7" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.ATransientMap.assoc</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="157.5" y="85" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="160.50" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.editAndSet (1 samples, 1.79%)</title><rect x="10.0" y="69" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentVector$TransientVector.editableTail (3 samples, 5.36%)</title><rect x="642.1" y="117" width="63.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="645.14" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (5 samples, 8.93%)</title><rect x="262.9" y="85" width="105.3" height="15.0" fill="rgb(80,193,193)" rx="2" ry="2" />
+<text text-anchor="" x="265.86" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.lang.Ob..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (2 samples, 3.57%)</title><rect x="473.6" y="101" width="42.1" height="15.0" fill="rgb(67,181,181)" rx="2" ry="2" />
+<text text-anchor="" x="476.57" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>com.fasterxml.jackson.core.json.ReaderBasedJsonParser._parseName (12 samples, 21.43%)</title><rect x="937.1" y="165" width="252.9" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="940.14" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >com.fasterxml.jackson.core.json.R..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.ATransientMap.assoc (2 samples, 3.57%)</title><rect x="10.0" y="117" width="42.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap.asTransient (1 samples, 1.79%)</title><rect x="52.1" y="117" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="55.14" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.&lt;init&gt; (1 samples, 1.79%)</title><rect x="94.3" y="85" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="97.29" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc (8 samples, 14.29%)</title><rect x="199.6" y="101" width="168.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="202.64" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Persiste..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>char[] (7 samples, 12.50%)</title><rect x="747.5" y="117" width="147.5" height="15.0" fill="rgb(94,205,205)" rx="2" ry="2" />
+<text text-anchor="" x="750.50" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >char[]</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap.createNode (3 samples, 5.36%)</title><rect x="410.4" y="85" width="63.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="413.36" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable (1 samples, 1.79%)</title><rect x="136.4" y="85" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="139.43" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Compiler.eval (56 samples, 100.00%)</title><rect x="10.0" y="309" width="1180.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Compiler.eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Box (1 samples, 1.79%)</title><rect x="52.1" y="69" width="21.1" height="15.0" fill="rgb(93,204,204)" rx="2" ry="2" />
+<text text-anchor="" x="55.14" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/persistent! (3 samples, 5.36%)</title><rect x="515.7" y="181" width="63.2" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="518.71" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>com.fasterxml.jackson.core.base.ParserBase.getNumberValue (1 samples, 1.79%)</title><rect x="726.4" y="181" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="729.43" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Compiler.eval (56 samples, 100.00%)</title><rect x="10.0" y="325" width="1180.0" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Compiler.eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>com.fasterxml.jackson.core.json.ReaderBasedJsonParser.getText (9 samples, 16.07%)</title><rect x="747.5" y="181" width="189.6" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="750.50" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >com.fasterxml.jackson.co..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentArrayMap$TransientArrayMap.&lt;init&gt; (2 samples, 3.57%)</title><rect x="578.9" y="133" width="42.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="581.93" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.String.&lt;init&gt; (7 samples, 12.50%)</title><rect x="747.5" y="149" width="147.5" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="750.50" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.lang.String.&lt;..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cheshire.parse/parse (56 samples, 100.00%)</title><rect x="10.0" y="213" width="1180.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cheshire.parse/parse</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.&lt;init&gt; (1 samples, 1.79%)</title><rect x="52.1" y="101" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="55.14" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="241.8" y="69" width="21.1" height="15.0" fill="rgb(98,209,209)" rx="2" ry="2" />
+<text text-anchor="" x="244.79" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (2 samples, 3.57%)</title><rect x="410.4" y="37" width="42.1" height="15.0" fill="rgb(60,174,174)" rx="2" ry="2" />
+<text text-anchor="" x="413.36" y="47.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >jav..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.ATransientMap.assoc (1 samples, 1.79%)</title><rect x="73.2" y="101" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="76.21" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentVector$TransientVector.&lt;init&gt; (4 samples, 7.14%)</title><rect x="621.1" y="133" width="84.3" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="624.07" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.l..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>char[] (7 samples, 12.50%)</title><rect x="937.1" y="101" width="147.5" height="15.0" fill="rgb(66,180,180)" rx="2" ry="2" />
+<text text-anchor="" x="940.14" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >char[]</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap.asTransient (2 samples, 3.57%)</title><rect x="94.3" y="101" width="42.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="97.29" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentHashMap$TransientHashMap.doAssoc (1 samples, 1.79%)</title><rect x="73.2" y="85" width="21.1" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="76.21" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="136.4" y="69" width="21.1" height="15.0" fill="rgb(91,203,203)" rx="2" ry="2" />
+<text text-anchor="" x="139.43" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/eval15404 (56 samples, 100.00%)</title><rect x="10.0" y="293" width="1180.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clj-async-profiler.core/eval15404</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.String (5 samples, 8.93%)</title><rect x="1084.6" y="133" width="105.4" height="15.0" fill="rgb(63,177,177)" rx="2" ry="2" />
+<text text-anchor="" x="1087.64" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.lang.St..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentArrayMap.asTransient (2 samples, 3.57%)</title><rect x="578.9" y="149" width="42.2" height="15.0" fill="rgb(145,220,81)" rx="2" ry="2" />
+<text text-anchor="" x="581.93" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/eval15404/fn--15407 (56 samples, 100.00%)</title><rect x="10.0" y="277" width="1180.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clj-async-profiler.core/eval15404/fn--15407</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="10.0" y="37" width="21.1" height="15.0" fill="rgb(92,203,203)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="47.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.PersistentArrayMap (1 samples, 1.79%)</title><rect x="515.7" y="117" width="21.1" height="15.0" fill="rgb(106,216,216)" rx="2" ry="2" />
+<text text-anchor="" x="518.71" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cheshire.core/parse-string (56 samples, 100.00%)</title><rect x="10.0" y="245" width="1180.0" height="15.0" fill="rgb(143,181,254)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cheshire.core/parse-string</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object[] (1 samples, 1.79%)</title><rect x="73.2" y="53" width="21.1" height="15.0" fill="rgb(96,208,208)" rx="2" ry="2" />
+<text text-anchor="" x="76.21" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+</svg>
