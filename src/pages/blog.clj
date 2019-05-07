@@ -12,9 +12,10 @@
              :data-isso "//clojure-goes-fast.com/comments/"}]
    [:section#isso-thread]])
 
-(defn blog-post [{:keys [entry]}]
+(defn blog-post [{:keys [entry meta]}]
   (wrap
    (str (:name entry) " - Clojure Goes Fast")
+   (assoc meta :twitter-desc (:content entry))
    (navbar)
    [:div.container
     [:div.content.blog-post
@@ -35,9 +36,10 @@
      [:div.divider]
      (comments-thread)]]))
 
-(defn blog-index [{:keys [meta entries]}]
+(defn blog-index [{:keys [entries meta]}]
   (wrap
    "Blog - Clojure Goes Fast"
+   meta
    (navbar)
    [:div.container.flex-container
     [:div.blog

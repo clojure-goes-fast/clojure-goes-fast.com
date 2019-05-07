@@ -13,10 +13,22 @@ ga('create', 'UA-106863357-1', 'auto');
 ga('send', 'pageview');
 "])
 
-(defn head [title]
+(defn ellipsize [s n]
+  (if (<= (count s) n)
+    s
+    (str (subs s 0 (- n 3)) "...")))
+
+(defn head [title meta]
   [:head
    [:meta {:name "viewport" :content "width=device-width"}]
-   [:meta {:http-equiv "Content-Type" :content "text/html; charset=UTF-8"} ]
+   [:meta {:http-equiv "Content-Type" :content "text/html; charset=UTF-8"}]
+
+   ;; Twitter
+   [:meta {:name "twitter:card" :content "summary"}]
+   [:meta {:name "twitter:title" :content title}]
+   [:meta {:name "twitter:image" :content (str (:base-url meta) "/img/logo.png")}]
+   [:meta {:name "twitter:description" :content (ellipsize (or (:twitter-desc meta) title) 200)}]
+
    [:link {:rel "icon" :type "image/png" :href "/img/favicon.png"}]
    [:link {:rel "stylesheet" :href "https://cdnjs.cloudflare.com/ajax/libs/spectre.css/0.4.2/spectre.min.css"}]
    [:link {:rel "stylesheet" :href "https://cdnjs.cloudflare.com/ajax/libs/spectre.css/0.4.2/spectre-exp.min.css"}]
@@ -52,9 +64,9 @@ ga('send', 'pageview');
      ", copyright by Rich Hickey. "]
     [:span "Icons from " [:a {:href "https://iconmonstr.com/"} "Iconmonstr"] "."]]])
 
-(defn wrap [title & content]
+(defn wrap [title meta & content]
   (hp/html5
-   (head title)
+   (head title meta)
    (conj (into [:body] content) (footer))))
 
 ;; [:section.navbar-section

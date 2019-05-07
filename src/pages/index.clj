@@ -15,9 +15,10 @@
            [:span.card-title title])]
     [:div.card-body body]]])
 
-(defn index [_]
+(defn index [{:keys [meta]}]
   (wrap
    "Clojure Goes Fast"
+   meta
    [:div.section.section-hero
     [:div.container.grid-hero.grid-lg.text-center
      [:img.big-logo {:src "/img/logo.png"}]

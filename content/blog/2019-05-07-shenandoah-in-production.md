@@ -6,7 +6,7 @@ reddit-link: https://www.reddit.com/r/Clojure/comments/blotpm/shenandoah_gc_with
 hn-link: https://news.ycombinator.com/item?id=19849743
 ---
 
-_Update: I've made several edits to the post since Aleksey Shipilev was kind
+_Update: I've made several edits to the post since Aleksey Shipilëv was kind
 enough to suggest many corrections and improvements._
 
 If you closely follow JVM development scene, you've probably noticed that the
@@ -71,8 +71,8 @@ GCs if you don't feel like diving into more informative sources right now:
   that are expected to be more efficient for that particular generation.
 - Shenandoah GC also produces STW pauses, but it keeps them very short because
   it performs the bulk of the GC work concurrently while the application is
-  running. The length of those STW pauses also doesn't increase much with the
-  size of the heap.
+  running. The length of those STW pauses doesn't increase much with the size of
+  the heap.
 - Shenandoah GC is also **not** generational. This means that is has to mark
   most live objects every GC cycle (something that generational GCs can avoid).
   In return, Shenandoah is not penalized in workloads that do not benefit from
@@ -104,11 +104,11 @@ picking a throughput-focused stop-the-world GC like ParallelGC is a valid thing
 to do. A good example of such workload is a batch processing task — you don't
 care about hiccups along the way as long as the final result arrives on time.
 
-However, if you are writing any kind of a real-time application (be it an API or
-a website), GC pauses become much more impactful. A GC pause stalls your program
-completely, so to the outer world, it appears frozen. The obvious effect is that
-the requests caught in the pause will receive responses later. Depending on the
-duration of the pause (which, remember, can be up to tens of seconds with
+However, if you are writing any kind of an interactive application (be it an API
+or a website), GC pauses become much more impactful. A GC pause stalls your
+program completely, so to the outer world, it appears frozen. The obvious effect
+is that the requests caught in the pause will receive responses later. Depending
+on the duration of the pause (which, remember, can be up to tens of seconds with
 conventional GCs), the client might give up on the request and time out. Or it
 may decide to retry, so you now have even more pending requests that will demand
 attention once the pause is over. Circuit breakers might open both in the
@@ -124,8 +124,8 @@ overflow, TimeoutExceptions fly through monitoring tools causing pagers to beep
 woefully. Of course, you should make your system robust to these and other sorts
 of failures. In reality, though, for a system to accommodate hiccups, it must
 have a sufficient buffer in terms of CPU time, queue length, acceptable response
-time, etc. And like the boy who cried wolf, those predictable micro-outages make
-you tolerant to alerts and complacent when real troubles happen.
+time, etc. And like the boy who cried wolf, those expected micro-outages make
+you tolerant to alerts and complacent when the real trouble happens.
 
 Which brings us to another surprising point. Even though Shenandoah takes a cut
 of your application's throughput, it may be cheaper to run Shenandoah rather
@@ -133,9 +133,9 @@ than a conventional GC. Throughput reduction is predictable, and it's easy to
 plan for that — if your program runs 10% slower, bring up ~10% more servers;
 that's about it. But long GC pauses are rapid and volatile; you can't
 "autoscale" out of them, so in order to not fall over, you must allot extra
-resources to handle them. These resources that would be idle most of the time,
-and will eat money. The longer are the potential pauses, the bigger leeway you
-need. Either that or accept your system being occasionally erratic.
+resources to handle them. These resources will be idle most of the time and will
+eat money. The longer are the potential pauses, the bigger leeway you need.
+Either that or accept your system being occasionally erratic.
 
 But enough of me rambling. Let's hear some of that advertised experience of
 running Shenandoah in a real project.
@@ -199,12 +199,12 @@ percentiles over a longer timespan.
 
 ## Living on with Shenandoah
 
-Our honeymoon with a new garbage collector has lasted for a while. Just swapping
-a GC has indeed improved enough aspects of the application runtime to call it a
-victory. However, if you care about the stability and performance of your
-service, at some point you have to invest a bit more effort than just changing
-one parameter. In this section, I will tell you about the tools, tips, and
-knowledge necessary to run Shenandoah efficiently.
+Our honeymoon with the new garbage collector has lasted for a while. Just
+swapping a GC has indeed improved enough aspects of the application runtime to
+call it a victory. However, if you care about the stability and performance of
+your service, at some point you have to invest a bit more effort than just
+changing one parameter. In this section, I will tell you about the tools, tips,
+and knowledge necessary to run Shenandoah efficiently.
 
 #### jvm-hiccup-meter
 
@@ -230,8 +230,8 @@ garbage without much trouble. However, a concurrent GC must collect the garbage
 faster than the application produces it; thus, tracking the rate at which your
 program allocates objects is still a good idea.
 
-Surprisingly enough, JVM doesn't expose the allocation rate by default. You can
-get such information from GC logs, but it's not convenient for real-time
+Surprisingly enough, JVM doesn't expose the allocation rate in a convenient way.
+You can get such information from GC logs, but it's not practical for real-time
 monitoring. Instead, you can use another micro-library,
 [jvm-alloc-rate-meter](https://github.com/clojure-goes-fast/jvm-alloc-rate-meter),
 to measure the allocation rate at any given point of time and forward the data
@@ -240,7 +240,7 @@ intuition as to whether your program allocates too much and helps you detect
 allocation spikes that may cause longer-than-usual GC pauses.
 
 Like with the previous library, this one fits into one class file and can be
-trivially included in the project as-is.
+trivially included into the project as-is.
 
 #### Allocation profiler
 
@@ -265,16 +265,16 @@ With all its power and innovative design, Shenandoah is not magic — it's a pie
 of software that runs in a real unforgiving world. Naturally, under certain
 conditions, it can't deliver its paper-thin pauses. Because a concurrent GC runs
 simultaneously with the rest of the program, it means the program can continue
-to allocate objects while the GC is running. But if it creates the garbage
-quicker than the GC can collect it, we are in trouble. Shenandoah developers are
-very upfront about the failure modes that their GC has, and they describe them
+to allocate objects while the GC is running. But if it creates garbage quicker
+than the GC can collect it, we are in trouble. Shenandoah developers are very
+upfront about the failure modes that their GC has, and they describe them
 thoroughly in the documentation.
 
 The first thing Shenandoah tries to do when it can't keep up with allocations is
 called _pacing_. Shenandoah will inject small pauses into the _mutator threads_
 (threads that allocate objects) to reduce the rate of garbage creation. This is
-similar to an STW pause but not quite — it only impacts individual threads but
-not the entire application. Monitoring pacing is a bit tricky since it is not
+similar to an STW pause but not quite — it only impacts individual threads, not
+the entire application. Monitoring pacing is a bit tricky since it is not
 reported as a GC pause (formally, it isn't one). You'll have to resort to
 reading GC logs to find out that pacing happened.
 
@@ -296,23 +296,22 @@ Fortunately, we haven't yet experienced FullGC in our workloads.
 
 #### Shenandoah tuning
 
-Shenandoah runs incredibly well on default options, so chances are you'll never
-have to change them. The most significant parameter you need to touch is `-Xmx`
-— just give Shenandoah enough heap, and it will work perfectly. But as you get
-more understanding of how it works, a few tunables can help you fit the GC to
-your specific workload.
+Shenandoah runs incredibly well with default options, so chances are you'll
+never have to change them. The most significant parameter you need to touch is
+`-Xmx` — just give Shenandoah enough heap, and it will work perfectly. But as
+you get more understanding of how it works, a few tunables can help you fit the
+GC to your specific workload.
 
 Shenandoah's main tuning knob is the type of _heuristic_ it uses to decide when
 to trigger the GC. The default value for it is **adaptive**, under which the GC
 infers the thresholds from the allocation rates it sees in the first few minutes
 of the program launch. You can also change it to **static** and manually set the
 amount of free memory left at which point the GC should trigger. If you value
-the latency more than the throughput, you can even set the heuristic to
-**compact** — this will make the GC run almost
-back-to-back[<sup>2</sup>](#fn2)<a name="bfn2"></a> so that there is almost no
-chance of pacing/degraded mode happenning. We eventually settled with the
-compact heuristic for this project, and the CPU usage hasn't increased that
-much.
+latency more than throughput, you can even set the heuristic to **compact** —
+this will make the GC run almost back-to-back[<sup>2</sup>](#fn2)<a
+name="bfn2"></a> so that there is almost no chance of pacing/degraded mode
+happenning. We eventually settled with the compact heuristic for this project,
+and the CPU usage hasn't increased that much.
 
 Another nice feature is that unlike with generational GCs, it is much harder to
 render Shenandoah unstable by changing the tunables. You might hamper the
@@ -407,16 +406,16 @@ Clojure that are worth mentioning:
 
 ## Conclusion
 
-This post has already grown too big, so I'll keep the conclusions short.
-Shenandoah is such an impressively designed garbage collector that just
-switching to it can immediately bring value for your application. Despite being
-fresh and somewhat experimental, it is ready to be used in production, and its
-stellar observability and documentation will smooth any transition pains should
-there be any. After you reap the initial benefits, it will encourage you to
-explore and learn this domain further, improving your programs even more.
+This post has already grown too big, so I'll keep the summary short. Shenandoah
+is such an impressively designed garbage collector that just switching to it can
+immediately bring value for your application. Despite being fresh and somewhat
+experimental, it is ready to be used in production, and its stellar
+observability and documentation will smooth any transition pains should there be
+any. After you reap the initial benefits, it will encourage you to explore and
+learn this domain further, improving your programs even more.
 
 I hope that what you've read here inspired you to check out Shenandoah and see
-if it fits for what you do. And if it does, share your experiences and spread
+if it fits your problem space. And if it does, share your experiences and spread
 the word, so that more people get to know about new garbage collectors and what
 they can do. Until next time!
 
