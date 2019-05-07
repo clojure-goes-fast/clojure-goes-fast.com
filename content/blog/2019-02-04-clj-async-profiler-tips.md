@@ -2,6 +2,7 @@
 name: "clj-async-profiler: tips, tricks, new features"
 author: Alexander Yakushev
 date-published: 2019-02-04 12:00:00
+reddit-link: https://www.reddit.com/r/Clojure/comments/an08sm/cljasyncprofiler_030_tips_tricks_new_features/
 ---
 
 Today I released [clj-async-profiler

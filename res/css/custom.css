@@ -123,6 +123,7 @@ div.content.blog-post {
     padding: 0 4rem;
     margin: 40px auto;
     width: calc(100vw - 12rem);
+    color: #222C41;
 }
 
 @media (max-width: 880px) {
