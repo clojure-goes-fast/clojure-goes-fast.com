@@ -3,7 +3,7 @@ name: "Shenandoah GC in production: experience report"
 author: Alexander Yakushev
 date-published: 2019-05-07 13:00:00
 reddit-link: https://www.reddit.com/r/Clojure/comments/blotpm/shenandoah_gc_with_clojure_in_production/
-hn-link: https://news.ycombinator.com/item?id=19849743
+hn-link: https://news.ycombinator.com/item?id=19885863
 ---
 
 _Update: I've made several edits to the post since Aleksey Shipilëv was kind
@@ -39,11 +39,12 @@ If you are ready, hop aboard for a wild GC ride!
 mostly concurrent garbage collector for the JVM platform. It is developed by a
 team at Red Hat, with the most notable participants being [Roman
 Kennke](https://twitter.com/rkennke), [Aleksey
-Shipilëv](https://twitter.com/shipilev), and Christine Flood. Being concurrent
-means that the GC tries to perform most work in parallel with the rest of the
-application. This achieves Shenandoah's goal of minimizing the pauses that the
-GC inflicts on the user code. Another Shenandoah's design goal is to work
-efficiently with both small and large heaps.
+Shipilëv](https://twitter.com/shipilev), and [Christine
+Flood](https://twitter.com/chf_the_grouch). Being concurrent means that the GC
+tries to perform most work in parallel with the rest of the application. This
+achieves Shenandoah's goal of minimizing the pauses that the GC inflicts on the
+user code. Another Shenandoah's design goal is to work efficiently with both
+small and large heaps.
 
 It frankly doesn't make much sense to repeat all of the rich information
 available on Shenandoah GC. If you are new to this topic, be welcome to read
@@ -146,7 +147,7 @@ Let me start with a few words about the application I tried Shenandoah on to
 give broader context. It is nothing more than a simplistic reverse proxy with
 one-to-many fan-out and some pre-/post-processing. The request goes in, gets
 slightly modified, then is sent to multiple upstreams, and once all responses
-are collected, the modified responses go back to the client. This seemingly
+are collected, the combined response goes back to the client. This seemingly
 trivial project is complicated by the fact that the requests and responses carry
 quite large JSON payloads, and we want to handle them at a rate of **~10k
 req/s**, in/out network bandwidth reaching **350 MB/s**. The heap size is set to
