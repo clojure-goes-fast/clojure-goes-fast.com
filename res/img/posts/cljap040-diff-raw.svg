@@ -1,0 +1,642 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="534" onload="init(evt)" viewBox="0 0 1200 534" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs >
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	.func_g:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	var details, searchbtn, matchedtxt, svg;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+	}
+
+	// mouse-over for info
+	function s(node) {		// show
+		info = g_to_text(node);
+		details.nodeValue = "Function: " + info;
+	}
+	function c() {			// clear
+		details.nodeValue = ' ';
+	}
+
+	// ctrl-F for search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+	})
+
+	// functions
+	function find_child(parent, name, attr) {
+		var children = parent.childNodes;
+		for (var i=0; i<children.length;i++) {
+			if (children[i].tagName == name)
+				return (attr != undefined) ? children[i].attributes[attr].value : children[i];
+		}
+		return;
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_"+attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_"+attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_"+attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes["width"].value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes["x"].value = parseFloat(r.attributes["x"].value) +3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2*12*0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x=txt.length-2; x>0; x--) {
+			if (t.getSubStringLength(0, x+2) <= w) {
+				t.textContent = txt.substring(0,x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = (parseFloat(e.attributes["x"].value) - x - 10) * ratio + 10;
+				if(e.tagName == "text") e.attributes["x"].value = find_child(e.parentNode, "rect", "x") + 3;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseFloat(e.attributes["width"].value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_child(c[i], x-10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes["x"] != undefined) {
+				orig_save(e, "x");
+				e.attributes["x"].value = 10;
+			}
+			if (e.attributes["width"] != undefined) {
+				orig_save(e, "width");
+				e.attributes["width"].value = parseInt(svg.width.baseVal.value) - (10*2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for(var i=0, c=e.childNodes; i<c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr["width"].value);
+		var xmin = parseFloat(attr["x"].value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr["y"].value);
+		var ratio = (svg.width.baseVal.value - 2*10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "1.0";
+
+		var el = document.getElementsByTagName("g");
+		for(var i=0;i<el.length;i++){
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a["x"].value);
+			var ew = parseFloat(a["width"].value);
+			// Is it an ancestor
+			if (0 == 0) {
+				var upstack = parseFloat(a["y"].value) > ymin;
+			} else {
+				var upstack = parseFloat(a["y"].value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.style["opacity"] = "0.5";
+					zoom_parent(e);
+					e.onclick = function(e){unzoom(); zoom(this);};
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.style["display"] = "none";
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.style["display"] = "none";
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					e.onclick = function(e){zoom(this);};
+					update_text(e);
+				}
+			}
+		}
+	}
+	function unzoom() {
+		var unzoombtn = document.getElementById("unzoom");
+		unzoombtn.style["opacity"] = "0.0";
+
+		var el = document.getElementsByTagName("g");
+		for(i=0;i<el.length;i++) {
+			el[i].style["display"] = "block";
+			el[i].style["opacity"] = "1";
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+	}
+
+	// search
+	function reset_search() {
+		var el = document.getElementsByTagName("rect");
+		for (var i=0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)", "");
+			if (term != null) {
+				search(term)
+			}
+		} else {
+			reset_search();
+			searching = 0;
+			searchbtn.style["opacity"] = "0.1";
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.style["opacity"] = "0.0";
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		var re = new RegExp(term);
+		var el = document.getElementsByTagName("g");
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			if (e.attributes["class"].value != "func_g")
+				continue;
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (rect == null) {
+				// the rect might be wrapped in an anchor
+				// if nameattr href is being used
+				if (rect = find_child(e, "a")) {
+				    rect = find_child(r, "rect");
+				}
+			}
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes["width"].value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes["x"].value);
+				orig_save(rect, "fill");
+				rect.attributes["fill"].value =
+				    "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+
+		searchbtn.style["opacity"] = "1.0";
+		searchbtn.firstChild.nodeValue = "Reset Search"
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.style["opacity"] = "1.0";
+		pct = 100 * count / maxwidth;
+		if (pct == 100)
+			pct = "100"
+		else
+			pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+	function searchover(e) {
+		searchbtn.style["opacity"] = "1.0";
+	}
+	function searchout(e) {
+		if (searching) {
+			searchbtn.style["opacity"] = "1.0";
+		} else {
+			searchbtn.style["opacity"] = "0.1";
+		}
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="534.0" fill="url(#background)"  />
+<text text-anchor="middle" x="600.00" y="24" font-size="17" font-family="Verdana" fill="rgb(0,0,0)"  >Flame Graph</text>
+<text text-anchor="" x="10.00" y="517" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="details" > </text>
+<text text-anchor="" x="10.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="unzoom" onclick="unzoom()" style="opacity:0.0;cursor:pointer" >Reset Zoom</text>
+<text text-anchor="" x="1090.00" y="24" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="search" onmouseover="searchover()" onmouseout="searchout()" onclick="search_prompt()" style="opacity:0.1;cursor:pointer" >Search</text>
+<text text-anchor="" x="1090.00" y="517" font-size="12" font-family="Verdana" fill="rgb(0,0,0)" id="matched" > </text>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cider.nrepl.middleware.out/print-stream/fn-- (-2 samples, -66.67% self, -0.03% total)</title><rect x="1178.1" y="421" width="1.6" height="15.0" fill="rgb(70,70,255)" rx="2" ry="2" />
+<text text-anchor="" x="1181.12" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.invoke (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="357" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.RestFn.invoke</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.valueOf (-81 samples, -28.32% self, -1.39% total)</title><rect x="1143.6" y="117" width="31.1" height="15.0" fill="rgb(150,150,255)" rx="2" ry="2" />
+<text text-anchor="" x="1146.64" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ja..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/eval (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="181" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="191.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clj-async-profiler.core/eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.divide (-1150 samples, -48.77% self, -19.79% total)</title><rect x="546.0" y="101" width="440.6" height="15.0" fill="rgb(107,107,255)" rx="2" ry="2" />
+<text text-anchor="" x="548.98" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Numbers.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cider.nrepl.middleware.out.proxy$java.io.Writer$ff19274a.flush (-2 samples, -66.67% self, -0.03% total)</title><rect x="1178.1" y="389" width="1.6" height="15.0" fill="rgb(70,70,255)" rx="2" ry="2" />
+<text text-anchor="" x="1181.12" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.session/session-exec/main-loop-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="437" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >nrepl.middleware.session/session-exec/main-loop--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SelectorImpl.lockAndDoSelect (-1 samples, -50.00% self, -0.02% total)</title><rect x="1175.8" y="421" width="1.2" height="15.0" fill="rgb(105,105,255)" rx="2" ry="2" />
+<text text-anchor="" x="1178.82" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.add (+118 samples, +58.42% self, +2.03% total)</title><rect x="468.2" y="85" width="45.2" height="15.0" fill="rgb(255,87,87)" rx="2" ry="2" />
+<text text-anchor="" x="471.21" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cloj..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.multiply (-56 samples, -100.00% self, -0.96% total)</title><rect x="392.0" y="37" width="21.4" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="394.97" y="47.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.TimerThread.run (-25 samples, -62.50% self, -0.43% total)</title><rect x="1177.7" y="469" width="11.9" height="15.0" fill="rgb(78,78,255)" rx="2" ry="2" />
+<text text-anchor="" x="1180.74" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.opsWith (-13 samples, -65.00% self, -0.22% total)</title><rect x="552.5" y="69" width="5.0" height="15.0" fill="rgb(73,73,255)" rx="2" ry="2" />
+<text text-anchor="" x="555.49" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="405" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.AFn.run</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.net.httpserver.ServerImpl$Dispatcher.run (-3 samples, -75.00% self, -0.05% total)</title><rect x="1175.4" y="453" width="2.0" height="15.0" fill="rgb(52,52,255)" rx="2" ry="2" />
+<text text-anchor="" x="1178.44" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>JVM_MonitorWait (-22 samples, -62.86% self, -0.38% total)</title><rect x="1180.0" y="421" width="9.2" height="15.0" fill="rgb(78,78,255)" rx="2" ry="2" />
+<text text-anchor="" x="1183.04" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl/read-eval-print-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="261" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="271.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.main/repl/read-eval-print--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.util.TimerThread.mainLoop (-25 samples, -62.50% self, -0.43% total)</title><rect x="1177.7" y="453" width="11.9" height="15.0" fill="rgb(78,78,255)" rx="2" ry="2" />
+<text text-anchor="" x="1180.74" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>__psynch_cvwait (-14 samples, -58.33% self, -0.24% total)</title><rect x="1182.0" y="357" width="5.3" height="15.0" fill="rgb(87,87,255)" rx="2" ry="2" />
+<text text-anchor="" x="1184.95" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.opsWith (+10 samples, +66.67% self, +0.17% total)</title><rect x="513.4" y="69" width="3.8" height="15.0" fill="rgb(255,70,70)" rx="2" ry="2" />
+<text text-anchor="" x="516.42" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.gcd (-297 samples, -42.92% self, -5.11% total)</title><rect x="816.5" y="69" width="113.7" height="15.0" fill="rgb(119,119,255)" rx="2" ry="2" />
+<text text-anchor="" x="819.46" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.N..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/reduce (-2558 samples, -44.44% self, -44.03% total)</title><rect x="13.1" y="149" width="1161.6" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="16.06" y="159.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.core/reduce</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.ops (+30 samples, +71.43% self, +0.52% total)</title><rect x="517.2" y="85" width="11.5" height="15.0" fill="rgb(255,60,60)" rx="2" ry="2" />
+<text text-anchor="" x="520.25" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl/read-eval-print--/fn-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="245" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="255.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.main/repl/read-eval-print--/fn--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.LongRange.reduce (-3 samples, -100.00% self, -0.05% total)</title><rect x="11.1" y="469" width="1.2" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="14.15" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cider.nrepl.middleware.out/forking-printer/fn-- (-2 samples, -66.67% self, -0.03% total)</title><rect x="1178.1" y="373" width="1.6" height="15.0" fill="rgb(70,70,255)" rx="2" ry="2" />
+<text text-anchor="" x="1181.12" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.isNaN (-48 samples, -50.00% self, -0.83% total)</title><rect x="966.3" y="85" width="18.3" height="15.0" fill="rgb(105,105,255)" rx="2" ry="2" />
+<text text-anchor="" x="969.26" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>refactor-nrepl.ns.slam.hound.regrow/wrap-clojure-repl/fn-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="341" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="351.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >refactor-nrepl.ns.slam.hound.regrow/wrap-clojure-repl/fn--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.interruptible-eval/interruptible-eval/fn--/fn-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="389" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >nrepl.middleware.interruptible-eval/interruptible-eval/fn--/fn--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Object.wait (-23 samples, -63.89% self, -0.40% total)</title><rect x="1179.7" y="437" width="9.5" height="15.0" fill="rgb(75,75,255)" rx="2" ry="2" />
+<text text-anchor="" x="1182.66" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Compiler.eval (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="197" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="207.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Compiler.eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ObjectMonitor::wait(long, bool, Thread*) (-20 samples, -60.61% self, -0.34% total)</title><rect x="1180.0" y="389" width="8.5" height="15.0" fill="rgb(82,82,255)" rx="2" ry="2" />
+<text text-anchor="" x="1183.04" y="399.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>itable stub (-409 samples, -36.26% self, -7.04% total)</title><rect x="986.9" y="117" width="156.7" height="15.0" fill="rgb(133,133,255)" rx="2" ry="2" />
+<text text-anchor="" x="989.95" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >itable stub</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.io.PrintWriter.flush (-2 samples, -66.67% self, -0.03% total)</title><rect x="1178.1" y="405" width="1.6" height="15.0" fill="rgb(70,70,255)" rx="2" ry="2" />
+<text text-anchor="" x="1181.12" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/+ (+237 samples, +55.76% self, +4.08% total)</title><rect x="437.9" y="117" width="90.8" height="15.0" fill="rgb(255,92,92)" rx="2" ry="2" />
+<text text-anchor="" x="440.94" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.co..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.combine (-16 samples, -100.00% self, -0.28% total)</title><rect x="135.7" y="85" width="6.1" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="138.66" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>os::PlatformEvent::park(long) (-20 samples, -62.50% self, -0.34% total)</title><rect x="1180.8" y="373" width="7.7" height="15.0" fill="rgb(78,78,255)" rx="2" ry="2" />
+<text text-anchor="" x="1183.81" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.ops (-3 samples, -100.00% self, -0.05% total)</title><rect x="11.1" y="421" width="1.2" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="14.15" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.add (+27 samples, +60.00% self, +0.46% total)</title><rect x="468.2" y="69" width="10.4" height="15.0" fill="rgb(255,84,84)" rx="2" ry="2" />
+<text text-anchor="" x="471.21" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.add (-3 samples, -100.00% self, -0.05% total)</title><rect x="11.1" y="437" width="1.2" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="14.15" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.RestFn.applyTo (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="309" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="319.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.RestFn.applyTo</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core// (-1195 samples, -48.70% self, -20.57% total)</title><rect x="528.7" y="117" width="457.9" height="15.0" fill="rgb(107,107,255)" rx="2" ry="2" />
+<text text-anchor="" x="531.74" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.core//</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.AFn.run (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="453" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.AFn.run</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Compiler.eval (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="213" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="223.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Compiler.eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/apply (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="325" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="335.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.core/apply</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/+ (-3 samples, -100.00% self, -0.05% total)</title><rect x="11.1" y="453" width="1.2" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="14.15" y="463.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/* (-927 samples, -100.00% self, -15.96% total)</title><rect x="82.8" y="117" width="355.1" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="85.79" y="127.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.core/*</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clj-async-profiler.core/eval/fn-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="165" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="175.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clj-async-profiler.core/eval/fn--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.add (+163 samples, +59.27% self, +2.81% total)</title><rect x="466.3" y="101" width="62.4" height="15.0" fill="rgb(255,85,85)" rx="2" ry="2" />
+<text text-anchor="" x="469.29" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojur..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.LongRange.reduce (-2558 samples, -44.44% self, -44.03% total)</title><rect x="13.1" y="133" width="1161.6" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="16.06" y="143.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.LongRange.reduce</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.ops (-64 samples, -100.00% self, -1.10% total)</title><rect x="413.4" y="85" width="24.5" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="416.42" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >c..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.longValue (-8 samples, -44.44% self, -0.14% total)</title><rect x="962.8" y="69" width="3.1" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="965.81" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.num (-110 samples, -100.00% self, -1.89% total)</title><rect x="371.3" y="69" width="42.1" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="374.28" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clo..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="293" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="303.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.main/repl</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.multiply (-599 samples, -100.00% self, -10.31% total)</title><rect x="141.8" y="69" width="229.5" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="144.79" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Numbers.multiply</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>all (-2592 samples, -44.61% self, -44.61% total)</title><rect x="10.0" y="485" width="1180.0" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="13.00" y="495.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >all</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.combine (+10 samples, +66.67% self, +0.17% total)</title><rect x="513.4" y="85" width="3.8" height="15.0" fill="rgb(255,70,70)" rx="2" ry="2" />
+<text text-anchor="" x="516.42" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>cider.nrepl.middleware.out.proxy$java.util.TimerTask$ff19274a.run (-2 samples, -66.67% self, -0.03% total)</title><rect x="1178.1" y="437" width="1.6" height="15.0" fill="rgb(70,70,255)" rx="2" ry="2" />
+<text text-anchor="" x="1181.12" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.ops (-5 samples, -33.33% self, -0.09% total)</title><rect x="984.6" y="85" width="2.0" height="15.0" fill="rgb(140,140,255)" rx="2" ry="2" />
+<text text-anchor="" x="987.65" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Reflector.invokeNoArgInstanceMember (-1 samples, -50.00% self, -0.02% total)</title><rect x="1178.5" y="357" width="1.2" height="15.0" fill="rgb(105,105,255)" rx="2" ry="2" />
+<text text-anchor="" x="1181.51" y="367.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.divide (-1066 samples, -48.65% self, -18.35% total)</title><rect x="557.5" y="85" width="408.4" height="15.0" fill="rgb(107,107,255)" rx="2" ry="2" />
+<text text-anchor="" x="560.47" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Numbers$LongOps.divide</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.opsWith (-16 samples, -100.00% self, -0.28% total)</title><rect x="135.7" y="69" width="6.1" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="138.66" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Thread.run (-2561 samples, -44.45% self, -44.08% total)</title><rect x="12.3" y="469" width="1165.1" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="479.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >java.lang.Thread.run</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.main/repl/fn-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="277" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="287.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.main/repl/fn--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.valueOf (+91 samples, +73.39% self, +1.57% total)</title><rect x="478.6" y="53" width="34.8" height="15.0" fill="rgb(255,55,55)" rx="2" ry="2" />
+<text text-anchor="" x="481.55" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ja..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.combine (-13 samples, -65.00% self, -0.22% total)</title><rect x="552.5" y="85" width="5.0" height="15.0" fill="rgb(73,73,255)" rx="2" ry="2" />
+<text text-anchor="" x="555.49" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>sun.nio.ch.SelectorImpl.selectNow (-1 samples, -50.00% self, -0.02% total)</title><rect x="1175.8" y="437" width="1.2" height="15.0" fill="rgb(105,105,255)" rx="2" ry="2" />
+<text text-anchor="" x="1178.82" y="447.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers$LongOps.multiply (-709 samples, -100.00% self, -12.20% total)</title><rect x="141.8" y="85" width="271.6" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="144.79" y="95.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Numbers$LongOps.multiply</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.valueOf (-72 samples, -56.25% self, -1.24% total)</title><rect x="935.2" y="53" width="27.6" height="15.0" fill="rgb(91,91,255)" rx="2" ry="2" />
+<text text-anchor="" x="938.23" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >j..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>ObjectSynchronizer::wait(Handle, long, Thread*) (-22 samples, -62.86% self, -0.38% total)</title><rect x="1180.0" y="405" width="9.2" height="15.0" fill="rgb(78,78,255)" rx="2" ry="2" />
+<text text-anchor="" x="1183.04" y="415.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  ></text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.session/session-exec/main-loop--/fn-- (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="421" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="431.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >nrepl.middleware.session/session-exec/main-loop--/fn--</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.core/eval (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="229" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="239.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.core/eval</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>nrepl.middleware.interruptible-eval/evaluate (-2558 samples, -44.43% self, -44.03% total)</title><rect x="12.3" y="373" width="1162.4" height="15.0" fill="rgb(116,116,255)" rx="2" ry="2" />
+<text text-anchor="" x="15.30" y="383.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >nrepl.middleware.interruptible-eval/evaluate</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.multiply (-804 samples, -100.00% self, -13.84% total)</title><rect x="129.9" y="101" width="308.0" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="132.92" y="111.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >clojure.lang.Numbers.multiply</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.num (+91 samples, +73.39% self, +1.57% total)</title><rect x="478.6" y="69" width="34.8" height="15.0" fill="rgb(255,55,55)" rx="2" ry="2" />
+<text text-anchor="" x="481.55" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cl..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>clojure.lang.Numbers.num (-85 samples, -55.92% self, -1.46% total)</title><rect x="930.2" y="69" width="32.6" height="15.0" fill="rgb(92,92,255)" rx="2" ry="2" />
+<text text-anchor="" x="933.25" y="79.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >cl..</text>
+</g>
+<g class="func_g" onmouseover="s(this)" onmouseout="c()" onclick="zoom(this)">
+<title>java.lang.Long.valueOf (-84 samples, -100.00% self, -1.45% total)</title><rect x="381.2" y="53" width="32.2" height="15.0" fill="rgb(0,0,255)" rx="2" ry="2" />
+<text text-anchor="" x="384.24" y="63.5" font-size="12" font-family="Verdana" fill="rgb(0,0,0)"  >ja..</text>
+</g>
+</svg>
