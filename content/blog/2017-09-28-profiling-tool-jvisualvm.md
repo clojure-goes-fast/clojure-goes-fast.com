@@ -1,10 +1,7 @@
----
-name: "Profiling tool: VisualVM"
-author: Alexander Yakushev
-date-published: 2017-09-28
-reddit-link: https://www.reddit.com/r/Clojure/comments/736u8i/profiling_tool_visualvm/
-hn-link: https://news.ycombinator.com/item?id=15374657
----
+{:title "Profiling tool: VisualVM"
+ :date-published "2017-09-28"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/736u8i/profiling_tool_visualvm/"
+ :hn-link "https://news.ycombinator.com/item?id=15374657"}
 
 If benchmarking is discovering out how long a piece of code takes to run as a
 whole, then profiling means figuring out how much time each function, method, or

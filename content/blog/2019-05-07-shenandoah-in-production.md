@@ -1,10 +1,7 @@
----
-name: "Shenandoah GC in production: experience report"
-author: Alexander Yakushev
-date-published: 2019-05-07 13:00:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/blotpm/shenandoah_gc_with_clojure_in_production/
-hn-link: https://news.ycombinator.com/item?id=19885863
----
+{:title "Shenandoah GC in production: experience report"
+ :date-published "2019-05-07 13:00:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/blotpm/shenandoah_gc_with_clojure_in_production/"
+ :hn-link "https://news.ycombinator.com/item?id=19885863"}
 
 _Update: I've made several edits to the post since Aleksey Shipilëv was kind
 enough to suggest many corrections and improvements._

@@ -1,9 +1,6 @@
----
-name: "Introspection tool: object memory meter"
-author: Alexander Yakushev
-date-published: 2018-03-05 12:40:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/8253ld/cljmemorymeter_measure_the_object_size_in_memory/
----
+{:title "Introspection tool: object memory meter"
+ :date-published "2018-03-05 12:40:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/8253ld/cljmemorymeter_measure_the_object_size_in_memory/"}
 
 Long gone are the days when computer programmers counted every byte used by
 their programs. Today, we enjoy multi-gigabyte or even terabyte RAM machines and

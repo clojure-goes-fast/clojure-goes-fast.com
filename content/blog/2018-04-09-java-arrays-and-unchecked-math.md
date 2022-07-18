@@ -1,9 +1,6 @@
----
-name: "Java arrays and unchecked math"
-author: Alexander Yakushev
-date-published: 2018-04-09 18:00:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/8az2og/java_arrays_and_unchecked_math/
----
+{:title "Java arrays and unchecked math"
+ :date-published "2018-04-09 18:00:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/8az2og/java_arrays_and_unchecked_math/"}
 
 The design of Clojure explicitly promotes usage of efficient data structures.
 Unlike some other functional languages where the standard libraries revolve

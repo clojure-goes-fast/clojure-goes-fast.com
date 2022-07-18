@@ -1,9 +1,6 @@
----
-name: "clj-async-profiler 0.4.0: diffgraphs and UI"
-author: Alexander Yakushev
-date-published: 2019-06-03 12:00:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/bw84l1/cljasyncprofiler_040_differential_flamegraphs_and/?
----
+{:title "clj-async-profiler 0.4.0: diffgraphs and UI"
+ :date-published "2019-06-03 12:00:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/bw84l1/cljasyncprofiler_040_differential_flamegraphs_and/?"}
 
 If you are already a user of
 [clj-async-profiler](https://github.com/clojure-goes-fast/clj-async-profiler),

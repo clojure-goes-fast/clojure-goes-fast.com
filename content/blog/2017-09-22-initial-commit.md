@@ -1,8 +1,5 @@
----
-name: "New site: Clojure goes fast!"
-author: Alexander Yakushev
-date-published: 2017-09-22
----
+{:title "New site: Clojure goes fast!"
+ :date-published "2017-09-22"}
 
 [Make it work, make it right, make it fast.](http://wiki.c2.com/?MakeItWorkMakeItRightMakeItFast) This
 adage has been around for many years now. Some developers follow this principle

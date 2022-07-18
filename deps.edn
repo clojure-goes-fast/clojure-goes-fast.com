@@ -1,0 +1,7 @@
+{:deps {org.clojure/clojure {:mvn/version "1.10.1"}
+        cryogen-core/cryogen-core {:mvn/version "0.4.0"}
+        cryogen-flexmark/cryogen-flexmark {:mvn/version "0.1.4"}}
+ :aliases {;; Run with `clojure -X:build`
+           :build {:exec-fn generator.main/build}
+           :draft {:exec-args {:draft true}}
+           :watch {:exec-fn generator.watch/init}}}

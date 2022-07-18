@@ -1,9 +1,6 @@
----
-name: "Latency tool: jvm-hiccup-meter"
-author: Alexander Yakushev
-date-published: 2018-07-02 12:00:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/8vha2p/jvmhiccupmeter_a_library_to_measure_systeminduced/
----
+{:title "Latency tool: jvm-hiccup-meter"
+ :date-published "2018-07-02 12:00:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/8vha2p/jvmhiccupmeter_a_library_to_measure_systeminduced/"}
 
 There is a class of operating systems called [real-time operating
 systems](https://en.wikipedia.org/wiki/Real-time_operating_system) (RTOS). They

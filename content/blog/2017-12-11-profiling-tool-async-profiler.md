@@ -1,12 +1,6 @@
----
-name: "Profiling tool: async-profiler"
-author: Alexander Yakushev
-date-published: 2017-12-11
-reddit-link: https://www.reddit.com/r/Clojure/comments/7j2hr6/cljasyncprofiler_clojure_profiler_with_flame/
----
-
-_Clojure Goes Fast is now on [Twitter](https://twitter.com/ClojureGoesFast)!
-Follow me to see the latest posts, news, and interesting links._
+{:title "Profiling tool: async-profiler"
+ :date-published "2017-12-11"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/7j2hr6/cljasyncprofiler_clojure_profiler_with_flame/"}
 
 In
 the

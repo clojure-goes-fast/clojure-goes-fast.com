@@ -1,0 +1,28 @@
+{% extends "/html/base.html" %}
+
+{% block meta-desc %}
+<title>Blog - Clojure Goes Fast</title>
+<meta name="og:title" content="Blog - Clojure Goes Fast">
+<meta name="og:description" content="High-performance Clojure made simple.">
+{% endblock %}
+
+{% block content %}
+{% include "/html/navbar.html" %}
+
+<div class="container flex-container">
+  <div class="blog">
+    <h3>Blog posts
+      <div class="float-right">
+        <a class="btn btn-link" href="/blog/atom.xml" target="_blank"><img src="/img/icons/rss.svg" alt="Atom feed"></a><a class="btn btn-link" href="https://twitter.com/ClojureGoesFast" target="_blank"><img src="/img/icons/twitter.svg" alt="Twitter"></a><a class="btn btn-link" href="mailto:alex@bytopia.org" target="_blank"><img src="/img/icons/email.svg" alt="E-mail"></a><a class="btn btn-link" href="https://github.com/clojure-goes-fast/clojure-goes-fast.com" target="_blank"><img src="/img/icons/github.svg" alt="Github"></a>
+      </div>
+    </h3>
+    <div class="divider"></div>
+    {% for post in posts %}
+    <div class="p-1">
+        <a class="h6" href="{{post.uri}}">{{post.title}}</a>
+        <span class="float-right">{{post.date|date:"MMM dd, YYYY"}}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

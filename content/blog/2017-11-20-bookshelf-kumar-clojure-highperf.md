@@ -1,8 +1,5 @@
----
-name: "Bookshelf: \"Clojure High Performance Programming\""
-author: Alexander Yakushev
-date-published: 2017-11-20
----
+{:title "Bookshelf: \"Clojure High Performance Programming\""
+ :date-published "2017-11-20"}
 
 *Full name: Shantanu Kumar, "Clojure High Performance Programming", 2013.*
 

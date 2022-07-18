@@ -1,0 +1,26 @@
+{:site-title                   "Clojure Goes Fast"
+ :author                       "Sashko Yakushev"
+ :description                  "High-performance Clojure made simple."
+ :site-url                     "http://clojure-goes-fast.com/"
+ :post-root                    "blog"
+ :page-root                    "site"
+ :post-root-uri                "blog"
+ :page-root-uri                ""
+ :tag-root-uri                 "tags-output"
+ :public-dest                  "public"
+ :blog-prefix                  ""
+ :rss-name                     "blog/atom.xml"
+ :post-date-format             "yyyy-MM-dd"
+ :archive-group-format         "yyyy MMMM"
+ :sass-src                     []
+ :theme                        "default"
+ :resources                    ["img"]
+ :keep-files                   [".git"]
+ :disqus?                      false
+ :ignored-files                [#"\.#.*" #".*\.swp$"]
+ :previews?                    false
+ :clean-urls                   :trailing-slash
+ :collapse-subdirs?            false
+ :hide-future-posts?           true
+ :description-include-elements #{:p :h1 :h2 :h3 :h4 :h5 :h6}
+ :debug?                       false}

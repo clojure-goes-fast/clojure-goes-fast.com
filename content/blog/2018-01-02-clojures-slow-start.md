@@ -1,10 +1,7 @@
----
-name: "Clojure's slow start — what's inside?"
-author: Alexander Yakushev
-date-published: 2018-01-02 13:30:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/7nlvrf/clojures_slow_start_whats_inside/
-hn-link: https://news.ycombinator.com/item?id=16051257
----
+{:title "Clojure's slow start — what's inside?"
+ :date-published "2018-01-02 13:30:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/7nlvrf/clojures_slow_start_whats_inside/"
+ :hn-link "https://news.ycombinator.com/item?id=16051257"}
 
 It is not surprising that the question of Clojure's long startup time is raised
 time and time again on forums and social media. This topic concerns users who

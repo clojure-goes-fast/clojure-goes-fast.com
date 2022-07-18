@@ -1,9 +1,6 @@
----
-name: "Introspection tools: Java decompilers"
-author: Alexander Yakushev
-date-published: 2018-01-29 16:40:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/7tsqjr/introspection_tools_java_decompilers/
----
+{:title "Introspection tools: Java decompilers"
+ :date-published "2018-01-29 16:40:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/7tsqjr/introspection_tools_java_decompilers/"}
 
 As you probably are already aware of, Clojure compiles down to JVM bytecode. The
 fact that Clojure is not an interpreted language but a compiled one makes the

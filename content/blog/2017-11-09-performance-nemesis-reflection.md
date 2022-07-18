@@ -1,10 +1,7 @@
----
-name: "Performance nemesis: reflection"
-author: Alexander Yakushev
-date-published: 2017-11-09
-reddit-link: https://www.reddit.com/r/Clojure/comments/7c0enl/performance_nemesis_reflection/
-hn-link: https://news.ycombinator.com/item?id=15670769
----
+{:title "Performance nemesis: reflection"
+ :date-published "2017-11-09"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/7c0enl/performance_nemesis_reflection/"
+ :hn-link "https://news.ycombinator.com/item?id=15670769"}
 
 Imagine a very common situation — you need to write a string-processing
 function. Say, the input string contains a `=` character, and you have to grab

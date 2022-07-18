@@ -1,9 +1,6 @@
----
-name: "Using JMH with Clojure - part 1"
-author: Alexander Yakushev
-date-published: 2018-10-22 11:00:00
-reddit-link: https://www.reddit.com/r/Clojure/comments/9qbtaw/using_jmh_with_clojure/
----
+{:title "Using JMH with Clojure - part 1"
+ :date-published "2018-10-22 11:00:00"
+ :reddit-link "https://www.reddit.com/r/Clojure/comments/9qbtaw/using_jmh_with_clojure/"}
 
 Hello, performance junkies, long time no see. Today we will learn to access the
 tool that every JVM gofaster should (mis)use at least once in their lives —

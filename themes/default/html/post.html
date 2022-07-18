@@ -1,0 +1,43 @@
+{% extends "/html/base.html" %}
+
+{% block meta-desc %}
+<title>{{ post.title }} - Clojure Goes Fast</title>
+<meta property="og:description" content="{{ post.description|abbreviate:200 }}">
+<meta property="og:url" content="{{site-url}}{{uri}}" />
+<meta property="og:title" content="{{post.title}}" />
+<meta property="og:type" content="article"/>
+{% endblock %}
+
+{% block content %}
+{% include "/html/navbar.html" %}
+
+<div class="container">
+  <div class="content blog-post">
+    <div class="back-link"><a href="/blog/">↰ Back to list</a></div>
+    <span><i>{{ post.date|date:"MMM dd, YYYY" }}</i></span>
+    <h1>{{ post.title }}</h1>
+    {{ post.content|safe }}
+    <div class="columns">
+      <div class="discussion-links column col-12 text-center">
+        {% if post.reddit-link %}
+        <a href="{{ post.reddit-link }}" target="_blank">
+          <img src="/img/icons/reddit.svg" alt="Discussion on Reddit"/>
+          Discussion on Reddit
+        </a>
+        {% endif %}
+        {% if post.hn-link %}
+        <a href="{{ post.hn-link }}" target="_blank">
+          <img src="/img/icons/hacker-news.svg" alt="Discussion on Hacker News"/>
+          Discussion on Hacker News
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div id="comments">
+      <script src="//bytopia.org/comments/js/embed.min.js" data-isso="//clojure-goes-fast.com/comments/"></script>
+      <section id="isso-thread"></section>
+    </div>
+  </div>
+</div>
+{% endblock %}

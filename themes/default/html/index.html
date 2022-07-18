@@ -1,0 +1,22 @@
+{% extends "/html/base.html" %}
+
+{% block meta-desc %}
+<title>Clojure Goes Fast</title>
+<meta name="og:title" content="Clojure Goes Fast">
+<meta name="og:description" content="High-performance Clojure made simple.">
+{% endblock %}
+
+{% block content %}
+<div class="section section-hero">
+    <div class="container grid-hero grid-lg text-center">
+        <img class="big-logo" src="/img/logo.png">
+        <h1>Clojure goes fast!</h1>
+        <h2>A central hub for news, docs, and guides about Clojure and high performance.</h2>
+        <div class="columns">
+          {% include "/html/index-card.html" with card-title="Documentation" card-icon="/img/icons/book.svg" link="#" is-card-disabled="true" body="Study comprehensive and up-to-date guides about what makes Clojure slow and how to make it fast." %}
+          {% include "/html/index-card.html" with card-title="Blog posts" card-icon="/img/icons/script.svg" link="blog/" body="Follow the latest news and articles about tools and techniques for achieving high performance in Clojure." %}
+          {% include "/html/index-card.html" with card-title="Source code" card-icon="/img/icons/github.svg" link="https://github.com/clojure-goes-fast/" is-link-blank="true" body="View the code for this site and other performance-related projects. Contribute to help Clojure go faster." %}
+        </div>
+    </div>
+</div>
+{% endblock %}
