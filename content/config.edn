@@ -17,7 +17,7 @@
  :resources                    ["img"]
  :keep-files                   [".git"]
  :disqus?                      false
- :ignored-files                [#"\.#.*" #".*\.swp$"]
+ :ignored-files                [#"\.#.*" #".*\.swp$" #"\.DS_Store"]
  :previews?                    false
  :clean-urls                   :trailing-slash
  :collapse-subdirs?            false
