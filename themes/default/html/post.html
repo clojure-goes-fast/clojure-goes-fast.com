@@ -6,6 +6,7 @@
 <meta property="og:url" content="{{site-url}}{{uri}}" />
 <meta property="og:title" content="{{post.title}}" />
 <meta property="og:type" content="article"/>
+<meta property="og:image" content="{% if post.og-image %}{{site-url}}{{post.og-image}}{% else %}{{site-url}}/img/logo.png{% endif %}">
 {% endblock %}
 
 {% block content %}
