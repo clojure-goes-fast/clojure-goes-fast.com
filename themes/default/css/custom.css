@@ -109,12 +109,8 @@ footer a {
     resize: vertical;
 }
 
-.flex-container {
-    display: flex;
-    resize: vertical;
-    height: 90vh;
-    flex-direction: column;
-    justify-content: center;
+.content {
+    line-height: 1.6;
 }
 
 div.content.blog-post {
