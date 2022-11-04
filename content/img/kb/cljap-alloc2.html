@@ -1,0 +1,1174 @@
+<html>
+  <head>
+    <style>
+      body {margin: 0; padding: 5px; background-color: #ffffff}
+      button {font: 12px sans-serif;}
+      p {margin: 5px 0 5px 0}
+      #hl {position: absolute; display: none; overflow: hidden; white-space: nowrap; pointer-events: none; background-color: #00000000; outline: 0.5px solid #222; height: 15px}
+      #hl span {padding: 0 3px 0 3px}
+      #status {overflow: hidden; white-space: nowrap}
+      #match {overflow: hidden; white-space: nowrap; display: none; float: right; text-align: right}
+      * {box-sizing:border-box,margin:.25em 0}
+      .col{display:table-cell}
+      .col-1{width:5%}
+      .col-2{width:15%}
+      .col-3{width:22%}
+      .col-4{width:30%}
+      .col-5{width:40%}
+      .col-6{width:50%}
+      .row{display:table;border-spacing:0.2em 0;width:100%;display:flex}
+      .w-100{width:100%;display:flex}
+      .graphCol{flex: 80%; padding: 0.25em;}
+      .configCol{flex: 20%; padding: 0.25em;}
+      .configBlock{position:fixed; overflow-y:auto; top: 5px; bottom: 5px; width:19%;}
+      .sidebarToggle{font: 10px; width:10; padding:0;}
+      .margins {margin: 5px 1px}
+      .vmargins {margin: 0px 1px;}
+    </style>
+  </head>
+  <body style='font: 12px Verdana, sans-serif'>
+    <div class="c">
+      <div class="row">
+        <div class="graphCol">
+          <canvas id='canvas' style='width: 100%;'></canvas>
+          <div id='box'><div id='hl'><span></span></div></div>
+          <p id='match'>Matched: <span id='matchedLabel'></span></p>
+          <p id='status'>&nbsp;</p>
+        </div>
+        <button class="sidebarToggle" onclick="toggleSidebarVisibility()">&lt;</button>
+        <div class="configCol">
+          <div class="configBlock">
+            <div id="titleDiv">
+              <b><center><span id="graphTitleSpan">Flamegraph</span></center></b>
+              <hr>
+            </div>
+            <div class="row">
+              <label for="highlightInput">Highlight:</label>
+              <input placeholder="String or /regex/" name="highlightInput" id="highlightInput"/>
+            </div>
+            <div class="row">
+              <button onclick="highlightApply()">Highlight</button>
+              <button onclick="highlightClear()">Clear</button>
+            </div>
+            <br>
+            <hr>
+            <br>
+
+            <label>Minimal frame width (in pixels):</label><br>
+            <input id="minFrameWidthInPx" value="0.25"/><br>
+            <div>
+              <label><input type="checkbox" id="isReversedInput">Reversed</label>
+              <span id="isNormalizedDiv" style="display:none;">
+                <label><input type="checkbox" id="isNormalized" name="isNormalized" checked>Normalized</label>
+              </span>
+            </div>
+            <div>
+              <label><input type="radio" id="sortByNameRadio" name="sortBy" value="name" checked>Sort by name</label>
+              <label><input type="radio" id="sortByWidthRadio" name="sortBy" value="width">Sort by width</label>
+            </div>
+            <br>
+
+            <div class="row">
+              <div class="col">
+                <label for="newTransformType">Add a transform:</label>
+
+                <select name="newTransformType" id="newTransformType">
+                  <option value="filter">Filter</option>
+                  <option value="remove">Remove</option>
+                  <option value="replace">Replace</option>
+                </select>
+              </div>
+              <div class="col col-2">
+                <button onclick="addNewTransform()">Add</button>
+              </div>
+            </div>
+            <br>
+
+            <div id="transformsContainer">
+            </div>
+
+            <div id="transformReplaceTemplate" style="display:none">
+              <div class="row">
+                <div class="col col-3">
+                  <label>Replace:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="what no-vmargins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="replacement no-vmargins w-100" placeholder="Replacement"/><br>
+                </div>
+              </div>
+            </div>
+
+            <div id="transformFilterTemplate" style="display:none" class="margins">
+              <div class="row">
+                <div class="col col-3">
+                  <label class="label">Filter:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col w-100 margins">
+                  <input class="what margins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+            </div>
+
+            <hr>
+            <button onclick="applyConfiguration()">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // This file was derived from flamegraph.html from the project
+// https://github.com/jvm-profiling-tools/async-profiler
+// Licensed under the Apache License, Version 2.0. Copyright 2020 Andrei Pangin
+
+/// Constants
+const canvas = document.getElementById('canvas');
+const c = canvas.getContext('2d');
+const hl = document.getElementById('hl');
+const status = document.getElementById('status');
+const matchContainer = document.getElementById('match');
+const transformFilterTemplate = document.getElementById('transformFilterTemplate');
+const transformReplaceTemplate = document.getElementById('transformReplaceTemplate');
+const sidebarToggleButton = document.getElementsByClassName('sidebarToggle')[0];
+const sidebarWidth = document.getElementsByClassName('configCol')[0].offsetWidth
+
+var sidebarVisible = true;
+sidebarToggleButton.innerText = sidebarVisible ? '>' : '<';
+
+function calculateCanvasWidth() {
+  if (sidebarVisible)
+    return window.innerWidth - sidebarWidth - 36
+  else
+    return window.innerWidth - 36;
+}
+
+var canvasWidth = calculateCanvasWidth();
+var graphTitle = "";
+var isDiffgraph = false;
+var normalizeDiff = true, b_scale_factor;
+var reverseGraph = false;
+var idToFrame = ["clojure.main.main",
+"clojure.lang.Var.applyTo",
+"clojure.lang.RestFn.applyTo",
+"clojure.lang.AFn.applyToHelper",
+"clojure.lang.RestFn.invoke",
+"clojure.main/main",
+"clojure.main/repl-opt",
+"clojure.main/repl",
+"clojure.main/repl/fn--9215",
+"clojure.main/repl/read-eval-print--9206",
+"clojure.main/repl/read-eval-print--9206/fn--9209",
+"clojure.core/eval",
+"clojure.lang.Compiler.eval",
+"user$eval1161.invoke",
+"user$eval1161.invokeStatic",
+"clj-async-profiler.core/start",
+"clj-async-profiler.core/attach-agent",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentPath",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentLibrary",
+"java.io.BufferedReader.<init>",
+"char[]_[i]",
+"user$eval1161$fn__1162.invoke",
+"cheshire.core/parse-string",
+"cheshire.parse/parse",
+"cheshire.parse/parse*",
+"clojure.core/assoc!",
+"clojure.lang.ATransientMap.assoc",
+"clojure.lang.PersistentArrayMap$TransientArrayMap.doAssoc",
+"clojure.lang.PersistentHashMap.asTransient",
+"clojure.lang.PersistentHashMap$TransientHashMap.<init>",
+"byte[]_[i]",
+"clojure.core/persistent!",
+"clojure.lang.PersistentVector$TransientVector.persistent",
+"clojure.lang.PersistentVector$TransientVector.ensureEditable",
+"clojure.lang.PersistentVector_[i]",
+"clojure.core/transient",
+"clojure.lang.PersistentVector.asTransient",
+"java.util.concurrent.atomic.AtomicReference_[i]",
+"com.fasterxml.jackson.core.base.ParserBase.getNumberValue",
+"com.fasterxml.jackson.core.base.ParserBase._parseNumericValue",
+"com.fasterxml.jackson.core.util.TextBuffer.contentsAsInt",
+"com.fasterxml.jackson.core.io.NumberInput.parseInt",
+"java.lang.Integer_[i]",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.getText",
+"com.fasterxml.jackson.core.util.TextBuffer.contentsAsString",
+"java.lang.String.<init>",
+"java.lang.String_[i]",
+"java.lang.String.rangeCheck",
+"java.lang.String.checkBoundsOffCount",
+"java.lang.Object[]_[i]",
+"clojure.lang.ATransientMap.persistent",
+"clojure.lang.PersistentArrayMap$TransientArrayMap.doPersistent",
+"clojure.lang.PersistentVector$TransientVector.<init>",
+"clojure.lang.PersistentArrayMap$TransientArrayMap_[i]",
+"clojure.lang.PersistentVector$TransientVector.editableRoot",
+"clojure.lang.PersistentVector$Node_[i]",
+"clojure.lang.PersistentVector$TransientVector_[i]",
+"clojure.lang.PersistentVector$TransientVector.editableTail",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._finishString",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.nextToken",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._parseName",
+"com.fasterxml.jackson.core.sym.CharsToNameCanonicalizer.findSymbol",
+"java.lang.StringUTF16.compress",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._nextAfterName",
+"clojure.lang.PersistentHashMap.create",
+"clojure.lang.PersistentHashMap$TransientHashMap.doAssoc",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable",
+"clojure.lang.PersistentHashMap.hash",
+"clojure.lang.Util.hasheq",
+"clojure.lang.PersistentHashMap_[i]",
+"clojure.lang.PersistentHashMap$ArrayNode.assoc",
+"clojure.lang.PersistentHashMap$TransientHashMap.doPersistent",
+"clojure.lang.PersistentArrayMap_[i]",
+"java.lang.Long_[i]",
+"com.fasterxml.jackson.core.json.JsonReadContext.createChildObjectContext",
+"com.fasterxml.jackson.core.json.JsonReadContext_[i]",
+"clojure.lang.PersistentHashMap.access$700",
+"clojure.lang.PersistentHashMap.createNode",
+"clojure.lang.PersistentHashMap$TransientHashMap_[i]",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode_[i]",
+"clojure.lang.Box_[i]",
+"clojure.lang.PersistentHashMap$INode[]_[i]",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode.editAndSet",
+"com.fasterxml.jackson.core.util.TextBuffer.resetWithCopy",
+"com.fasterxml.jackson.core.util.TextBuffer.buf",
+"com.fasterxml.jackson.core.util.BufferRecycler.allocCharBuffer",
+"java.util.concurrent.atomic.AtomicReferenceArray.getAndSet",
+"java.lang.invoke.VarHandleGuards.guard_LIL_L",
+"java.lang.Class.cast",
+"clojure.lang.PersistentHashMap$ArrayNode_[i]",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._parseName2",
+"clojure.core/conj!",
+"clojure.lang.PersistentVector$TransientVector.conj",
+"com.fasterxml.jackson.core.JsonFactory.createParser",
+"com.fasterxml.jackson.core.JsonFactory._createParser",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.<init>",
+"com.fasterxml.jackson.core.base.ParserBase.<init>",
+"com.fasterxml.jackson.core.json.JsonReadContext.createRootContext",
+"com.fasterxml.jackson.core.io.IOContext.allocTokenBuffer",
+"char[]_[k]",
+"java.lang.Thread.run",
+"sun.net.httpserver.ServerImpl$Dispatcher.run",
+"java.util.Collection.toArray",
+"sun.net.httpserver.ServerImpl$Dispatcher$$Lambda$51.0x0000000800495518.apply",
+"sun.net.httpserver.ServerImpl$Dispatcher.lambda$run$0",
+"java.nio.channels.SelectionKey[]_[i]",
+];
+var initialStacks = [];
+var stacks;
+
+var _lastInsertedStack = null;
+
+function a(frameIds, samples) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"), samples: samples});
+}
+
+var totalSamplesA = 0, totalSamplesB = 0;
+
+function d(frameIds, samples_a, samples_b) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  totalSamplesA += samples_a;
+  totalSamplesB += samples_b;
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"),
+                      samples_a: samples_a, samples_b: samples_b});
+}
+
+function _extractRegexPrefix(s) {
+  let parsed = s.match(/^\/\.\+(.+)\/g$/);
+  if (parsed != null) {
+    return new RegExp(parsed[1]);
+  }
+}
+
+function _stringToMaybeRegex(s) {
+  if (s == null) return null;
+  let parsed = s.match(/^\/(.+)\/$/);
+  if (parsed != null)
+    return new RegExp(parsed[1], 'g');
+  else
+    return s;
+}
+
+function _makeTransform(type, enabled, what, replacement) {
+  let what2 = (typeof(what) == 'string') ? _stringToMaybeRegex(what) : what;
+  let prefix = (what2 instanceof RegExp) ?
+      _extractRegexPrefix(what2.toString()) : null;
+  if (type == 'replace')
+    return { type: type, enabled: enabled, what: what2, replacement: replacement, prefix: prefix}
+  else
+    return { type: type, enabled: enabled, what: what2}
+}
+
+var userTransforms = [
+_makeTransform('replace', true, /(;cheshire.parse\/parse\*)+/g, '$1')
+];
+
+function match(string, obj) {
+  if (typeof(obj) == 'string') {
+    return string.includes(obj);
+  } else
+    return string.match(obj);
+}
+
+function applyReplacement(string, what, replacement, prefix) {
+  var s = string;
+  if (prefix != null) {
+    let match = prefix.exec(string);
+    if (match == null)
+      return s;
+    else
+      s = string.substring(Math.max(match.index-1, 0));
+  }
+  return s.replaceAll(what, replacement);
+}
+
+function transformStacks() {
+  console.time("transformStacks");
+  let diff = isDiffgraph;
+  var result;
+  if (userTransforms.length > 0) {
+    var xformedMap = {};
+    for (var i = 0; i < initialStacks.length; i++) {
+      var stack = initialStacks[i];
+      var xformedStr = stack.stackStr;
+      var useIt = true;
+
+      for (var t = 0; t < userTransforms.length; t++) {
+        const transform = userTransforms[t];
+        if (transform.enabled && transform.what != '') {
+          if (transform.type == 'replace') {
+            xformedStr = applyReplacement(xformedStr, transform.what,
+                                          transform.replacement, transform.prefix);
+          } else if (transform.type == 'filter') {
+            if (!match(xformedStr, transform.what))
+              useIt = false;
+          } else if (transform.type == 'remove') {
+            if (match(xformedStr, transform.what))
+              useIt = false;
+          }
+        }
+        if (!useIt) break;
+      }
+
+      if (useIt)
+        if (diff) {
+          let newVal = (xformedMap[xformedStr] || {});
+          newVal.samples_a = (newVal.samples_a || 0) + stack.samples_a;
+          newVal.samples_b = (newVal.samples_b || 0) + stack.samples_b;
+          xformedMap[xformedStr] = newVal;
+        } else
+          xformedMap[xformedStr] = stack.samples + (xformedMap[xformedStr] || 0);
+    }
+
+    var xformedStacks = [];
+    for (xformedStr in xformedMap) {
+      if (diff) {
+        let val = xformedMap[xformedStr];
+        xformedStacks.push({stackStr: xformedStr, samples_a: val.samples_a, samples_b: val.samples_b})
+      } else
+        xformedStacks.push({stackStr: xformedStr, samples: xformedMap[xformedStr]});
+    }
+    result = xformedStacks;
+  } else
+    result = initialStacks;
+
+  console.timeEnd("transformStacks");
+  return result;
+}
+
+console.time("data exec time");
+
+  a([0,0,1,2,3,4,5,6,7,8,9,10,11,12,12,13,14,15,16,17,18,19,19,20,],1);
+a([16,21,22,22,23,24,24,24,24,24,24,24,24,24,24,25,26,26,27,28,29,29,30,],2);
+a([30,31,32,32,33,34,],1);
+a([30,35,36,36,37,],2);
+a([30,38,39,40,41,42,],7);
+a([30,43,44,45,45,46,],5);
+a([33,47,48,49,],8);
+a([29,25,26,26,27,28,29,29,30,],2);
+a([29,31,50,50,51,49,],1);
+a([30,32,32,33,34,],1);
+a([29,35,36,36,52,52,53,],1);
+a([33,54,55,],2);
+a([34,56,],8);
+a([33,57,49,],2);
+a([29,38,39,40,41,42,],2);
+a([29,43,58,49,],3);
+a([30,44,45,47,48,49,],3);
+a([29,59,60,61,45,45,62,46,],2);
+a([28,25,26,26,27,28,29,29,30,],1);
+a([28,31,50,50,51,49,],2);
+a([29,32,32,33,34,],3);
+a([31,49,],1);
+a([28,35,36,36,52,52,53,],3);
+a([32,57,49,],23);
+a([28,43,58,49,],3);
+a([29,44,45,45,46,],7);
+a([31,47,48,49,],26);
+a([28,59,63,30,],10);
+a([29,60,61,45,45,62,46,],6);
+a([27,25,26,26,27,28,29,29,30,],11);
+a([31,64,26,65,66,67,49,],8);
+a([34,68,69,70,],1);
+a([30,65,71,30,],2);
+a([27,31,50,50,51,49,],2);
+a([30,72,73,],4);
+a([28,32,32,33,34,],16);
+a([27,35,36,36,52,52,53,],2);
+a([31,54,55,],3);
+a([32,56,],18);
+a([31,57,49,],61);
+a([30,37,],7);
+a([27,38,39,40,41,74,],3);
+a([27,43,58,49,],14);
+a([28,44,45,45,46,],43);
+a([30,47,48,49,],68);
+a([27,59,75,76,],2);
+a([28,60,61,45,45,62,46,],12);
+a([26,25,26,26,27,28,29,29,30,],114);
+a([30,64,26,65,66,77,78,66,67,49,],2);
+a([31,28,29,29,79,],1);
+a([29,65,71,30,],2);
+a([30,66,67,49,],1);
+a([26,31,50,50,51,49,],30);
+a([29,72,73,],8);
+a([27,32,32,33,34,],2);
+a([29,49,],18);
+a([26,35,36,36,52,52,53,],3);
+a([30,54,55,],12);
+a([31,56,],10);
+a([30,57,49,],54);
+a([29,37,],8);
+a([26,38,39,40,41,42,],1);
+a([30,74,],1);
+a([26,43,58,30,],6);
+a([28,49,],51);
+a([27,44,30,],1);
+a([28,45,45,79,],7);
+a([30,46,],41);
+a([29,47,48,49,],48);
+a([26,59,63,30,],20);
+a([27,60,61,45,45,62,46,],19);
+a([25,25,26,26,27,26,65,66,67,80,],1);
+a([33,49,],28);
+a([32,49,],17);
+a([29,28,29,29,30,],174);
+a([29,64,26,65,66,67,80,],10);
+a([34,49,],18);
+a([33,49,],5);
+a([32,68,69,70,],2);
+a([30,50,72,81,],3);
+a([30,28,29,29,79,],9);
+a([28,65,71,30,],44);
+a([30,66,67,80,],16);
+a([32,49,],60);
+a([31,77,78,66,67,80,],9);
+a([35,49,],2);
+a([34,49,],7);
+a([33,68,69,81,],5);
+a([31,49,],12);
+a([29,66,66,67,80,],30);
+a([32,49,],57);
+a([31,77,78,66,67,80,],7);
+a([35,49,],9);
+a([34,49,],1);
+a([31,49,],38);
+a([30,67,49,],17);
+a([30,82,],27);
+a([30,77,78,66,67,80,],23);
+a([34,49,],6);
+a([33,49,],20);
+a([32,68,69,81,],2);
+a([25,31,50,50,51,70,],6);
+a([29,49,],4);
+a([28,72,73,],9);
+a([26,32,32,33,34,],16);
+a([28,49,],13);
+a([25,35,36,36,52,52,53,],12);
+a([29,54,55,],17);
+a([30,56,],15);
+a([29,57,49,],104);
+a([28,37,],4);
+a([25,38,39,40,41,42,],3);
+a([29,74,],1);
+a([25,43,58,30,],25);
+a([27,49,],55);
+a([26,44,30,],16);
+a([27,45,45,46,],67);
+a([28,47,48,49,],79);
+a([28,37,],8);
+a([25,59,63,30,],148);
+a([26,60,61,45,45,62,46,],81);
+a([24,25,26,26,27,26,65,66,83,67,80,],3);
+a([33,49,],1);
+a([31,67,80,],7);
+a([32,49,],14);
+a([31,77,78,66,67,49,],1);
+a([33,68,69,81,],5);
+a([31,49,],12);
+a([28,28,29,29,30,],51);
+a([28,64,26,65,66,67,80,],4);
+a([33,49,],21);
+a([32,49,],3);
+a([31,68,69,70,],17);
+a([29,50,72,81,],14);
+a([29,28,29,29,79,],11);
+a([30,37,],7);
+a([27,65,71,30,],22);
+a([29,66,67,80,],25);
+a([31,49,],67);
+a([30,77,78,66,67,80,],6);
+a([34,49,],2);
+a([33,49,],9);
+a([30,49,],20);
+a([28,66,66,67,80,],53);
+a([31,49,],186);
+a([30,77,78,66,67,80,],7);
+a([34,49,],4);
+a([30,49,],79);
+a([29,67,49,],49);
+a([29,82,],41);
+a([29,77,78,66,67,80,],12);
+a([33,49,],23);
+a([32,49,],16);
+a([31,68,69,81,],2);
+a([24,31,50,50,51,70,],12);
+a([28,49,],11);
+a([27,72,73,],4);
+a([24,35,36,36,52,52,53,],7);
+a([24,43,58,30,],23);
+a([26,84,85,86,87,88,89,20,],2);
+a([26,49,],53);
+a([25,44,30,],12);
+a([26,45,45,79,],5);
+a([28,46,],41);
+a([24,59,63,30,],264);
+a([25,60,61,45,45,62,46,],175);
+a([23,25,26,26,81,],1);
+a([26,27,26,65,66,83,67,80,],6);
+a([32,49,],17);
+a([30,77,78,66,67,80,],5);
+a([34,49,],12);
+a([33,49,],2);
+a([32,68,69,81,],1);
+a([27,64,26,65,66,67,49,],21);
+a([31,49,],4);
+a([30,68,69,70,],1);
+a([28,50,72,81,],5);
+a([28,28,29,29,79,],3);
+a([29,37,],12);
+a([26,65,66,66,67,80,],31);
+a([30,49,],110);
+a([29,49,],74);
+a([28,67,49,],54);
+a([28,82,],36);
+a([28,77,78,66,67,49,],35);
+a([28,68,69,90,],7);
+a([23,31,50,50,51,70,],6);
+a([23,35,36,36,52,52,53,],1);
+a([23,43,58,49,],11);
+a([23,59,63,30,],78);
+a([24,60,91,61,45,45,62,46,],1);
+a([25,61,45,45,62,46,],52);
+a([22,92,93,93,49,],1);
+a([22,59,60,61,45,45,62,46,],1);
+a([21,59,60,61,45,45,62,46,],1);
+a([20,59,75,76,],2);
+a([19,94,95,96,97,98,76,],2);
+a([22,99,86,86,87,88,89,20,],5);
+a([28,100,],2);
+a([0,101,102,103,104,105,106,],2);
+
+
+console.timeEnd("data exec time");
+
+
+function makeTreeNode() {
+  if (isDiffgraph)
+    return {self_samples_a: 0, self_samples_b: 0, self_delta: 0,
+            total_samples_a: 0, total_samples_b: 0, total_delta: 0,
+            delta_abs: 0, children: {}};
+  else
+    return {self: 0, total: 0, children: {}};
+}
+
+function getChildNode(node, childTitle) {
+  var children = node.children;
+  var child = children[childTitle];
+  if (child == undefined) {
+    child = makeTreeNode();
+    children[childTitle] = child;
+  }
+  return child;
+}
+
+function parseStacksToTreeSimple(stacks, treeRoot) {
+  console.time("parseStacksToTreeSimple");
+  var depth = 0;
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.total += stack.samples;
+    node.self += stack.samples;
+  }
+  console.timeEnd("parseStacksToTreeSimple");
+  return depth;
+}
+
+function parseStacksToTreeDiffgraph(stacks, treeRoot) {
+  console.time("parseStacksToTreeDiffgraph");
+  var depth = 0;
+
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+
+    var samplesA = stack.samples_a;
+    var samplesB = stack.samples_b;
+    if (normalizeDiff) samplesB = Math.round(samplesB * b_scale_factor);
+    var delta = samplesB - samplesA;
+
+
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.self_samples_a += samplesA;
+    node.self_samples_b += samplesB;
+    node.self_delta += delta;
+    node.delta_abs += Math.abs(delta);
+  }
+  console.timeEnd("parseStacksToTreeDiffgraph");
+  return depth;
+}
+
+function parseStacksToTree(stacks, treeRoot) {
+  if (isDiffgraph)
+    return parseStacksToTreeDiffgraph(stacks, treeRoot);
+  else
+    return parseStacksToTreeSimple(stacks, treeRoot);
+}
+
+const palette = {
+  green: "#50e150",
+  aqua: "#50bebe",
+  orange: "#e17d00",
+  yellow: "#c8c83c",
+  red: "#e15a5a",
+  clojure_green: "#91dc51",
+  clojure_blue: "#8fb5fe",
+};
+
+function getColor(title) {
+  if (title.endsWith("_[j]")) {
+    return palette.green;
+  } else if (title.endsWith("_[i]")) {
+    return palette.aqua;
+  } else if (title.endsWith("_[k]")) {
+    return palette.orange;
+  } else if (title.includes("::") || title.startsWith("-[") || title.startsWith("+[")) {
+    return palette.yellow;
+  } else if (title.includes("/")) { // Clojure (will only work after unmunging)
+    return palette.clojure_blue;
+  } else if (title.includes(".")) { // Java (if it has a dot and is not Clojure)
+    return palette.clojure_green;
+  } else return palette.red;
+}
+
+function decToHex(n) {
+  var hex = n.toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
+
+function getDiffColor(isRed, intensity) {
+  return "hsl(" + ((isRed) ? 0 : 220) + ",100%," + Math.round(90 - intensity * 30) + "%)";
+  // return "hsl(" + ((isRed) ? 0 : 220) + "," + Math.round(100 * intensity) + "%, 60%)";
+}
+
+function scaleColorMap(colorMap, intensity) {
+  return '#' + decToHex(intensity * colorMap.red) +
+    decToHex(intensity * colorMap.green) + decToHex(intensity * colorMap.blue);
+}
+
+var stacks, tree, levels, depth;
+
+var smallestPixelsPerSample, minPixelsPerFrame = 0.25, minSamplesToShow;
+
+function generateLevelsSimple(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.total >= minSamplesToShow) {
+    levels[level].push({left: left, width: node.total, color: getColor(title),
+                        title: title});
+
+    left += node.self;
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].total - a[1].total);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsSimple(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.total;
+    }
+  }
+}
+
+function generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.delta_abs >= minSamplesToShow) {
+    var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
+    var color = getDiffColor((node.total_delta > 0), Math.min(Math.abs(change), 1.0));
+    levels[level].push({left: left, width: node.delta_abs,
+                        self_samples_a: node.self_samples_a,
+                        self_samples_b: node.self_samples_b,
+                        self_delta: node.self_delta,
+                        total_samples_a: node.total_samples_a,
+                        total_samples_b: node.total_samples_b,
+                        total_delta: node.total_delta,
+                        color: color,
+                        title: title});
+
+    left += Math.abs(node.self_delta);
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].delta_abs - a[1].delta_abs);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsDiffgraph(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.delta_abs;
+    }
+  }
+}
+
+function generateLevels(levels, node, title, level, x, minSamplesToShow) {
+  if (isDiffgraph)
+    generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow);
+  else
+    generateLevelsSimple(levels, node, title, level, x, minSamplesToShow);
+}
+
+function refreshData() {
+  if (isDiffgraph && normalizeDiff)
+    b_scale_factor = totalSamplesA / totalSamplesB;
+
+  stacks = transformStacks();
+
+  tree = makeTreeNode();
+
+  depth = parseStacksToTree(stacks, tree);
+  smallestPixelsPerSample = canvasWidth / (tree.total || tree.delta_abs);
+  minSamplesToShow = minPixelsPerFrame / smallestPixelsPerSample;
+
+  levels = [];
+  generateLevels(levels, tree, "all", 0, 0, minSamplesToShow);
+  depth = levels.length;
+}
+
+refreshData();
+
+var canvasHeight;
+
+function initCanvas() {
+  canvasHeight = (depth + 1) * 16;
+  canvas.style.width = canvasWidth + 'px';
+  canvas.width = canvasWidth * (devicePixelRatio || 1);
+  canvas.height = canvasHeight * (devicePixelRatio || 1);
+  if (devicePixelRatio) c.scale(devicePixelRatio, devicePixelRatio);
+  c.font = document.body.style.font;
+}
+
+initCanvas();
+isNormalizedDiv.style.display = isDiffgraph ? 'inherit' : 'none';
+if (graphTitle == "")
+  titleDiv.style.display = 'none';
+else
+  graphTitleSpan.innerText = graphTitle;
+
+
+var highlightPattern = null, currentRootFrame, currentRootLevel, px;
+
+function render(newRootFrame, newLevel) {
+  console.time("render");
+  // Background
+  var gradient = c.createLinearGradient(0, 0, 0, canvasHeight);
+  gradient.addColorStop(0.05, "#eeeeee");
+  gradient.addColorStop(0.95, "#eeeeb0");
+  c.fillStyle = gradient;
+  c.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  currentRootFrame = newRootFrame || levels[0][0];
+  currentRootLevel = newLevel || 0;
+  px = canvasWidth / currentRootFrame.width;
+
+  const marked = [];
+
+  function mark(f) {
+    return marked[f.left] >= f.width || (marked[f.left] = f.width);
+  }
+
+  function totalMarked() {
+    let total = 0;
+    let left = 0;
+    for (let x in marked) {
+      if (+x >= left) {
+        total += marked[x];
+        left = +x + marked[x];
+      }
+    }
+    return total;
+  }
+
+  const x0 = currentRootFrame.left;
+  const x1 = x0 + currentRootFrame.width;
+
+  function drawFrame(f, y, alpha) {
+    if (f.left < x1 && f.left + f.width > x0) {
+      c.fillStyle = highlightPattern && f.title.match(highlightPattern) && mark(f) ? '#ee00ee' : f.color;
+      c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+
+      if (f.width * px >= 21) {
+        const chars = Math.floor(f.width * px / 7);
+        const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 2) + '..';
+        c.fillStyle = '#000000';
+        c.fillText(title, Math.max(f.left - x0, 0) * px + 3, y + 12, f.width * px - 6);
+      }
+
+      if (alpha) {
+        c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+      }
+    }
+  }
+
+  for (let h = 0; h < levels.length; h++) {
+    const y = reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16;
+    const frames = levels[h];
+    for (let i = 0; i < frames.length; i++) {
+      if (frames[i].width >= minSamplesToShow)
+        drawFrame(frames[i], y, h < currentRootLevel);
+    }
+  }
+
+  if (highlightPattern != null) {
+    matchContainer.style.display = 'inherit';
+    matchedLabel.textContent = pct(totalMarked(), currentRootFrame.width) + '%';
+  } else
+    matchContainer.style.display = 'none';
+  console.timeEnd("render");
+}
+
+render();
+
+function round2dig(n) {
+  return Math.round(n * 100) / 100;
+}
+
+function ratioToPct(n) {
+  return ((n > 0) ? "+" : "") + (n * 100).toFixed(2) + "%";
+}
+
+function findFrame(frames, x) {
+  let left = 0;
+  let right = frames.length - 1;
+
+  while (left <= right) {
+    const mid = (left + right) >>> 1;
+    const f = frames[mid];
+
+    if (f.left > x) {
+      right = mid - 1;
+    } else if (f.left + f.width <= x) {
+      left = mid + 1;
+    } else {
+      return f;
+    }
+  }
+
+  if (frames[left] && (frames[left].left - x) * px < 0.5) return frames[left];
+  if (frames[right] && (x - (frames[right].left + frames[right].width)) * px < 0.5) return frames[right];
+
+  return null;
+}
+
+canvas.onmousemove = function() {
+  const h = Math.floor((reverseGraph ? event.offsetY : (canvasHeight - event.offsetY)) / 16);
+  if (h >= 0 && h < levels.length) {
+    const f = findFrame(levels[h], event.offsetX / px + currentRootFrame.left);
+    if (f && f.width >= minSamplesToShow) {
+      hl.style.left = (Math.max(f.left - currentRootFrame.left, 0) * px + canvas.offsetLeft) + 'px';
+      hl.style.width = (Math.min(f.width, currentRootFrame.width) * px) + 'px';
+      hl.style.top = ((reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16) + canvas.offsetTop) + 'px';
+      // hl.firstChild.textContent = f.title;
+      hl.style.display = 'block';
+      if (isDiffgraph) {
+        var rel_change = (f.total_samples_a == 0) ? 1.0 : f.total_delta / f.total_samples_a;
+        var total_change = f.total_delta / tree.total_samples_a;
+        canvas.title = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
+        // , self_samples_a: ${f.self_samples_a}, self_samples_b: ${f.self_samples_b},  self_delta: ${f.self_delta},  total_samples_a: ${f.total_samples_a},  total_samples_b: ${f.total_samples_b}, total_delta: ${f.total_delta})`;
+      } else
+        canvas.title = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + '%)';
+      canvas.style.cursor = 'pointer';
+      canvas.onclick = function() {
+        if (f != currentRootFrame) {
+          render(f, h);
+          canvas.onmousemove();
+        }
+      };
+      status.textContent = 'Function: ' + canvas.title;
+      return;
+    }
+  }
+  canvas.onmouseout();
+}
+
+canvas.onmouseout = function() {
+  hl.style.display = 'none';
+  status.textContent = '\xa0';
+  canvas.title = '';
+  canvas.style.cursor = '';
+  canvas.onclick = '';
+}
+
+function samples(n, add_plus) {
+  return (add_plus && n > 0 ? "+" : "") + (n === 1 ? '1 sample' : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + ' samples';
+}
+
+function pct(a, b) {
+  return a >= b ? '100' : (100 * a / b).toFixed(2);
+}
+
+//// Configuration panel
+
+function highlightApply() {
+  const pattern = highlightInput.value;
+  highlightPattern = (pattern == "") ? null : _stringToMaybeRegex(pattern);
+  render(currentRootFrame, currentRootLevel);
+}
+
+function highlightClear() {
+  highlightPattern = null;
+  render(currentRootFrame, currentRootLevel);
+}
+
+function userTransformsSwap(idx1, idx2) {
+  const swap = userTransforms[idx1];
+  userTransforms[idx1] = userTransforms[idx2];
+  userTransforms[idx2] = swap;
+}
+
+function addNewTransform() {
+  syncTransformsModelWithUI();
+  let type = newTransformType.value;
+  userTransforms.push(_makeTransform(type, true, "", ""));
+  redrawTransformsSection();
+}
+
+function deleteTransform(originator) {
+  syncTransformsModelWithUI();
+  userTransforms.splice(originator.internalId, 1);
+  redrawTransformsSection();
+}
+
+function cloneTransform(originator) {
+  syncTransformsModelWithUI();
+  const idx = originator.internalId;
+  userTransforms.splice(idx+1, 0, Object.assign({}, userTransforms[idx]));
+  redrawTransformsSection();
+}
+
+function moveTransformUp(originator) {
+  const idx = originator.internalId;
+  if (idx == 0) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx-1, idx);
+  redrawTransformsSection();
+}
+
+function moveTransformDown(originator) {
+  const idx = originator.internalId;
+  if (idx == userTransforms.length-1) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx, idx+1);
+  redrawTransformsSection();
+}
+
+function refreshAfterEnabledToggle() {
+  syncTransformsModelWithUI();
+  redrawTransformsSection();
+}
+
+function oneByClass(container, classname) {
+  return container.getElementsByClassName(classname)[0];
+}
+
+function syncTransformsModelWithUI() {
+  for (var i = 0; i < transformsContainer.children.length; i++) {
+    const el = transformsContainer.children[i];
+    const model = userTransforms[i];
+    userTransforms[i] =
+      _makeTransform(model.type, oneByClass(el, 'chkEnabled').checked,
+                     oneByClass(el, 'what').value,
+                     model.type == 'replace' ? oneByClass(el, 'replacement').value : null);
+  }
+}
+
+function redrawTransformsSection() {
+  transformsContainer.innerHTML = "";
+  for (var i = 0; i < userTransforms.length; i++) {
+    const transform = userTransforms[i];
+    var newEl = (transform.type == 'replace') ?
+        transformReplaceTemplate.cloneNode(true) :
+        transformFilterTemplate.cloneNode(true);
+    newEl.style = '';
+    newEl.internalId = i;
+
+    const what = transform.what;
+    if (typeof(what) == 'string')
+      oneByClass(newEl, 'what').value = what;
+    else
+      oneByClass(newEl, 'what').value = what.toString().match(/^(\/.+\/)g?$/)[1];
+
+    if (transform.type == 'replace')
+      oneByClass(newEl, 'replacement').value = transform.replacement;
+    else if (transform.type == 'remove')
+      oneByClass(newEl, 'label').textContent = "Remove:";
+    oneByClass(newEl, 'chkEnabled').checked = transform.enabled;
+
+    oneByClass(newEl, 'chkEnabled').internalId = i;
+    oneByClass(newEl, 'btnMoveUp').internalId = i;
+    oneByClass(newEl, 'btnMoveDown').internalId = i;
+    oneByClass(newEl, 'btnClone').internalId = i;
+    oneByClass(newEl, 'btnDelete').internalId = i;
+    transformsContainer.appendChild(newEl);
+  }
+}
+
+redrawTransformsSection();
+
+function scrollToTopOrBottom() {
+  window.scrollTo(0, reverseGraph ? 0 : document.body.scrollHeight);
+}
+
+scrollToTopOrBottom();
+
+function applyConfiguration() {
+  console.time("apply config");
+  minPixelsPerFrame = minFrameWidthInPx.value || 0.25;
+  normalizeDiff = isNormalized.checked;
+  let reverseChanged = (reverseGraph != isReversedInput.checked);
+  reverseGraph = isReversedInput.checked;
+  syncTransformsModelWithUI();
+  refreshData();
+  initCanvas();
+  render();
+  if (reverseChanged)
+    scrollToTopOrBottom();
+  console.timeEnd("apply config");
+}
+
+function toggleSidebarVisibility() {
+  sidebarVisible = !sidebarVisible;
+  let style = oneByClass(document, 'configCol').style
+  if (sidebarVisible) {
+    style.display = 'block';
+    oneByClass(document, 'sidebarToggle').innerText = ">";
+  } else {
+    style.display = 'none';
+    oneByClass(document, 'sidebarToggle').innerText = "<";
+  }
+  canvasWidth = calculateCanvasWidth();
+  applyConfiguration();
+}
+
+if (new URLSearchParams(window.location.search).get('hide-sidebar') == 'true') {
+  toggleSidebarVisibility();
+}
+    </script>
+  </body>
+</html>

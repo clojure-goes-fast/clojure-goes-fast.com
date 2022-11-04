@@ -1,0 +1,1281 @@
+<html>
+  <head>
+    <style>
+      body {margin: 0; padding: 5px; background-color: #ffffff}
+      button {font: 12px sans-serif;}
+      p {margin: 5px 0 5px 0}
+      #hl {position: absolute; display: none; overflow: hidden; white-space: nowrap; pointer-events: none; background-color: #00000000; outline: 0.5px solid #222; height: 15px}
+      #hl span {padding: 0 3px 0 3px}
+      #status {overflow: hidden; white-space: nowrap}
+      #match {overflow: hidden; white-space: nowrap; display: none; float: right; text-align: right}
+      * {box-sizing:border-box,margin:.25em 0}
+      .col{display:table-cell}
+      .col-1{width:5%}
+      .col-2{width:15%}
+      .col-3{width:22%}
+      .col-4{width:30%}
+      .col-5{width:40%}
+      .col-6{width:50%}
+      .row{display:table;border-spacing:0.2em 0;width:100%;display:flex}
+      .w-100{width:100%;display:flex}
+      .graphCol{flex: 80%; padding: 0.25em;}
+      .configCol{flex: 20%; padding: 0.25em;}
+      .configBlock{position:fixed; overflow-y:auto; top: 5px; bottom: 5px; width:19%;}
+      .sidebarToggle{font: 10px; width:10; padding:0;}
+      .margins {margin: 5px 1px}
+      .vmargins {margin: 0px 1px;}
+    </style>
+  </head>
+  <body style='font: 12px Verdana, sans-serif'>
+    <div class="c">
+      <div class="row">
+        <div class="graphCol">
+          <canvas id='canvas' style='width: 100%;'></canvas>
+          <div id='box'><div id='hl'><span></span></div></div>
+          <p id='match'>Matched: <span id='matchedLabel'></span></p>
+          <p id='status'>&nbsp;</p>
+        </div>
+        <button class="sidebarToggle" onclick="toggleSidebarVisibility()">&lt;</button>
+        <div class="configCol">
+          <div class="configBlock">
+            <div id="titleDiv">
+              <b><center><span id="graphTitleSpan">Flamegraph</span></center></b>
+              <hr>
+            </div>
+            <div class="row">
+              <label for="highlightInput">Highlight:</label>
+              <input placeholder="String or /regex/" name="highlightInput" id="highlightInput"/>
+            </div>
+            <div class="row">
+              <button onclick="highlightApply()">Highlight</button>
+              <button onclick="highlightClear()">Clear</button>
+            </div>
+            <br>
+            <hr>
+            <br>
+
+            <label>Minimal frame width (in pixels):</label><br>
+            <input id="minFrameWidthInPx" value="0.5"/><br>
+            <div>
+              <label><input type="checkbox" id="isReversedInput">Reversed</label>
+              <span id="isNormalizedDiv" style="display:none;">
+                <label><input type="checkbox" id="isNormalized" name="isNormalized" checked>Normalized</label>
+              </span>
+            </div>
+            <div>
+              <label><input type="radio" id="sortByNameRadio" name="sortBy" value="name" checked>Sort by name</label>
+              <label><input type="radio" id="sortByWidthRadio" name="sortBy" value="width">Sort by width</label>
+            </div>
+            <br>
+
+            <div class="row">
+              <div class="col">
+                <label for="newTransformType">Add a transform:</label>
+
+                <select name="newTransformType" id="newTransformType">
+                  <option value="filter">Filter</option>
+                  <option value="remove">Remove</option>
+                  <option value="replace">Replace</option>
+                </select>
+              </div>
+              <div class="col col-2">
+                <button onclick="addNewTransform()">Add</button>
+              </div>
+            </div>
+            <br>
+
+            <div id="transformsContainer">
+            </div>
+
+            <div id="transformReplaceTemplate" style="display:none">
+              <div class="row">
+                <div class="col col-3">
+                  <label>Replace:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="what no-vmargins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="replacement no-vmargins w-100" placeholder="Replacement"/><br>
+                </div>
+              </div>
+            </div>
+
+            <div id="transformFilterTemplate" style="display:none" class="margins">
+              <div class="row">
+                <div class="col col-3">
+                  <label class="label">Filter:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col w-100 margins">
+                  <input class="what margins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+            </div>
+
+            <hr>
+            <button onclick="applyConfiguration()">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // This file was derived from flamegraph.html from the project
+// https://github.com/jvm-profiling-tools/async-profiler
+// Licensed under the Apache License, Version 2.0. Copyright 2020 Andrei Pangin
+
+/// Constants
+const canvas = document.getElementById('canvas');
+const c = canvas.getContext('2d');
+const hl = document.getElementById('hl');
+const status = document.getElementById('status');
+const matchContainer = document.getElementById('match');
+const transformFilterTemplate = document.getElementById('transformFilterTemplate');
+const transformReplaceTemplate = document.getElementById('transformReplaceTemplate');
+const sidebarToggleButton = document.getElementsByClassName('sidebarToggle')[0];
+const sidebarWidth = document.getElementsByClassName('configCol')[0].offsetWidth
+
+var sidebarVisible = true;
+sidebarToggleButton.innerText = sidebarVisible ? '>' : '<';
+
+function calculateCanvasWidth() {
+  if (sidebarVisible)
+    return window.innerWidth - sidebarWidth - 36
+  else
+    return window.innerWidth - 36;
+}
+
+var canvasWidth = calculateCanvasWidth();
+var graphTitle = "";
+var isDiffgraph = false;
+var normalizeDiff = true, b_scale_factor;
+var reverseGraph = false;
+var idToFrame = ["[unknown_Java]",
+"foward_copy_longs",
+"zero_longs",
+"clojure.main.main",
+"clojure.lang.Var.applyTo",
+"clojure.lang.RestFn.applyTo",
+"clojure.lang.AFn.applyToHelper",
+"clojure.lang.RestFn.invoke",
+"clojure.main/main",
+"clojure.main/repl-opt",
+"clojure.main/repl",
+"clojure.main/repl/fn--9215",
+"clojure.main/repl/read-eval-print--9206",
+"clojure.main/repl/read-eval-print--9206/fn--9209",
+"clojure.core/eval",
+"clojure.lang.Compiler.eval",
+"user$eval699.invoke",
+"user$eval699.invokeStatic",
+"InterpreterRuntime::_new(JavaThread*, ConstantPool*, int)",
+"InstanceKlass::initialize(Thread*)",
+"InstanceKlass::initialize_impl(instanceKlassHandle, Thread*)",
+"InstanceKlass::link_class(Thread*)",
+"InstanceKlass::link_class_impl(instanceKlassHandle, bool, Thread*)",
+"Verifier::verify(instanceKlassHandle, Verifier::Mode, bool, Thread*)",
+"ClassVerifier::verify_class(Thread*)",
+"ClassVerifier::verify_method(methodHandle, Thread*)",
+"ClassVerifier::verify_field_instructions(RawBytecodeStream*, StackMapFrame*, constantPoolHandle, Thread*)",
+"SignatureStream::as_symbol(Thread*)",
+"SymbolTable::lookup(Symbol const*, int, int, Thread*)",
+"Symbol::equals(char const*, int) const",
+"clj-async-profiler.core/start",
+"clj-async-profiler.core/attach-agent",
+"clojure.lang.Reflector.invokeInstanceMethod",
+"clojure.lang.Reflector.invokeMatchingMethod",
+"java.lang.reflect.Method",
+"sun.reflect.DelegatingMethodAccessorImpl",
+"sun.reflect.NativeMethodAccessorImpl",
+"sun.reflect.NativeMethodAccessorImpl.invoke0",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentPath",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentLibrary",
+"sun.tools.attach.BsdVirtualMachine.execute",
+"sun.tools.attach.HotSpotVirtualMachine.readInt",
+"java.lang.Integer.parseInt",
+"user$eval699$fn__700.invoke",
+"clj-async-profiler.core/stop",
+"clj-async-profiler.core/status",
+"clojure.core/slurp",
+"clojure.core/apply",
+"clojure.java.io/reader",
+"clojure.java.io/fn--11530/G--11519--11537",
+"clojure.java.io/fn--11591",
+"clojure.java.io/fn--11569/G--11523--11576",
+"clojure.java.io/fn--11617",
+"java.io.FileInputStream.<init>",
+"java.io.FileInputStream.open",
+"java.io.FileInputStream.open0",
+"fileOpen",
+"fstat",
+"clojure.core/reduce",
+"clojure.lang.LongRange.reduce",
+"clojure.core/*'",
+"clojure.lang.Numbers.multiplyP",
+"clojure.lang.Numbers$OpsP.multiplyP",
+"clojure.lang.Numbers$BigIntOps.multiply",
+"clojure.lang.BigInt.multiply",
+"clojure.lang.BigInt.toBigInteger",
+"java.math.BigInteger.valueOf",
+"java.math.BigInteger.multiply",
+"java.math.BigInteger.multiplyByInt",
+"OptoRuntime::new_array_C(Klass*, int, JavaThread*)",
+"_platform_memset",
+"jint_disjoint_arraycopy",
+"clojure.core/+'",
+"clojure.lang.Numbers.addP",
+"OptoRuntime::new_instance_C(Klass*, JavaThread*)",
+"InstanceKlass::allocate_instance(Thread*)",
+"post_allocation_notify(KlassHandle, oopDesc*, int)",
+"JfrAllocationTracer::~JfrAllocationTracer()",
+"clojure.lang.Numbers$LongOps.addP",
+"clojure.lang.Numbers.num",
+"java.lang.Long.valueOf",
+"clojure.core//",
+"clojure.lang.Numbers.divide",
+"clojure.lang.Numbers$RatioOps.divide",
+"java.math.BigInteger.divide",
+"java.math.BigInteger.divideKnuth",
+"java.math.MutableBigInteger.divideKnuth",
+"arrayof_jint_fill",
+"java.math.MutableBigInteger.divideOneWord",
+"java.math.BigInteger.gcd",
+"java.math.MutableBigInteger.hybridGCD",
+"arrayof_jlong_disjoint_arraycopy",
+"java.math.MutableBigInteger.divide",
+"java.math.MutableBigInteger.getLowestSetBit",
+"java.math.MutableBigInteger.toBigInteger",
+"OptoRuntime::new_array_nozero_C(Klass*, int, JavaThread*)",
+"TypeArrayKlass::allocate_common(int, bool, Thread*)",
+"CollectedHeap::common_mem_allocate_noinit(KlassHandle, unsigned long, Thread*)",
+"ParallelScavengeHeap::mem_allocate(unsigned long, bool*)",
+"VMThread::execute(VM_Operation*)",
+"Monitor::wait(bool, long, bool)",
+"Monitor::IWait(Thread*, long)",
+"ParkCommon(ParkEvent*, long)",
+"os::PlatformEvent::park()",
+"__psynch_cvwait",
+"AllocTracer::send_allocation_in_new_tlab_event(KlassHandle, HeapWord*, unsigned long, unsigned long, Thread*)",
+"JfrAllocationTracer::JfrAllocationTracer(HeapWord*, unsigned long, Thread*)",
+"java.math.BigInteger.multiplyKaratsuba",
+"itable stub",
+"java.lang.Thread.run",
+"sun.net.httpserver.ServerImpl$Dispatcher.run",
+"thread_start",
+"_pthread_start",
+"java_start(Thread*)",
+"GCTaskThread::run()",
+"GCTaskManager::get_task(unsigned int)",
+"Monitor::lock_without_safepoint_check()",
+"Monitor::ILock(Thread*)",
+"GCTaskManager::note_completion(unsigned int)",
+"OldToYoungRootsTask::do_it(GCTaskManager*, unsigned int)",
+"CardTableExtension::scavenge_contents_parallel(ObjectStartArray*, MutableSpace*, HeapWord*, PSPromotionManager*, unsigned int, unsigned int)",
+"ObjectStartArray::object_start(HeapWord*) const",
+"ScavengeRootsTask::do_it(GCTaskManager*, unsigned int)",
+"ClassLoaderDataGraph::oops_do(OopClosure*, KlassClosure*, bool)",
+"ClassLoaderData::oops_do(OopClosure*, KlassClosure*, bool)",
+"PSScavengeKlassClosure::do_klass(Klass*)",
+"StealTask::do_it(GCTaskManager*, unsigned int)",
+"ParallelTaskTerminator::offer_termination(TerminatorTerminator*)",
+"swtch_pri",
+"SpinPause",
+"JavaThread::run()",
+"JavaThread::thread_main_inner()",
+"CompileBroker::compiler_thread_loop()",
+"CompileBroker::invoke_compiler_on_method(CompileTask*)",
+"C2Compiler::compile_method(ciEnv*, ciMethod*, int)",
+"Compile::Compile(ciEnv*, C2Compiler*, ciMethod*, int, bool, bool, bool)",
+"Compile::Code_Gen()",
+"Compile::Output()",
+"Compile::BuildOopMaps()",
+"Compile::init_buffer(unsigned int*)",
+"Compile::shorten_branches(unsigned int*, int&, int&, int&)",
+"Compile::scratch_emit_size(Node const*)",
+"CodeBuffer::CodeBuffer(unsigned char*, int)",
+"CodeBuffer::verify_section_allocation()",
+"Compile::fill_buffer(CodeBuffer*, unsigned int*)",
+"NonSafepointEmitter::observe_instruction(Node*, int)",
+"NonSafepointEmitter::emit_non_safepoint()",
+"CompressedWriteStream::write_int(int)",
+"NonSafepointEmitter::observe_safepoint(JVMState*, int)",
+"DebugInformationRecorder::describe_scope(int, ciMethod*, int, bool, bool, bool, DebugToken*, DebugToken*, DebugToken*)",
+"DebugInformationRecorder::find_sharable_decode_offset(int)",
+"DIR_Chunk::find_match(GrowableArray<DIR_Chunk*>*, int, DebugInformationRecorder*)",
+"Matcher::match()",
+"Arena::contains(void const*) const",
+"Matcher::find_shared(Node*)",
+"Matcher::xform(Node*, int)",
+"Matcher::match_sfpt(SafePointNode*)",
+"Matcher::match_tree(Node const*)",
+"Matcher::ReduceInst(State*, int, Node*&)",
+"Arena::Amalloc_D(unsigned long, AllocFailStrategy::AllocFailEnum)",
+"PhaseCFG::do_global_code_motion()",
+"PhaseCFG::estimate_block_frequency()",
+"CFGLoop::compute_freq()",
+"Block::succ_prob(unsigned int)",
+"PhaseCFG::global_code_motion()",
+"PhaseCFG::compute_latencies_backwards(VectorSet&, Node_List&)",
+"PhaseCFG::partial_latency_of_defs(Node*)",
+"PhaseCFG::schedule_late(VectorSet&, Node_List&)",
+"Node_Backward_Iterator::next()",
+"PhaseChaitin::Register_Allocate()",
+"CProjNode::is_block_proj() const",
+"MachNode::oper_input_base() const",
+"Node::rematerialize() const",
+"PhaseAggressiveCoalesce::insert_copies(Matcher&)",
+"PhaseChaitin::Simplify()",
+"IndexSetIterator::advance_and_next()",
+"PhaseChaitin::Split(unsigned int, ResourceArea*)",
+"PhaseChaitin::build_ifg_physical(ResourceArea*)",
+"IndexSet::insert(unsigned int)",
+"IndexSet::alloc_block_containing(unsigned int)",
+"ThreadLocalStorage::is_initialized()",
+"PhaseChaitin::build_ifg_virtual()",
+"RegMask::overlap(RegMask const&) const",
+"PhaseChaitin::gather_lrg_masks(bool)",
+"RegMask::Size() const",
+"PhaseChaitin::merge_multidefs()",
+"PhaseChaitin::post_allocate_copy_removal()",
+"PhaseChaitin::elide_copy(Node*, int, Block*, Node_List&, Node_List&, bool)",
+"find_lowest_bit(unsigned int)",
+"PhaseChaitin::stretch_base_pointer_live_ranges(ResourceArea*)",
+"IndexSet::IndexSet(IndexSet*)",
+"PhaseCoalesce::coalesce_driver()",
+"PhaseConservativeCoalesce::coalesce(Block*)",
+"PhaseConservativeCoalesce::copy_copy(Node*, Node*, Block*, unsigned int)",
+"PhaseConservativeCoalesce::update_ifg(unsigned int, unsigned int, IndexSet*, IndexSet*)",
+"PhaseLive::compute(unsigned int)",
+"IndexSet::clear()",
+"PhaseLive::add_liveout(Block*, IndexSet*, VectorSet&)",
+"Compile::Optimize()",
+"ConnectionGraph::do_analysis(Compile*, PhaseIterGVN*)",
+"ConnectionGraph::compute_escape()",
+"ConnectionGraph::add_call_node(CallNode*)",
+"ciMethod::get_bcea()",
+"BCEscapeAnalyzer::BCEscapeAnalyzer(ciMethod*, BCEscapeAnalyzer*)",
+"ciMethod::method_data()",
+"ciMethodData::load_data()",
+"SimpleThresholdPolicy::is_mature(Method*)",
+"ConnectionGraph::split_unique_types(GrowableArray<Node*>&)",
+"PhaseIterGVN::add_users_to_worklist(Node*)",
+"Unique_Node_List::push(Node*)",
+"PhaseCCP::PhaseCCP(PhaseIterGVN*)",
+"PhaseCCP::analyze()",
+"PhaseIdealLoop::PhaseIdealLoop(PhaseIterGVN&, bool, bool)",
+"PhaseIdealLoop::build_and_optimize(bool, bool)",
+"CProjNode::is_CFG() const",
+"IdealLoopTree::counted_loop(PhaseIdealLoop*)",
+"PhaseTransform::intcon(int)",
+"PhaseIdealLoop::Dominators()",
+"NTarjan::DFS(NTarjan*, VectorSet&, PhaseIdealLoop*, unsigned int*)",
+"RegionNode::is_CFG() const",
+"PhaseIdealLoop::build_loop_early(VectorSet&, Node_List&, Node_Stack&)",
+"PhaseIdealLoop::set_early_ctrl(Node*)",
+"PhaseIdealLoop::get_early_ctrl(Node*)",
+"PhaseIdealLoop::get_ctrl_no_update(Node*) const",
+"PhaseIdealLoop::build_loop_late(VectorSet&, Node_List&, Node_Stack&)",
+"PhaseIdealLoop::build_loop_late_post(Node*)",
+"PhaseIdealLoop::get_late_ctrl(Node*, Node*)",
+"PhaseIdealLoop::compute_lca_of_uses(Node*, Node*, bool)",
+"PhaseIdealLoop::dom_lca_for_get_late_ctrl(Node*, Node*, Node*)",
+"PhaseIdealLoop::dom_lca_for_get_late_ctrl_internal(Node*, Node*, Node*)",
+"PhaseIdealLoop::dom_depth(Node*) const",
+"PhaseIdealLoop::is_dominator(Node*, Node*)",
+"PhaseIdealLoop::split_if_with_blocks(VectorSet&, Node_Stack&)",
+"PhaseIdealLoop::split_if_with_blocks_pre(Node*)",
+"PhaseIdealLoop::has_node(Node*) const",
+"PhaseIdealLoop::split_thru_phi(Node*, Node*, int)",
+"AddPNode::Identity(PhaseTransform*)",
+"Type::hashcons()",
+"Dict::Insert(void*, void*, bool)",
+"PhaseIterGVN::remove_globally_dead_node(Node*)",
+"PhaseIterGVN::optimize()",
+"PhaseIterGVN::transform_old(Node*)",
+"CallNode::Ideal(PhaseGVN*, bool)",
+"Node::remove_dead_region(PhaseGVN*, bool)",
+"ProjNode::is_CFG() const",
+"ProjNode::pinned() const",
+"RethrowNode::is_CFG() const",
+"SuperWord::SLP_extract()",
+"SuperWord::find_adjacent_refs()",
+"SuperWord::same_velt_type(Node*, Node*)",
+"MergeMemNode::Ideal(PhaseGVN*, bool)",
+"MultiNode::hash() const",
+"PhaseIterGVN::subsume_node(Node*, Node*)",
+"Node::set_req(unsigned int, Node*)",
+"PhaseMacroExpand::expand_macro_nodes()",
+"PhaseMacroExpand::expand_unlock_node(UnlockNode*)",
+"Type::cmp(Type const*, Type const*)",
+"PhaseRenumberLive::PhaseRenumberLive(PhaseGVN*, Unique_Node_List*, Unique_Node_List*, Phase::PhaseNumber)",
+"PhaseRemoveUseless::PhaseRemoveUseless(PhaseGVN*, Unique_Node_List*, Phase::PhaseNumber)",
+"Compile::identify_useful_nodes(Unique_Node_List&)",
+"ciEnv::register_method(ciMethod*, int, CodeOffsets*, int, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, int, bool, bool, RTMState)",
+"nmethod::new_nmethod(methodHandle, int, int, CodeOffsets*, int, DebugInformationRecorder*, Dependencies*, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, int)",
+"nmethod::nmethod(Method*, int, int, int, CodeOffsets*, int, DebugInformationRecorder*, Dependencies*, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, int)",
+"CodeBlob::CodeBlob(char const*, CodeBuffer*, int, int, int, int, OopMapSet*)",
+"CodeBuffer::copy_code_to(CodeBlob*)",
+"CodeBuffer::relocate_code_to(CodeBuffer*) const",
+"Relocation::pd_set_call_destination(unsigned char*)",
+"trampoline_stub_Relocation::get_trampoline_for(unsigned char*, nmethod*)",
+"RelocIterator::next()",
+"CompileQueue::get()",
+"NMethodSweeper::possibly_sweep()",
+"NMethodSweeper::sweep_code_cache()",
+"NMethodSweeper::process_nmethod(nmethod*)",
+"nmethod::cleanup_inline_caches()",
+"VMThread::run()",
+"VMThread::loop()",
+"EventMark::~EventMark()",
+"Events::log(Thread*, char const*, ...)",
+"StringEventLog::logv(Thread*, char const*, char*)",
+"jio_vsnprintf",
+"os::vsnprintf(char*, unsigned long, char const*, char*)",
+"_vsnprintf",
+"__vfprintf",
+"VMThread::evaluate_operation(VM_Operation*)",
+"VM_Operation::evaluate()",
+"VM_ParallelGCFailedAllocation::doit()",
+"ParallelScavengeHeap::failed_mem_allocate(unsigned long)",
+"PSScavenge::invoke()",
+"PSScavenge::invoke_no_policy()",
+"MetaspaceAux::print_on(outputStream*)",
+"StringTable::unlink_or_oops_do(BoolObjectClosure*, OopClosure*, int*, int*)",
+"StringTable::buckets_unlink_or_oops_do(BoolObjectClosure*, OopClosure*, int, int, BasicHashtable<(MemoryType)9>::BucketUnlinkContext*)",
+"WatcherThread::run()",
+"PeriodicTask::real_time_tick(int)",
+"PerfLongVariant::sample()",
+"StatSampler::collect_sample()",
+"os::elapsed_counter()",
+"mach_absolute_time",
+"StatSamplerTask::task()",
+"WatcherThread::sleep() const",
+"_pthread_cond_wait",
+"os::PlatformEvent::park(long)",
+"__gettimeofday",
+];
+var initialStacks = [];
+var stacks;
+
+var _lastInsertedStack = null;
+
+function a(frameIds, samples) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"), samples: samples});
+}
+
+var totalSamplesA = 0, totalSamplesB = 0;
+
+function d(frameIds, samples_a, samples_b) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  totalSamplesA += samples_a;
+  totalSamplesB += samples_b;
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"),
+                      samples_a: samples_a, samples_b: samples_b});
+}
+
+function _extractRegexPrefix(s) {
+  let parsed = s.match(/^\/\.\+(.+)\/g$/);
+  if (parsed != null) {
+    return new RegExp(parsed[1]);
+  }
+}
+
+function _stringToMaybeRegex(s) {
+  if (s == null) return null;
+  let parsed = s.match(/^\/(.+)\/$/);
+  if (parsed != null)
+    return new RegExp(parsed[1], 'g');
+  else
+    return s;
+}
+
+function _makeTransform(type, enabled, what, replacement) {
+  let what2 = (typeof(what) == 'string') ? _stringToMaybeRegex(what) : what;
+  let prefix = (what2 instanceof RegExp) ?
+      _extractRegexPrefix(what2.toString()) : null;
+  if (type == 'replace')
+    return { type: type, enabled: enabled, what: what2, replacement: replacement, prefix: prefix}
+  else
+    return { type: type, enabled: enabled, what: what2}
+}
+
+var userTransforms = [];
+
+function match(string, obj) {
+  if (typeof(obj) == 'string') {
+    return string.includes(obj);
+  } else
+    return string.match(obj);
+}
+
+function applyReplacement(string, what, replacement, prefix) {
+  var s = string;
+  if (prefix != null) {
+    let match = prefix.exec(string);
+    if (match == null)
+      return s;
+    else
+      s = string.substring(Math.max(match.index-1, 0));
+  }
+  return s.replaceAll(what, replacement);
+}
+
+function transformStacks() {
+  console.time("transformStacks");
+  let diff = isDiffgraph;
+  var result;
+  if (userTransforms.length > 0) {
+    var xformedMap = {};
+    for (var i = 0; i < initialStacks.length; i++) {
+      var stack = initialStacks[i];
+      var xformedStr = stack.stackStr;
+      var useIt = true;
+
+      for (var t = 0; t < userTransforms.length; t++) {
+        const transform = userTransforms[t];
+        if (transform.enabled && transform.what != '') {
+          if (transform.type == 'replace') {
+            xformedStr = applyReplacement(xformedStr, transform.what,
+                                          transform.replacement, transform.prefix);
+          } else if (transform.type == 'filter') {
+            if (!match(xformedStr, transform.what))
+              useIt = false;
+          } else if (transform.type == 'remove') {
+            if (match(xformedStr, transform.what))
+              useIt = false;
+          }
+        }
+        if (!useIt) break;
+      }
+
+      if (useIt)
+        if (diff) {
+          let newVal = (xformedMap[xformedStr] || {});
+          newVal.samples_a = (newVal.samples_a || 0) + stack.samples_a;
+          newVal.samples_b = (newVal.samples_b || 0) + stack.samples_b;
+          xformedMap[xformedStr] = newVal;
+        } else
+          xformedMap[xformedStr] = stack.samples + (xformedMap[xformedStr] || 0);
+    }
+
+    var xformedStacks = [];
+    for (xformedStr in xformedMap) {
+      if (diff) {
+        let val = xformedMap[xformedStr];
+        xformedStacks.push({stackStr: xformedStr, samples_a: val.samples_a, samples_b: val.samples_b})
+      } else
+        xformedStacks.push({stackStr: xformedStr, samples: xformedMap[xformedStr]});
+    }
+    result = xformedStacks;
+  } else
+    result = initialStacks;
+
+  console.timeEnd("transformStacks");
+  return result;
+}
+
+console.time("data exec time");
+
+  a([0,0,1,],76);
+a([1,2,],57);
+a([0,3,4,5,6,7,8,9,10,11,12,13,14,15,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,],1);
+a([16,30,31,32,33,34,35,36,37,38,39,40,41,42,],1);
+a([16,43,44,45,7,46,47,5,6,7,48,49,50,51,52,53,54,55,56,57,],1);
+a([17,58,59,],81);
+a([19,60,61,62,63,64,65,66,],1);
+a([24,67,67,68,],757);
+a([27,69,70,],1);
+a([27,71,],1);
+a([19,72,],25);
+a([20,73,74,75,76,77,],1);
+a([21,78,79,80,],192);
+a([19,81,82,83,82,84,85,],3);
+a([25,86,],3);
+a([26,87,],1);
+a([26,88,],659);
+a([23,89,90,],3);
+a([25,91,],1);
+a([25,92,92,86,88,],693);
+a([28,93,],1);
+a([24,94,95,96,97,98,99,100,101,102,103,104,],1);
+a([23,67,],1);
+a([22,67,],2);
+a([23,67,68,],197);
+a([25,69,96,76,105,106,],1);
+a([24,107,],4);
+a([19,108,],177);
+a([19,80,],85);
+a([0,109,110,],1);
+a([0,111,112,113,114,115,116,117,],1);
+a([5,100,101,102,103,104,],9);
+a([4,118,116,117,102,103,104,],1);
+a([4,119,120,],2);
+a([6,121,],2);
+a([4,122,123,124,],8);
+a([7,125,],2);
+a([4,126,127,],45);
+a([6,128,],21);
+a([5,129,],5);
+a([3,130,131,132,133,134,135,136,137,138,],1);
+a([11,139,140,141,142,143,],1);
+a([10,144,145,146,147,],1);
+a([11,148,146,149,150,151,],1);
+a([10,152,153,],1);
+a([11,154,],1);
+a([11,155,156,],1);
+a([12,157,158,159,],1);
+a([10,160,161,162,163,],1);
+a([11,164,165,166,],1);
+a([12,167,168,],1);
+a([10,169,170,],1);
+a([11,171,],1);
+a([11,172,],1);
+a([11,173,],2);
+a([11,174,175,],1);
+a([11,176,],3);
+a([11,177,],1);
+a([12,178,],1);
+a([13,179,180,],1);
+a([11,181,182,],1);
+a([11,183,],1);
+a([12,184,],1);
+a([11,185,],1);
+a([11,186,187,],1);
+a([12,188,],1);
+a([11,189,190,],1);
+a([11,191,192,193,194,175,],1);
+a([11,195,196,],1);
+a([12,197,175,],1);
+a([11,184,],1);
+a([9,198,199,200,201,202,203,204,205,206,],1);
+a([12,207,208,209,70,],1);
+a([10,210,211,],1);
+a([10,212,213,214,],1);
+a([12,215,215,216,],1);
+a([12,217,218,],1);
+a([13,219,],1);
+a([12,220,221,222,],1);
+a([15,223,],1);
+a([12,224,],1);
+a([13,225,],2);
+a([14,226,],3);
+a([15,227,228,229,],1);
+a([15,230,],2);
+a([15,231,],1);
+a([12,232,233,234,],1);
+a([14,235,236,237,238,],1);
+a([15,239,],1);
+a([12,240,241,242,243,],1);
+a([12,244,],1);
+a([12,245,],1);
+a([12,246,],1);
+a([12,247,248,249,],1);
+a([10,240,],1);
+a([11,241,250,],1);
+a([12,251,],1);
+a([12,252,239,253,],1);
+a([10,254,255,237,238,256,],1);
+a([10,257,258,259,],1);
+a([9,260,261,262,263,264,265,266,267,268,],1);
+a([6,269,270,271,272,273,268,],1);
+a([3,274,275,276,277,278,279,280,281,282,],1);
+a([5,283,284,285,286,287,288,289,],1);
+a([11,290,291,],7);
+a([3,292,293,],1);
+a([5,294,],1);
+a([5,295,294,296,297,],1);
+a([4,298,],1);
+a([4,299,100,101,300,],1);
+a([7,301,302,],1);
+a([8,104,],12);
+a([8,300,],1);
+
+
+console.timeEnd("data exec time");
+
+
+function makeTreeNode() {
+  if (isDiffgraph)
+    return {self_samples_a: 0, self_samples_b: 0, self_delta: 0,
+            total_samples_a: 0, total_samples_b: 0, total_delta: 0,
+            delta_abs: 0, children: {}};
+  else
+    return {self: 0, total: 0, children: {}};
+}
+
+function getChildNode(node, childTitle) {
+  var children = node.children;
+  var child = children[childTitle];
+  if (child == undefined) {
+    child = makeTreeNode();
+    children[childTitle] = child;
+  }
+  return child;
+}
+
+function parseStacksToTreeSimple(stacks, treeRoot) {
+  console.time("parseStacksToTreeSimple");
+  var depth = 0;
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.total += stack.samples;
+    node.self += stack.samples;
+  }
+  console.timeEnd("parseStacksToTreeSimple");
+  return depth;
+}
+
+function parseStacksToTreeDiffgraph(stacks, treeRoot) {
+  console.time("parseStacksToTreeDiffgraph");
+  var depth = 0;
+
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+
+    var samplesA = stack.samples_a;
+    var samplesB = stack.samples_b;
+    if (normalizeDiff) samplesB = Math.round(samplesB * b_scale_factor);
+    var delta = samplesB - samplesA;
+
+
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.self_samples_a += samplesA;
+    node.self_samples_b += samplesB;
+    node.self_delta += delta;
+    node.delta_abs += Math.abs(delta);
+  }
+  console.timeEnd("parseStacksToTreeDiffgraph");
+  return depth;
+}
+
+function parseStacksToTree(stacks, treeRoot) {
+  if (isDiffgraph)
+    return parseStacksToTreeDiffgraph(stacks, treeRoot);
+  else
+    return parseStacksToTreeSimple(stacks, treeRoot);
+}
+
+const palette = {
+  green: "#50e150",
+  aqua: "#50bebe",
+  orange: "#e17d00",
+  yellow: "#c8c83c",
+  red: "#e15a5a",
+  clojure_green: "#91dc51",
+  clojure_blue: "#8fb5fe",
+};
+
+function getColor(title) {
+  if (title.endsWith("_[j]")) {
+    return palette.green;
+  } else if (title.endsWith("_[i]")) {
+    return palette.aqua;
+  } else if (title.endsWith("_[k]")) {
+    return palette.orange;
+  } else if (title.includes("::") || title.startsWith("-[") || title.startsWith("+[")) {
+    return palette.yellow;
+  } else if (title.includes("/")) { // Clojure (will only work after unmunging)
+    return palette.clojure_blue;
+  } else if (title.includes(".")) { // Java (if it has a dot and is not Clojure)
+    return palette.clojure_green;
+  } else return palette.red;
+}
+
+function decToHex(n) {
+  var hex = n.toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
+
+function getDiffColor(isRed, intensity) {
+  return "hsl(" + ((isRed) ? 0 : 220) + ",100%," + Math.round(90 - intensity * 30) + "%)";
+  // return "hsl(" + ((isRed) ? 0 : 220) + "," + Math.round(100 * intensity) + "%, 60%)";
+}
+
+function scaleColorMap(colorMap, intensity) {
+  return '#' + decToHex(intensity * colorMap.red) +
+    decToHex(intensity * colorMap.green) + decToHex(intensity * colorMap.blue);
+}
+
+var stacks, tree, levels, depth;
+
+var smallestPixelsPerSample, minPixelsPerFrame = 0.5, minSamplesToShow;
+
+function generateLevelsSimple(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.total >= minSamplesToShow) {
+    levels[level].push({left: left, width: node.total, color: getColor(title),
+                        title: title});
+
+    left += node.self;
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].total - a[1].total);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsSimple(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.total;
+    }
+  }
+}
+
+function generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.delta_abs >= minSamplesToShow) {
+    var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
+    var color = getDiffColor((node.total_delta > 0), Math.min(Math.abs(change), 1.0));
+    levels[level].push({left: left, width: node.delta_abs,
+                        self_samples_a: node.self_samples_a,
+                        self_samples_b: node.self_samples_b,
+                        self_delta: node.self_delta,
+                        total_samples_a: node.total_samples_a,
+                        total_samples_b: node.total_samples_b,
+                        total_delta: node.total_delta,
+                        color: color,
+                        title: title});
+
+    left += Math.abs(node.self_delta);
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].delta_abs - a[1].delta_abs);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsDiffgraph(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.delta_abs;
+    }
+  }
+}
+
+function generateLevels(levels, node, title, level, x, minSamplesToShow) {
+  if (isDiffgraph)
+    generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow);
+  else
+    generateLevelsSimple(levels, node, title, level, x, minSamplesToShow);
+}
+
+function refreshData() {
+  if (isDiffgraph && normalizeDiff)
+    b_scale_factor = totalSamplesA / totalSamplesB;
+
+  stacks = transformStacks();
+
+  tree = makeTreeNode();
+
+  depth = parseStacksToTree(stacks, tree);
+  smallestPixelsPerSample = canvasWidth / (tree.total || tree.delta_abs);
+  minSamplesToShow = minPixelsPerFrame / smallestPixelsPerSample;
+
+  levels = [];
+  generateLevels(levels, tree, "all", 0, 0, minSamplesToShow);
+  depth = levels.length;
+}
+
+refreshData();
+
+var canvasHeight;
+
+function initCanvas() {
+  canvasHeight = (depth + 1) * 16;
+  canvas.style.width = canvasWidth + 'px';
+  canvas.width = canvasWidth * (devicePixelRatio || 1);
+  canvas.height = canvasHeight * (devicePixelRatio || 1);
+  if (devicePixelRatio) c.scale(devicePixelRatio, devicePixelRatio);
+  c.font = document.body.style.font;
+}
+
+initCanvas();
+isNormalizedDiv.style.display = isDiffgraph ? 'inherit' : 'none';
+if (graphTitle == "")
+  titleDiv.style.display = 'none';
+else
+  graphTitleSpan.innerText = graphTitle;
+
+
+var highlightPattern = null, currentRootFrame, currentRootLevel, px;
+
+function render(newRootFrame, newLevel) {
+  console.time("render");
+  // Background
+  var gradient = c.createLinearGradient(0, 0, 0, canvasHeight);
+  gradient.addColorStop(0.05, "#eeeeee");
+  gradient.addColorStop(0.95, "#eeeeb0");
+  c.fillStyle = gradient;
+  c.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  currentRootFrame = newRootFrame || levels[0][0];
+  currentRootLevel = newLevel || 0;
+  px = canvasWidth / currentRootFrame.width;
+
+  const marked = [];
+
+  function mark(f) {
+    return marked[f.left] >= f.width || (marked[f.left] = f.width);
+  }
+
+  function totalMarked() {
+    let total = 0;
+    let left = 0;
+    for (let x in marked) {
+      if (+x >= left) {
+        total += marked[x];
+        left = +x + marked[x];
+      }
+    }
+    return total;
+  }
+
+  const x0 = currentRootFrame.left;
+  const x1 = x0 + currentRootFrame.width;
+
+  function drawFrame(f, y, alpha) {
+    if (f.left < x1 && f.left + f.width > x0) {
+      c.fillStyle = highlightPattern && f.title.match(highlightPattern) && mark(f) ? '#ee00ee' : f.color;
+      c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+
+      if (f.width * px >= 21) {
+        const chars = Math.floor(f.width * px / 7);
+        const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 2) + '..';
+        c.fillStyle = '#000000';
+        c.fillText(title, Math.max(f.left - x0, 0) * px + 3, y + 12, f.width * px - 6);
+      }
+
+      if (alpha) {
+        c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+      }
+    }
+  }
+
+  for (let h = 0; h < levels.length; h++) {
+    const y = reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16;
+    const frames = levels[h];
+    for (let i = 0; i < frames.length; i++) {
+      if (frames[i].width >= minSamplesToShow)
+        drawFrame(frames[i], y, h < currentRootLevel);
+    }
+  }
+
+  if (highlightPattern != null) {
+    matchContainer.style.display = 'inherit';
+    matchedLabel.textContent = pct(totalMarked(), currentRootFrame.width) + '%';
+  } else
+    matchContainer.style.display = 'none';
+  console.timeEnd("render");
+}
+
+render();
+
+function round2dig(n) {
+  return Math.round(n * 100) / 100;
+}
+
+function ratioToPct(n) {
+  return ((n > 0) ? "+" : "") + (n * 100).toFixed(2) + "%";
+}
+
+function findFrame(frames, x) {
+  let left = 0;
+  let right = frames.length - 1;
+
+  while (left <= right) {
+    const mid = (left + right) >>> 1;
+    const f = frames[mid];
+
+    if (f.left > x) {
+      right = mid - 1;
+    } else if (f.left + f.width <= x) {
+      left = mid + 1;
+    } else {
+      return f;
+    }
+  }
+
+  if (frames[left] && (frames[left].left - x) * px < 0.5) return frames[left];
+  if (frames[right] && (x - (frames[right].left + frames[right].width)) * px < 0.5) return frames[right];
+
+  return null;
+}
+
+canvas.onmousemove = function() {
+  const h = Math.floor((reverseGraph ? event.offsetY : (canvasHeight - event.offsetY)) / 16);
+  if (h >= 0 && h < levels.length) {
+    const f = findFrame(levels[h], event.offsetX / px + currentRootFrame.left);
+    if (f && f.width >= minSamplesToShow) {
+      hl.style.left = (Math.max(f.left - currentRootFrame.left, 0) * px + canvas.offsetLeft) + 'px';
+      hl.style.width = (Math.min(f.width, currentRootFrame.width) * px) + 'px';
+      hl.style.top = ((reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16) + canvas.offsetTop) + 'px';
+      // hl.firstChild.textContent = f.title;
+      hl.style.display = 'block';
+      if (isDiffgraph) {
+        var rel_change = (f.total_samples_a == 0) ? 1.0 : f.total_delta / f.total_samples_a;
+        var total_change = f.total_delta / tree.total_samples_a;
+        canvas.title = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
+        // , self_samples_a: ${f.self_samples_a}, self_samples_b: ${f.self_samples_b},  self_delta: ${f.self_delta},  total_samples_a: ${f.total_samples_a},  total_samples_b: ${f.total_samples_b}, total_delta: ${f.total_delta})`;
+      } else
+        canvas.title = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + '%)';
+      canvas.style.cursor = 'pointer';
+      canvas.onclick = function() {
+        if (f != currentRootFrame) {
+          render(f, h);
+          canvas.onmousemove();
+        }
+      };
+      status.textContent = 'Function: ' + canvas.title;
+      return;
+    }
+  }
+  canvas.onmouseout();
+}
+
+canvas.onmouseout = function() {
+  hl.style.display = 'none';
+  status.textContent = '\xa0';
+  canvas.title = '';
+  canvas.style.cursor = '';
+  canvas.onclick = '';
+}
+
+function samples(n, add_plus) {
+  return (add_plus && n > 0 ? "+" : "") + (n === 1 ? '1 sample' : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + ' samples';
+}
+
+function pct(a, b) {
+  return a >= b ? '100' : (100 * a / b).toFixed(2);
+}
+
+//// Configuration panel
+
+function highlightApply() {
+  const pattern = highlightInput.value;
+  highlightPattern = (pattern == "") ? null : _stringToMaybeRegex(pattern);
+  render(currentRootFrame, currentRootLevel);
+}
+
+function highlightClear() {
+  highlightPattern = null;
+  render(currentRootFrame, currentRootLevel);
+}
+
+function userTransformsSwap(idx1, idx2) {
+  const swap = userTransforms[idx1];
+  userTransforms[idx1] = userTransforms[idx2];
+  userTransforms[idx2] = swap;
+}
+
+function addNewTransform() {
+  syncTransformsModelWithUI();
+  let type = newTransformType.value;
+  userTransforms.push(_makeTransform(type, true, "", ""));
+  redrawTransformsSection();
+}
+
+function deleteTransform(originator) {
+  syncTransformsModelWithUI();
+  userTransforms.splice(originator.internalId, 1);
+  redrawTransformsSection();
+}
+
+function cloneTransform(originator) {
+  syncTransformsModelWithUI();
+  const idx = originator.internalId;
+  userTransforms.splice(idx+1, 0, Object.assign({}, userTransforms[idx]));
+  redrawTransformsSection();
+}
+
+function moveTransformUp(originator) {
+  const idx = originator.internalId;
+  if (idx == 0) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx-1, idx);
+  redrawTransformsSection();
+}
+
+function moveTransformDown(originator) {
+  const idx = originator.internalId;
+  if (idx == userTransforms.length-1) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx, idx+1);
+  redrawTransformsSection();
+}
+
+function refreshAfterEnabledToggle() {
+  syncTransformsModelWithUI();
+  redrawTransformsSection();
+}
+
+function oneByClass(container, classname) {
+  return container.getElementsByClassName(classname)[0];
+}
+
+function syncTransformsModelWithUI() {
+  for (var i = 0; i < transformsContainer.children.length; i++) {
+    const el = transformsContainer.children[i];
+    const model = userTransforms[i];
+    userTransforms[i] =
+      _makeTransform(model.type, oneByClass(el, 'chkEnabled').checked,
+                     oneByClass(el, 'what').value,
+                     model.type == 'replace' ? oneByClass(el, 'replacement').value : null);
+  }
+}
+
+function redrawTransformsSection() {
+  transformsContainer.innerHTML = "";
+  for (var i = 0; i < userTransforms.length; i++) {
+    const transform = userTransforms[i];
+    var newEl = (transform.type == 'replace') ?
+        transformReplaceTemplate.cloneNode(true) :
+        transformFilterTemplate.cloneNode(true);
+    newEl.style = '';
+    newEl.internalId = i;
+
+    const what = transform.what;
+    if (typeof(what) == 'string')
+      oneByClass(newEl, 'what').value = what;
+    else
+      oneByClass(newEl, 'what').value = what.toString().match(/^(\/.+\/)g?$/)[1];
+
+    if (transform.type == 'replace')
+      oneByClass(newEl, 'replacement').value = transform.replacement;
+    else if (transform.type == 'remove')
+      oneByClass(newEl, 'label').textContent = "Remove:";
+    oneByClass(newEl, 'chkEnabled').checked = transform.enabled;
+
+    oneByClass(newEl, 'chkEnabled').internalId = i;
+    oneByClass(newEl, 'btnMoveUp').internalId = i;
+    oneByClass(newEl, 'btnMoveDown').internalId = i;
+    oneByClass(newEl, 'btnClone').internalId = i;
+    oneByClass(newEl, 'btnDelete').internalId = i;
+    transformsContainer.appendChild(newEl);
+  }
+}
+
+redrawTransformsSection();
+
+function scrollToTopOrBottom() {
+  window.scrollTo(0, reverseGraph ? 0 : document.body.scrollHeight);
+}
+
+scrollToTopOrBottom();
+
+function applyConfiguration() {
+  console.time("apply config");
+  minPixelsPerFrame = minFrameWidthInPx.value || 0.5;
+  normalizeDiff = isNormalized.checked;
+  let reverseChanged = (reverseGraph != isReversedInput.checked);
+  reverseGraph = isReversedInput.checked;
+  syncTransformsModelWithUI();
+  refreshData();
+  initCanvas();
+  render();
+  if (reverseChanged)
+    scrollToTopOrBottom();
+  console.timeEnd("apply config");
+}
+
+function toggleSidebarVisibility() {
+  sidebarVisible = !sidebarVisible;
+  let style = oneByClass(document, 'configCol').style
+  if (sidebarVisible) {
+    style.display = 'block';
+    oneByClass(document, 'sidebarToggle').innerText = ">";
+  } else {
+    style.display = 'none';
+    oneByClass(document, 'sidebarToggle').innerText = "<";
+  }
+  canvasWidth = calculateCanvasWidth();
+  applyConfiguration();
+}
+
+if (new URLSearchParams(window.location.search).get('hide-sidebar') == 'true') {
+  toggleSidebarVisibility();
+}
+    </script>
+  </body>
+</html>

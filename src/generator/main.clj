@@ -1,5 +1,6 @@
 (ns generator.main
-  (:require [cryogen-core.compiler :as comp]
+  (:require [clojure.string :as str]
+            [cryogen-core.compiler :as comp]
             cryogen-core.config
             cryogen-core.io
             cryogen-core.markup
@@ -81,16 +82,65 @@
       (println (text-decoration.core/blue "compiling draft preview posts..."))
       (comp/compile-posts params posts))))
 
+(defn assoc-in-kb-tree [tree url-path page]
+  (let [k (vec (interpose :children url-path))]
+    (update-in tree k #(assoc % :page page))))
+
+(defn attach-knowledge-base-sidebar-fn [{:keys [sidebar-pages] :as result} _]
+  (let [uri->page (->> sidebar-pages
+                       (map (fn [page] [(:uri page) page]))
+                       (into {}))
+        tree (reduce (fn [tree page]
+                       (let [uri (:uri page)
+                             parts (rest (remove str/blank? (str/split uri #"/")))
+                             partitions (rest (reductions #(str %1 %2 "/") "/kb/" parts))]
+                         (if (seq parts)
+                           (assoc-in-kb-tree tree partitions page)
+                           tree)))
+                     {}
+                     sidebar-pages)
+        sort-tree (fn sort-tree [subtree]
+                    (for [[k v] subtree]
+                      (update v :children sort-tree)))
+        tree (sort-tree tree)
+        generate-nav
+        (fn generate-nav [tree current-uri]
+          (format "<ul class=\"nav\">%s</ul>"
+                  (->> (for [child tree]
+                         (format
+                          "<li class=\"nav-item%s\"><a href=\"%s\">%s</a></li>%s"
+                          (if (= (:uri (:page child)) current-uri) " active" "")
+                          (:uri (:page child))
+                          (:title (:page child))
+                          (if (seq (:children child))
+                            (generate-nav (:children child) current-uri)
+                            "")))
+                       str/join)))]
+    #_(clojure.pprint/pprint tree)
+    (assoc result :sidebar-fn (fn [params]
+                                (generate-nav tree (:uri params))))))
+
+;; Also a hack, too lazy to do it properly.
+
+(alter-var-root
+ #'comp/render-file
+ (fn [og]
+   (fn [file-path {:keys [sidebar-fn] :as params}]
+     (og file-path (if sidebar-fn
+                     (assoc params :sidebar (sidebar-fn params))
+                     params)))))
+
 (defn build* [opts changeset]
   (let [gen-drafts? (:draft opts)]
-   (comp/compile-assets-timed
-    {:update-article-fn
-     (fn [article _]
-       (when (or gen-drafts? (not (:draft article)))
-         (update-article article)))}
-    changeset)
-   (when-not gen-drafts?
-     (compile-draft-preview-posts))))
+    (comp/compile-assets-timed
+     {:update-article-fn
+      (fn [article _]
+        (when (or gen-drafts? (not (:draft article)))
+          (update-article article)))
+      :extend-params-fn attach-knowledge-base-sidebar-fn}
+     changeset)
+    (when-not gen-drafts?
+      (compile-draft-preview-posts))))
 
 (defn build [opts]
   (load-plugins)
