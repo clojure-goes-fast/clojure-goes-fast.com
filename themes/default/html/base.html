@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    {% include "/html/google-analytics.html" %}
     <meta name="viewport" content="width=device-width">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     {% block meta-desc %}
@@ -16,7 +17,6 @@
     {% style "//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" %}
     {% style "/css/custom.css" %}
 
-    {% include "/html/google-analytics.html" %}
     {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js" %}
     {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/clojure.min.js" %}
     {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/clojure-repl.min.js" %}

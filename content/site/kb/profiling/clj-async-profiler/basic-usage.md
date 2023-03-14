@@ -21,7 +21,7 @@ Create a file `deps.edn` with the following content:
 
 ```clj
 {:paths ["src"]
- :deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.2"}}}
+ :deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}}}
 ```
 
 If you follow this tutorial on Linux, you should also execute this to let the

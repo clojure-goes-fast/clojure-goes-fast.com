@@ -104,11 +104,12 @@ distribution is -23.60%. It means that in the first profile, multiplication took
 
 Conversely, `clojure.core/+'` is deep-red with +222.94% self increase and
 +15.09% total. That happened because, in the second profile, we ran the
-additions more times (15 vs. 10), but that's not it. By default, the Normalized
-option is checked in the diffgraph, and that normalizes the number of samples
-between two profiles. So, if something goes away, something else will fill its
-space in the normalized diffgraph. Similarly, `clojure.core//` (division) is
-light-blue and reports only 13% self-decrease, even though it ran twice less.
+additions more times (15 vs. 10), but that's not the full story. By default, the
+Normalized option is checked in the diffgraph, which normalizes the number of
+samples between two profiles. So, if something goes away, something else will
+fill its space in the normalized diffgraph. Similarly, `clojure.core//`
+(division) is light-blue and reports only 13% self-decrease, even though it ran
+twice fewer times.
 
 Normalizing the profiles before diffing them makes sense because the absolute
 number of samples might fluctuate between two separate runs even when you are
@@ -122,13 +123,13 @@ expected:
 to the truth).
 - The total execution time shrank.
 
-Just keep in mind that a non-normalized diff is more susceptible to
-sampling frequency variations and non-equal profiling durations, so be sure to
-avoid comparing apples to oranges with this tool.
+Just keep in mind that a non-normalized diff is more susceptible to sampling
+frequency variations and non-equal profiling durations, so make sure to not
+compare apples to oranges when disabling normalization.
 
 Like regular flamegraphs, diffgraphs also support [live
 transforms](/kb/profiling/clj-async-profiler/exploring-flamegraphs/#live-transforms).
 Stack post-processing is even more helpful for diffgraphs since modifications to
-code may change the parent frames causing the non-changed children frames to
+code may change the parent frames causing the unchanged children frames to
 misalign. With live transforms, you can bring the diverging stacks back together
 so that they diff nicely.

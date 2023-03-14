@@ -53,14 +53,14 @@ On the Y axis, you have stacks that grow from bottom to top. The position of the
 frame signifies which function calls which, and the height of the flamegraph
 conveys only the stack's depth, which usually is not an important metric. On the
 X-axis, the width of a frame represents how much total time is spent within that
-function. The coordinate of the frame on the X-axis does imply its position in
-time; in fact, it conveys no meaning at all. In our example above, `foo` coming
-before `qux` on the flamegraph does not imply that `foo` was called before
-`qux`. Note that the absolute number of samples does not relate to the number of
-times any function has been called, just to how long the profiler was running. A
-sampling profiler like clj-async-profiler cannot differentiate between a
-function being called once and spending a lot of time, and being called a
-million times, each taking a short amount.
+function. The coordinate of the frame on the X-axis does not imply its
+position in time; in fact, it conveys no meaning at all. In our example above,
+`foo` coming before `qux` on the flamegraph does not imply that `foo` was called
+before `qux`. Note that the absolute number of samples does not relate to the
+number of times any function has been called, just to how long the profiler was
+running. A sampling profiler like clj-async-profiler cannot differentiate
+between a function being called once and spending a lot of time, and being
+called a million times, each taking a short amount.
 
 In some cases, a function having a big total percentage could be meaningful. For
 example, we might know that `foo` should not be invoking `bar` so much, so we

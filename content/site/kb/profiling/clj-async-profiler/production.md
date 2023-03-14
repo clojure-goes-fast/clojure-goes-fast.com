@@ -21,8 +21,8 @@ performance of your code even further.
 
 Using clj-async-profiler in production is not much different from using it
 locally, except you have to set up a couple of things upfront. First of all,
-make sure that the capturing perf events is allowed for non-root users (since
-you will most probably run your service on Linux):
+make sure that capturing perf events is allowed for non-root users (since you
+will most probably run your service on Linux):
 
 ```sh
 sudo sysctl -w kernel.perf_event_paranoid=1
@@ -62,8 +62,8 @@ the outer world. It is advised to avoid the catch-all `0.0.0.0` if possible.
 
 #### Docker
 
-If you ship your application as a Docker container, you need to give the
-container access to the `perf_event_open` syscall. For that, Docker's [seccomp
+If you ship your application as a Docker container, you need to give it the
+access to the `perf_event_open` syscall. For that, Docker's [seccomp
 profile](https://docs.docker.com/engine/security/seccomp/) has to be modified to
 allow this syscall. The container would also need the `--cap-add SYS_ADMIN`
 capability. If you have a dedicated operations team, such configuration is
