@@ -18,6 +18,13 @@ interpretation.
 </figure>
 </center>
 
+<center>
+<figure class="figure">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/s3mjVAMNVrA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+<figcaption class="figure-caption text-center">Video from London Clojurians meetup includes clj-async-profiler demonstration.</figcaption>
+</figure>
+</center>
+
 clj-async-profiler is based upon
 [async-profiler](https://github.com/jvm-profiling-tools/async-profiler) which is
 a low overhead sampling profiler for Java.
