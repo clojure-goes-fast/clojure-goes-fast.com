@@ -46,7 +46,7 @@ not suitable for any kind of microbenchmarking.*
               bytes-before (.getCurrentThreadAllocatedBytes bean)
               duration (* duration-in-ms 1000000)
               start (System/nanoTime)
-              _ (f)
+              first-res (f)
               delta (- (System/nanoTime) start)
               deadline (+ start duration)
               tight-iters (max (quot (quot duration delta) 10) 1)]
@@ -65,11 +65,12 @@ not suitable for any kind of microbenchmarking.*
                                  (< t 1e9) (format "%.2f ms" (/ t 1e6))
                                  :else (format "%.2f s" (/ t 1e9)))
                            (/ (- bytes-after bytes-before) i')
-                           i))))))))]
+                           i))
+                  first-res))))))]
   (defmacro time+
     "Like `time`, but runs the supplied body for 2000 ms and prints the average
   time for a single iteration. Custom total time in milliseconds can be provided
-  as the first argument."
+  as the first argument. Returns the returned value of the FIRST iteration."
     [?duration-in-ms & body]
     (let [[duration body] (if (integer? ?duration-in-ms)
                             [?duration-in-ms body]
