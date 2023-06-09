@@ -1,0 +1,1863 @@
+<html>
+  <head>
+    <style>
+      body {margin: 0; padding: 5px; background-color: #ffffff}
+      button {font: 12px sans-serif;}
+      p {margin: 5px 0 5px 0}
+      #hl {position: absolute; display: none; overflow: hidden; white-space: nowrap; pointer-events: none; background-color: #00000000; outline: 0.5px solid #222; height: 15px}
+      #hl span {padding: 0 3px 0 3px}
+      #status {overflow: hidden; white-space: nowrap}
+      #match {overflow: hidden; white-space: nowrap; display: none; float: right; text-align: right}
+      * {box-sizing:border-box,margin:.25em 0}
+      .col{display:table-cell}
+      .col-1{width:5%}
+      .col-2{width:15%}
+      .col-3{width:22%}
+      .col-4{width:30%}
+      .col-5{width:40%}
+      .col-6{width:50%}
+      .row{display:table;border-spacing:0.2em 0;width:100%;display:flex}
+      .w-100{width:100%;display:flex}
+      .graphCol{flex: 80%; padding: 0.25em;}
+      .configCol{flex: 20%; padding: 0.25em;}
+      .configBlock{position:fixed; overflow-y:auto; top: 5px; bottom: 5px; width:19%;}
+      .sidebarToggle{font: 10px; width:10; padding:0;}
+      .margins {margin: 5px 1px}
+      .vmargins {margin: 0px 1px;}
+    </style>
+  </head>
+  <body style='font: 12px Verdana, sans-serif'>
+    <div class="c">
+      <div class="row">
+        <div class="graphCol">
+          <canvas id='canvas' style='width: 100%;'></canvas>
+          <div id='box'><div id='hl'><span></span></div></div>
+          <p id='match'>Matched: <span id='matchedLabel'></span></p>
+          <p id='status'>&nbsp;</p>
+        </div>
+        <button class="sidebarToggle" onclick="toggleSidebarVisibility()">&lt;</button>
+        <div class="configCol">
+          <div class="configBlock">
+            <div id="titleDiv">
+              <b><center><span id="graphTitleSpan">Flamegraph</span></center></b>
+              <hr>
+            </div>
+            <div class="row">
+              <label for="highlightInput">Highlight:</label>
+              <input placeholder="String or /regex/" name="highlightInput" id="highlightInput"/>
+            </div>
+            <div class="row">
+              <button onclick="highlightApply()">Highlight</button>
+              <button onclick="highlightClear()">Clear</button>
+            </div>
+            <hr>
+            <br>
+            <div class="row">
+              <label>Copy selected frame to clipboard:</label><br>
+            </div>
+            <div class="row">
+              <button onclick="copySelectedFrameAsText()">As text</button>
+              <button onclick="copySelectedFrameAsRegex()">As regex</button>
+            </div>
+            <hr>
+            <br>
+
+            <label>Minimal frame width (in pixels):</label><br>
+            <input id="minFrameWidthInPx" value="0.25"/><br>
+            <div>
+              <label><input type="checkbox" id="isReversedInput">Reversed</label>
+              <span id="isNormalizedDiv" style="display:none;">
+                <label><input type="checkbox" id="isNormalized" name="isNormalized">Normalized</label>
+              </span>
+            </div>
+            <div>
+              <label><input type="radio" id="sortByNameRadio" name="sortBy" value="name">Sort by name</label>
+              <label><input type="radio" id="sortByWidthRadio" name="sortBy" value="width" checked>Sort by width</label>
+            </div>
+            <br>
+
+            <div class="row">
+              <div class="col">
+                <label for="newTransformType">Add a transform:</label>
+
+                <select name="newTransformType" id="newTransformType">
+                  <option value="filter">Filter</option>
+                  <option value="remove">Remove</option>
+                  <option value="replace">Replace</option>
+                </select>
+              </div>
+              <div class="col col-2">
+                <button onclick="addNewTransform()">Add</button>
+              </div>
+            </div>
+            <br>
+
+            <div id="transformsContainer">
+            </div>
+
+            <div id="transformReplaceTemplate" style="display:none">
+              <div class="row">
+                <div class="col col-3">
+                  <label>Replace:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="what no-vmargins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="replacement no-vmargins w-100" placeholder="Replacement"/><br>
+                </div>
+              </div>
+            </div>
+
+            <div id="transformFilterTemplate" style="display:none" class="margins">
+              <div class="row">
+                <div class="col col-3">
+                  <label class="label">Filter:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col w-100 margins">
+                  <input class="what margins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+            </div>
+
+            <hr>
+            <button onclick="applyConfiguration()">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // This file was derived from flamegraph.html from the project
+// https://github.com/jvm-profiling-tools/async-profiler
+// Licensed under the Apache License, Version 2.0. Copyright 2020 Andrei Pangin
+
+/// Constants
+const canvas = document.getElementById('canvas');
+const c = canvas.getContext('2d');
+const hl = document.getElementById('hl');
+const status = document.getElementById('status');
+const matchContainer = document.getElementById('match');
+const transformFilterTemplate = document.getElementById('transformFilterTemplate');
+const transformReplaceTemplate = document.getElementById('transformReplaceTemplate');
+const sidebarToggleButton = document.getElementsByClassName('sidebarToggle')[0];
+const sidebarWidth = document.getElementsByClassName('configCol')[0].offsetWidth
+const qString = new URLSearchParams(window.location.search)
+
+var sidebarVisible = true;
+var canvasWidth;
+
+if (qString.get('hide-sidebar') == 'true') {
+  sidebarVisible = false;
+}
+
+function updateSidebarState() {
+  let style = oneByClass(document, 'configCol').style
+  if (sidebarVisible) {
+    style.display = 'block';
+    sidebarToggleButton.innerText = ">";
+    canvasWidth = window.innerWidth - sidebarWidth - 36;
+  } else {
+    style.display = 'none';
+    sidebarToggleButton.innerText = "<";
+    canvasWidth = window.innerWidth - 36;
+  }
+}
+
+updateSidebarState();
+
+var graphTitle = "";
+var isDiffgraph = false;
+var normalizeDiff = false, b_scale_factor;
+var reverseGraph = false;
+var idToFrame = ["OptoRuntime::new_array_C(Klass*, int, JavaThread*)",
+"CollectedHeap::array_allocate(Klass*, unsigned long, int, bool, JavaThread*)",
+"MemAllocator::allocate() const",
+"MemAllocator::Allocation::check_out_of_memory()",
+"MemAllocator::mem_allocate_inside_tlab_slow(MemAllocator::Allocation&) const",
+"G1CollectedHeap::attempt_allocation(unsigned long, unsigned long, unsigned long*)",
+"G1CollectedHeap::attempt_allocation_slow(unsigned long)",
+"G1AllocRegion::new_alloc_region_and_allocate(unsigned long, bool)",
+"G1CollectedHeap::new_mutator_alloc_region(unsigned long, bool, unsigned int)",
+"G1FromCardCache::clear(unsigned int)",
+"MutatorAllocRegion::retire(bool)",
+"ThreadLocalAllocBuffer::print_stats(char const*)",
+"OptoRuntime::new_array_nozero_C(Klass*, int, JavaThread*)",
+"G1Allocator::unsafe_max_tlab_alloc()",
+"[GC_active]",
+"thread_start",
+"_pthread_start",
+"thread_native_entry(Thread*)",
+"Thread::call_run()",
+"JavaThread::thread_main_inner()",
+"CompileBroker::compiler_thread_loop()",
+"CompileBroker::invoke_compiler_on_method(CompileTask*)",
+"C2Compiler::compile_method(ciEnv*, ciMethod*, int, bool, DirectiveSet*)",
+"Compile::Compile(ciEnv*, ciMethod*, int, Options, DirectiveSet*)",
+"Compile::Code_Gen()",
+"PhaseChaitin::Register_Allocate()",
+"PhaseChaitin::build_ifg_physical(ResourceArea*)",
+"PhaseChaitin::interfere_with_live(unsigned int, IndexSet*)",
+"ServiceThread::service_thread_entry(JavaThread*, JavaThread*)",
+"Monitor::wait_without_safepoint_check(long long)",
+"PlatformMonitor::wait(long)",
+"__psynch_cvwait",
+"[not_walkable_Java]",
+"_new_array_nozero_Java",
+"OptoRuntime::is_deoptimized_caller_frame(JavaThread*)",
+"frame::sender_for_compiled_frame(RegisterMap*) const",
+"[not_walkable_not_Java]",
+"ObjArrayAllocator::initialize(HeapWordImpl**) const",
+"Runtime1::new_type_array(JavaThread*, Klass*, int)",
+"[unknown_Java]",
+"_new_array_Java",
+"pthread_jit_write_protect_np",
+"_new_instance_Java",
+"OptoRuntime::new_instance_C(Klass*, JavaThread*)",
+"clojure.core//",
+"clojure.lang.Numbers.divide",
+"clojure.lang.RT.seq",
+"forward_copy_longs",
+"java.math.BigInteger.multiplyByInt",
+"java.math.MutableBigInteger.divideOneWord",
+"slow_subtype_check Runtime1 stub",
+"java.lang.Thread.run",
+"java.lang.Thread.runWith",
+"clojure.lang.AFn.run",
+"nrepl.middleware.session/session-exec/main-loop--1368",
+"nrepl.middleware.session/session-exec/main-loop--1368/fn--1372",
+"nrepl.middleware.interruptible-eval/interruptible-eval/fn--1298/fn--1302",
+"nrepl.middleware.interruptible-eval/evaluate",
+"clojure.lang.RestFn.invoke",
+"clojure.main/repl",
+"clojure.main/repl/fn--9243",
+"clojure.main/repl/read-eval-print--9234",
+"clojure.main/repl/read-eval-print--9234/fn--9237",
+"nrepl.middleware.interruptible-eval/evaluate/fn--1265",
+"clojure.core/with-bindings*",
+"clojure.core/apply",
+"clojure.lang.AFn.applyTo",
+"clojure.lang.AFn.applyToHelper",
+"nrepl.middleware.interruptible-eval/evaluate/fn--1265/fn--1266",
+"clojure.core/eval",
+"clojure.lang.Compiler.eval",
+"demo/eval10235",
+"clj-async-profiler.core/start",
+"clj-async-profiler.core/attach-agent",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentPath",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentLibrary",
+"InterpreterRuntime::resolve_from_cache(JavaThread*, Bytecodes::Code)",
+"InterpreterRuntime::resolve_invoke(JavaThread*, Bytecodes::Code)",
+"LinkResolver::resolve_invokespecial(CallInfo&, Handle, constantPoolHandle const&, int, JavaThread*)",
+"LinkResolver::linktime_resolve_special_method(LinkInfo const&, JavaThread*)",
+"LinkResolver::resolve_method(LinkInfo const&, Bytecodes::Code, JavaThread*)",
+"LinkResolver::check_method_loader_constraints(LinkInfo const&, methodHandle const&, char const*, JavaThread*)",
+"SystemDictionary::check_signature_loaders(Symbol*, Klass*, Handle, Handle, bool)",
+"SignatureStream::find_symbol()",
+"SymbolTable::new_symbol(char const*, int)",
+"SymbolTable::do_lookup(char const*, int, unsigned long)",
+"demo/eval10235/fn--10236",
+"demo/burn-cpu",
+"demo/test-div",
+"clojure.core/reduce",
+"clojure.core.protocols/fn--8194/G--8189--8207",
+"clojure.core.protocols/fn--8252",
+"clojure.core.protocols/seq-reduce",
+"clojure.core.protocols/fn--8220/G--8215--8229",
+"clojure.core.protocols/fn--8260",
+"clojure.core/chunk-next",
+"clojure.lang.ChunkedCons.chunkedNext",
+"clojure.lang.LazySeq.seq",
+"clojure.lang.LazySeq.sval",
+"clojure.core/map/fn--5949",
+"clojure.lang.RT.seqFrom",
+"clojure.lang.ArrayChunk.reduce",
+"clojure.lang.Numbers$LongOps.divide",
+"clojure.lang.Numbers.num",
+"arrayof_jint_fill",
+"arrayof_jlong_disjoint_arraycopy",
+"clojure.lang.Ratio.<init>",
+"clojure.lang.Numbers$LongOps.isZero",
+"clojure.lang.Numbers$RatioOps.divide",
+"java.math.BigInteger.divide",
+"java.math.BigInteger.divideKnuth",
+"java.math.MutableBigInteger.<init>",
+"java.math.MutableBigInteger.divideKnuth",
+"java.math.MutableBigInteger.normalize",
+"zero_blocks",
+"java.math.MutableBigInteger.toBigInteger",
+"java.math.BigInteger.<init>",
+"java.math.MutableBigInteger.getMagnitudeArray",
+"java.math.BigInteger.equals",
+"java.math.BigInteger.gcd",
+"java.util.Arrays.copyOf",
+"java.math.MutableBigInteger.hybridGCD",
+"java.math.MutableBigInteger.binaryGCD",
+"java.math.MutableBigInteger.binaryGcd",
+"java.math.MutableBigInteger.difference",
+"java.math.MutableBigInteger.getLowestSetBit",
+"java.math.MutableBigInteger.rightShift",
+"java.math.MutableBigInteger.primitiveLeftShift",
+"java.math.MutableBigInteger.divide",
+"java.math.MutableBigInteger.compare",
+"jint_disjoint_arraycopy",
+"clojure.lang.Numbers.toRatio",
+"clojure.lang.Numbers.toBigInteger",
+"java.math.BigInteger.valueOf",
+"jint_arraycopy",
+"java.math.BigInteger.multiply",
+"java.math.BigInteger.shiftLeft",
+"java.util.Arrays.copyOfRange",
+"clojure.lang.Numbers.ops",
+"clojure.lang.RT.isReduced",
+"itable stub",
+"clojure.core/chunk-cons",
+"clojure.lang.RT.count",
+"clojure.core/seq--5481",
+"clojure.core/chunk",
+"clojure.core/inc",
+"clojure.lang.Numbers.inc",
+"clojure.lang.Numbers$LongOps.inc",
+"java.lang.Long.valueOf",
+"demo/test-sum",
+"SharedRuntime::handle_wrong_method(JavaThread*)",
+"SharedRuntime::reresolve_call_site(JavaThread*)",
+"SharedRuntime::find_callee_method(JavaThread*)",
+"SharedRuntime::find_callee_info_helper(vframeStream&, Bytecodes::Code&, CallInfo&, JavaThread*)",
+"Bytecode_invoke::static_target(JavaThread*)",
+"LinkResolver::resolve_method_statically(Bytecodes::Code, constantPoolHandle const&, int, JavaThread*)",
+"LinkResolver::resolve_interface_method(LinkInfo const&, Bytecodes::Code, JavaThread*)",
+"clojure.core/range",
+"clojure.core/+",
+"clojure.lang.Numbers.add",
+"clojure.lang.Numbers$LongOps.add",
+"java.lang.Long.longValue",
+"clojure.lang.Numbers$LongOps.combine",
+"clojure.lang.Numbers$LongOps.opsWith",
+"LinkResolver::resolve_invoke(CallInfo&, Handle, constantPoolHandle const&, int, Bytecodes::Code, JavaThread*)",
+"LinkResolver::resolve_static_call(CallInfo&, LinkInfo const&, bool, JavaThread*)",
+"LinkResolver::linktime_resolve_static_method(LinkInfo const&, JavaThread*)",
+"LinkResolver::check_method_accessability(Klass*, Klass*, Klass*, methodHandle const&, JavaThread*)",
+"Reflection::verify_member_access(Klass const*, Klass const*, Klass const*, AccessFlags, bool, bool, JavaThread*)",
+"java.lang.System.nanoTime",
+"JVM_NanoTime",
+"mach_absolute_time",
+"ConcurrentGCThread::run()",
+"G1ConcurrentRefineThread::run_service()",
+"G1PrimaryConcurrentRefineThread::wait_for_completed_buffers()",
+"clock_gettime",
+"__commpage_gettimeofday",
+"G1ServiceThread::run_service()",
+"G1ServiceThread::wait_for_task()",
+"CallGenerator::for_inline(ciMethod*, float)",
+"InlineTree::check_can_parse(ciMethod*)",
+"ciMethod::get_flow_analysis()",
+"ciTypeFlow::do_flow()",
+"ciTypeFlow::flow_types()",
+"ciTypeFlow::df_flow_types(ciTypeFlow::Block*, bool, ciTypeFlow::StateVector*, ciTypeFlow::JsrSet*)",
+"ciTypeFlow::flow_block(ciTypeFlow::Block*, ciTypeFlow::StateVector*, ciTypeFlow::JsrSet*)",
+"ciTypeFlow::StateVector::apply_one_bytecode(ciBytecodeStream*)",
+"ciTypeFlow::StateVector::do_invoke(ciBytecodeStream*, bool)",
+"ciBytecodeStream::get_method(bool&, ciSignature**)",
+"ciEnv::get_method_by_index_impl(constantPoolHandle const&, int, Bytecodes::Code, ciInstanceKlass*)",
+"ciObjectFactory::get_metadata(Metadata*)",
+"ciObjectFactory::create_new_metadata(Metadata*)",
+"ciMethod::ciMethod(methodHandle const&, ciInstanceKlass*)",
+"ciSignature::ciSignature(ciKlass*, constantPoolHandle const&, ciSymbol*)",
+"ciEnv::get_klass_by_name_impl(ciKlass*, constantPoolHandle const&, ciSymbol*, bool)",
+"ttyLocker::release_tty_if_locked()",
+"os::current_thread_id()",
+"_kernelrpc_mach_port_deallocate_trap",
+"thread_self_trap",
+"Matcher::match()",
+"Matcher::xform(Node*, int)",
+"Arena::contains(void const*) const",
+"Matcher::match_tree(Node const*)",
+"Matcher::Label_Root(Node const*, State*, Node*, Node*&)",
+"State::DFA(int, Node const*)",
+"State::_sub_Op_ConI(Node const*)",
+"Assembler::operand_valid_for_logical_immediate(bool, unsigned long long)",
+"encoding_for_logical_immediate(unsigned long long)",
+"bsearch",
+"State::_sub_Op_AddP(Node const*)",
+"Node::clone() const",
+"_platform_memmove",
+"Node::out_grow(unsigned int)",
+"Arena::Arealloc(void*, unsigned long, unsigned long, AllocFailStrategy::AllocFailEnum)",
+"RethrowNode::match_edge(unsigned int) const",
+"PhaseCFG::do_global_code_motion()",
+"PhaseCFG::build_dominator_tree()",
+"PhaseCFG::global_code_motion()",
+"Node_Backward_Iterator::next()",
+"PhaseCFG::schedule_early(VectorSet&, Node_Stack&)",
+"PhaseCFG::schedule_late(VectorSet&, Node_Stack&)",
+"PhaseCFG::hoist_to_cheaper_block(Block*, Block*, Node*)",
+"PhaseCFG::insert_anti_dependences(Block*, Node*, bool)",
+"MachTypeNode::bottom_type() const",
+"Node::needs_anti_dependence_check() const",
+"StartNode::bottom_type() const",
+"PhaseCFG::schedule_node_into_block(Node*, Block*)",
+"CProjNode::is_block_proj() const",
+"PhaseCFG::schedule_pinned_nodes(VectorSet&)",
+"PhaseAggressiveCoalesce::insert_copies(Matcher&)",
+"LiveRangeMap::compress_uf_map_for_nodes()",
+"PhaseChaitin::Select()",
+"PhaseIFG::re_insert(unsigned int)",
+"IndexSetIterator::advance_and_next()",
+"PhaseChaitin::Simplify()",
+"PhaseIFG::remove_node(unsigned int)",
+"PhaseChaitin::Split(unsigned int, ResourceArea*)",
+"MachNode::rematerialize() const",
+"decodeHeapOopNode::rule() const",
+"PhaseChaitin::add_input_to_liveout(Block*, Node*, IndexSet*, double, PhaseChaitin::Pressure&, PhaseChaitin::Pressure&)",
+"JVMState::debug_start() const",
+"loadBNode::rule() const",
+"PhaseChaitin::remove_bound_register_from_interfering_live_ranges(LRG&, IndexSet*, unsigned int&)",
+"addI_reg_regNode::rule() const",
+"PhaseChaitin::build_ifg_virtual()",
+"PhaseChaitin::compact()",
+"PhaseChaitin::gather_lrg_masks(bool)",
+"PhaseChaitin::merge_multidefs()",
+"PhaseChaitin::post_allocate_copy_removal()",
+"PhaseChaitin::elide_copy(Node*, int, Block*, Node_List*, Node_List*, bool)",
+"PhaseChaitin::stretch_base_pointer_live_ranges(ResourceArea*)",
+"PhaseLive::compute(unsigned int)",
+"PhaseLive::add_liveout(Block*, IndexSet*, VectorSet&)",
+"tlv_get_addr",
+"_platform_bzero",
+"PhaseOutput::Output()",
+"PhaseOutput::BuildOopMaps()",
+"PhaseOutput::fill_buffer(CodeBuffer*, unsigned int*)",
+"NonSafepointEmitter::observe_instruction(Node*, int)",
+"NonSafepointEmitter::emit_non_safepoint()",
+"JVMState::of_depth(int) const",
+"PhaseOutput::Process_OopMap_Node(MachNode*, int)",
+"DebugInformationRecorder::describe_scope(int, methodHandle const&, ciMethod*, int, bool, bool, bool, bool, bool, bool, DebugToken*, DebugToken*, DebugToken*)",
+"DIR_Chunk* GrowableArrayWithAllocator<DIR_Chunk*, GrowableArray<DIR_Chunk*> >::insert_sorted<&(DIR_Chunk::compare(DIR_Chunk* const&, DIR_Chunk* const&))>(DIR_Chunk* const&)",
+"Scheduling::DoScheduling()",
+"Scheduling::AddNodeToBundle(Node*, Block const*)",
+"MachNode::Opcode() const",
+"Node::latency(unsigned int)",
+"Scheduling::ComputeUseCount(Block const*)",
+"Scheduling::AddNodeToAvailableList(Node*)",
+"Node_Array::insert(unsigned int, Node*)",
+"PhaseOutput::install_code(ciMethod*, int, AbstractCompiler*, bool, bool, RTMState)",
+"ciEnv::register_method(ciMethod*, int, CodeOffsets*, int, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, bool, bool, bool, int, RTMState)",
+"nmethod::new_nmethod(methodHandle const&, int, int, CodeOffsets*, int, DebugInformationRecorder*, Dependencies*, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, CompLevel, char*, int, int, char const*, FailedSpeculation**)",
+"nmethod::nmethod(Method*, CompilerType, int, int, int, CodeOffsets*, int, DebugInformationRecorder*, Dependencies*, CodeBuffer*, int, OopMapSet*, ExceptionHandlerTable*, ImplicitExceptionTable*, AbstractCompiler*, CompLevel, char*, int, int)",
+"CodeBuffer::copy_code_to(CodeBlob*)",
+"CodeBuffer::relocate_code_to(CodeBuffer*) const",
+"CallRelocation::fix_relocation_after_move(CodeBuffer const*, CodeBuffer*)",
+"Relocation::pd_call_destination(unsigned char*)",
+"trampoline_stub_Relocation::get_trampoline_for(unsigned char*, nmethod*)",
+"Compile::Optimize()",
+"Compile::final_graph_reshaping()",
+"Compile::final_graph_reshaping_walk(Node_Stack&, Node*, Final_Reshape_Counts&, Unique_Node_List&)",
+"JVMState::interpreter_frame_size() const",
+"Compile::optimize_loops(PhaseIterGVN&, LoopOptsMode)",
+"PhaseIdealLoop::optimize(PhaseIterGVN&, LoopOptsMode)",
+"PhaseIdealLoop::build_and_optimize()",
+"CastIINode::Opcode() const",
+"IdealLoopTree::loop_predication(PhaseIdealLoop*)",
+"PhaseIdealLoop::loop_predication_impl(IdealLoopTree*)",
+"PhaseIdealLoop::loop_predication_follow_branches(Node*, IdealLoopTree*, float, PathFrequency&, Node_Stack&, VectorSet&, Node_List&)",
+"PhaseIdealLoop::is_dominator(Node*, Node*)",
+"IdealLoopTree::policy_range_check(PhaseIdealLoop*, bool, BasicType) const",
+"PhaseIdealLoop::is_scaled_iv(Node*, Node*, BasicType, long*, bool*, int)",
+"PhaseIdealLoop::Dominators()",
+"PhaseIdealLoop::build_loop_late(VectorSet&, Node_List&, Node_Stack&)",
+"PhaseIdealLoop::build_loop_late_post_work(Node*, bool)",
+"Node::unique_ctrl_out_or_null() const",
+"PhaseIdealLoop::compute_lca_of_uses(Node*, Node*, bool)",
+"PhaseIdealLoop::dom_lca_for_get_late_ctrl_internal(Node*, Node*, Node*)",
+"ProjNode::is_uncommon_trap_proj(Deoptimization::DeoptReason)",
+"PhaseIdealLoop::build_loop_tree()",
+"PhaseIdealLoop::split_if_with_blocks(VectorSet&, Node_Stack&)",
+"CmpINode::Opcode() const",
+"PhaseIdealLoop::split_if_with_blocks_post(Node*)",
+"PhaseIdealLoop::try_sink_out_of_loop(Node*)",
+"PhaseIdealLoop::ctrl_of_all_uses_out_of_loop(Node const*, Node*, IdealLoopTree*)",
+"PhaseIdealLoop::split_if_with_blocks_pre(Node*)",
+"PhaseIdealLoop::split_thru_phi(Node*, Node*, int)",
+"RegionNode::is_CFG() const",
+"PhaseIterGVN::optimize()",
+"PhaseIterGVN::transform_old(Node*)",
+"CallStaticJavaNode::Ideal(PhaseGVN*, bool)",
+"Node::remove_dead_region(PhaseGVN*, bool)",
+"Node::set_req(unsigned int, Node*)",
+"Node::del_out(Node*)",
+"Compile::remove_speculative_types(PhaseIterGVN&)",
+"ConnectionGraph::do_analysis(Compile*, PhaseIterGVN*)",
+"ConnectionGraph::compute_escape()",
+"ConnectionGraph::add_node_to_connection_graph(Node*, Unique_Node_List*)",
+"ConnectionGraph::add_field(Node*, PointsToNode::EscapeState, int)",
+"ConnectionGraph::is_oop_field(Node*, int, bool*)",
+"AddPNode::bottom_type() const",
+"ConnectionGraph::split_unique_types(GrowableArray<Node*>&, GrowableArray<ArrayCopyNode*>&, GrowableArray<MergeMemNode*>&)",
+"ConnectionGraph::find_inst_mem(Node*, int, GrowableArray<PhiNode*>&)",
+"ConnectionGraph::split_memory_phi(PhiNode*, int, GrowableArray<PhiNode*>&)",
+"ConnectionGraph::create_split_phi(PhiNode*, int, GrowableArray<PhiNode*>&, bool&)",
+"Compile::find_alias_type(TypePtr const*, bool, ciField*)",
+"MergeMemNode::set_memory_at(unsigned int, Node*)",
+"Node::add_req(Node*)",
+"PhaseCCP::PhaseCCP(PhaseIterGVN*)",
+"PhaseCCP::analyze()",
+"LoadBNode::Value(PhaseGVN*) const",
+"MemNode::can_see_stored_value(Node*, PhaseTransform*) const",
+"AddPNode::Ideal_base_and_offset(Node*, PhaseTransform*, long&)",
+"PhaseCCP::push_child_nodes_to_worklist(Unique_Node_List&, Node*) const",
+"PhaseCCP::push_more_uses(Unique_Node_List&, Node*, Node const*) const",
+"LoadNKlassNode::Opcode() const",
+"TypeNode::bottom_type() const",
+"PhaseCCP::do_transform()",
+"PhaseCCP::transform(Node*)",
+"Compile::disconnect_useless_nodes(Unique_Node_List&, Unique_Node_List*)",
+"CProjNode::is_CFG() const",
+"IdealLoopTree::beautify_loops(PhaseIdealLoop*)",
+"PhaseIterGVN::subsume_node(Node*, Node*)",
+"TypeRawPtr::hash() const",
+"Node::is_CFG() const",
+"PhaseIdealLoop::build_loop_early(VectorSet&, Node_List&, Node_Stack&)",
+"PhaseIdealLoop::get_late_ctrl_with_anti_dep(LoadNode*, Node*, Node*)",
+"CheckCastPPNode::Opcode() const",
+"ConstraintCastNode::dominating_cast(PhaseGVN*, PhaseTransform*) const",
+"PhaseIdealLoop::has_local_phi_input(Node*)",
+"PhiNode::Identity(PhaseGVN*)",
+"PhiNode::Value(PhaseGVN*) const",
+"TypePtr::xmeet(Type const*) const",
+"TypeAryPtr::xmeet_helper(Type const*) const",
+"RegionNode::Ideal(PhaseGVN*, bool)",
+"PhiNode::is_unsafe_data_reference(Node*) const",
+"Node::is_dead_loop_safe() const",
+"TypeInt::xmeet(Type const*) const",
+"TypeLong::singleton() const",
+"PhaseIterGVN::PhaseIterGVN(PhaseGVN*)",
+"PhaseIterGVN::add_users_to_worklist(Node*)",
+"ConstraintCastNode::Value(PhaseGVN*) const",
+"TypeOopPtr::filter_helper(Type const*, bool) const",
+"Type::hashcons()",
+"Dict::Insert(void*, void*, bool)",
+"Type::cmp(Type const*, Type const*)",
+"TypeOopPtr::eq(Type const*) const",
+"IfNode::dominated_by(Node*, PhaseIterGVN*)",
+"PhaseIterGVN::remove_globally_dead_node(Node*)",
+"Node::replace_edge(Node*, Node*, PhaseGVN*)",
+"LoadNode::Ideal(PhaseGVN*, bool)",
+"MemNode::find_previous_store(PhaseTransform*)",
+"MemNode::all_controls_dominate(Node*, Node*)",
+"Node::dominates(Node*, Node_List&)",
+"MultiNode::hash() const",
+"PhiNode::Ideal(PhaseGVN*, bool)",
+"MemNode::optimize_memory_chain(Node*, TypePtr const*, Node*, PhaseGVN*)",
+"MergeMemNode::Ideal(PhaseGVN*, bool)",
+"PhiNode::simple_data_loop_check(Node*) const",
+"TypeNode::hash() const",
+"PhaseMacroExpand::expand_macro_nodes()",
+"PhaseValues::uncached_makecon(Type const*)",
+"TypeNode::cmp(Node const&) const",
+"PhaseMacroExpand::expand_allocate_common(AllocateNode*, Node*, TypeFunc const*, unsigned char*, Node*)",
+"BarrierSetC2::obj_allocate(PhaseMacroExpand*, Node*, Node*, Node*, Node*&, Node*&, Node*&, Node*&, long) const",
+"PhaseRenumberLive::PhaseRenumberLive(PhaseGVN*, Unique_Node_List*, Unique_Node_List*, Phase::PhaseNumber)",
+"PhaseRemoveUseless::PhaseRemoveUseless(PhaseGVN*, Unique_Node_List*, Phase::PhaseNumber)",
+"Compile::identify_useful_nodes(Unique_Node_List&)",
+"ParseGenerator::generate(JVMState*)",
+"Parse::Parse(JVMState*, ciMethod*, float)",
+"Parse::do_all_blocks()",
+"Parse::do_one_block()",
+"Parse::do_call()",
+"GraphKit::record_profiled_receiver_for_speculation(Node*)",
+"Parse::do_field_access(bool, bool)",
+"Parse::do_put_xxx(Node*, ciField*, bool)",
+"GraphKit::access_store_at(Node*, Node*, TypePtr const*, Node*, Type const*, BasicType, unsigned long long)",
+"BarrierSetC2::store_at(C2Access&, C2AccessValue&) const",
+"ModRefBarrierSetC2::store_at_resolved(C2Access&, C2AccessValue&) const",
+"G1BarrierSetC2::post_barrier(GraphKit*, Node*, Node*, Node*, Node*, unsigned int, Node*, BasicType, bool) const",
+"IdealKit::end_if()",
+"IdealKit::make_label(int)",
+"_platform_memset",
+"Parse::do_new()",
+"GraphKit::set_output_for_allocation(AllocateNode*, TypeOopPtr const*, bool)",
+"Compile::alias_type(ciField*)",
+"Dict::doubhash()",
+"PredictedCallGenerator::generate(JVMState*)",
+"Parse::do_if(BoolTest::mask, Node*)",
+"PhaseGVN::transform_no_reclaim(Node*)",
+"ProjNode::Value(PhaseGVN*) const",
+"Parse::do_one_bytecode()",
+"Compile::call_generator(ciMethod*, int, bool, JVMState*, bool, float, ciKlass*, bool)",
+"InlineTree::ok_to_inline(ciMethod*, JVMState*, ciCallProfile&, bool&)",
+"ciEnv::lookup_method(ciInstanceKlass*, ciKlass*, Symbol*, Symbol*, Bytecodes::Code, constantTag)",
+"LinkResolver::linktime_resolve_interface_method_or_null(LinkInfo const&)",
+"BarrierSetC2::store_at_resolved(C2Access&, C2AccessValue&) const",
+"GraphKit::store_to_memory(Node*, Node*, Node*, BasicType, int, MemNode::MemOrd, bool, bool, bool, bool)",
+"StoreNode::Ideal(PhaseGVN*, bool)",
+"InitializeNode::can_capture_store(StoreNode*, PhaseGVN*, bool)",
+"Parse::do_newarray(BasicType)",
+"GraphKit::new_array(Node*, Node*, int, Node**, bool)",
+"GraphKit::get_layout_helper(Node*, int&)",
+"Type::array_element_basic_type() const",
+"GraphKit::type_check_receiver(Node*, ciKlass*, float, Node**)",
+"ciInstanceKlass::is_abstract()",
+"Parse::create_entry_map()",
+"ciMethod::get_method_at_bci(int, bool&, ciSignature**)",
+"LinkResolver::linktime_resolve_virtual_method_or_null(LinkInfo const&)",
+"LinkResolver::linktime_resolve_virtual_method(LinkInfo const&, JavaThread*)",
+"ciMethod::call_profile_at_bci(int)",
+"Node::Node(Node*, Node*, Node*, Node*)",
+"NodeHash::hash_find_insert(Node*)",
+"DirectCallGenerator::generate(JVMState*)",
+"GraphKit::set_edges_for_java_call(CallJavaNode*, bool, bool)",
+"GraphKit::add_safepoint_edges(SafePointNode*, bool)",
+"GraphKit::make_slow_call_ex(Node*, ciInstanceKlass*, bool, bool)",
+"GraphKit::clone_map()",
+"MergeMemNode::make(Node*)",
+"MergeMemNode::MergeMemNode(Node*)",
+"LShiftLNode::Identity(PhaseGVN*)",
+"PhaseTransform::intcon(int)",
+"TypeInt::eq(Type const*) const",
+"TypeInt::singleton() const",
+"ReturnNode::ReturnNode(unsigned int, Node*, Node*, Node*, Node*, Node*)",
+"Compiler::compile_method(ciEnv*, ciMethod*, int, bool, DirectiveSet*)",
+"Compilation::Compilation(AbstractCompiler*, ciEnv*, ciMethod*, int, BufferBlob*, bool, DirectiveSet*)",
+"Compilation::compile_method()",
+"Compilation::compile_java_method()",
+"Compilation::build_hir()",
+"IR::IR(Compilation*, ciMethod*, int)",
+"IRScope::IRScope(Compilation*, IRScope*, int, ciMethod*, int, bool)",
+"GraphBuilder::GraphBuilder(Compilation*, IRScope*)",
+"BlockListBuilder::BlockListBuilder(Compilation*, IRScope*, int)",
+"BlockListBuilder::set_leaders()",
+"BlockListBuilder::make_block_at(int, BlockBegin*)",
+"GraphBuilder::iterate_all_blocks(bool)",
+"GraphBuilder::iterate_bytecodes_for_block(int)",
+"BlockBegin::try_merge(ValueStack*, bool)",
+"ValueStack::ValueStack(ValueStack*, ValueStack::Kind, int)",
+"GraphBuilder::invoke(Bytecodes::Code)",
+"ValueStack::ValueStack(IRScope*, ValueStack*)",
+"IR::eliminate_null_checks()",
+"Optimizer::eliminate_null_checks()",
+"NullCheckEliminator::NullCheckEliminator(Optimizer*)",
+"Compilation::emit_code_body()",
+"LIR_Assembler::emit_code(BlockList*)",
+"LIR_Assembler::emit_lir_list(LIR_List*)",
+"Assembler::subs(Register, Register, Register, Assembler::shift_kind, unsigned int)",
+"Compilation::emit_lir()",
+"BlockList::iterate_forward(BlockClosure*)",
+"LIRGenerator::block_do(BlockBegin*)",
+"LIRGenerator::do_Goto(Goto*)",
+"LIRGenerator::move_to_phi(ValueStack*)",
+"LIRGenerator::move_to_phi(PhiResolver*, Instruction*, Instruction*)",
+"PhiResolver::create_node(LIR_Opr, bool)",
+"LIRGenerator::do_BlockBegin(BlockBegin*)",
+"LIRGenerator::do_If(If*)",
+"InstanceKlass::add_dependent_nmethod(nmethod*)",
+"DependencyContext::add_dependent_nmethod(nmethod*)",
+"nmethodBucket::next_not_unloading()",
+"nmethod::is_unloading()",
+"Relocation::pd_set_call_destination(unsigned char*)",
+"RelocIterator::set_limits(unsigned char*, unsigned char*)",
+"ciEnv::ciEnv(CompileTask*)",
+"ciObjectFactory::get(oopDesc*)",
+"ciEnv::~ciEnv()",
+"ciObjectFactory::remove_symbols()",
+"Symbol::decrement_refcount()",
+"CompileBroker::possibly_add_compiler_threads(JavaThread*)",
+"os::available_memory()",
+"host_statistics64",
+"mach_msg2_trap",
+"CompileQueue::get(CompilerThread*)",
+"Mutex::lock(Thread*)",
+"ThreadBlockInVMPreprocess<InFlightMutexRelease>::~ThreadBlockInVMPreprocess()",
+"MonitorDeflationThread::monitor_deflation_thread_entry(JavaThread*, JavaThread*)",
+"attach_listener_thread_entry(JavaThread*, JavaThread*)",
+"load_agent(AttachOperation*, outputStream*)",
+"JvmtiExport::load_agent_library(char const*, char const*, char const*, outputStream*)",
+"Agent_OnAttach",
+"Profiler::run(Arguments&)",
+"std::__1::basic_ofstream<char, std::__1::char_traits<char> >::basic_ofstream(char const*, unsigned int)",
+"fopen$DARWIN_EXTSN",
+"__open_nocancel",
+"VMThread::run()",
+"VMThread::inner_execute(VM_Operation*)",
+"VMThread::evaluate_operation(VM_Operation*)",
+"VM_Operation::evaluate()",
+"VM_G1CollectForAllocation::doit()",
+"G1CollectedHeap::do_collection_pause_at_safepoint()",
+"G1CollectedHeap::do_collection_pause_at_safepoint_helper()",
+"G1YoungCollector::collect()",
+"G1Policy::record_young_collection_end(bool, bool)",
+"G1ConcurrentRefineThread::activate()",
+"__psynch_cvsignal",
+"G1YoungCollector::post_evacuate_collection_set(G1EvacInfo*, G1ParScanThreadStateSet*)",
+"G1CollectedHeap::expand_heap_after_young_collection()",
+"G1CollectedHeap::expand(unsigned long, WorkerThreads*, double*)",
+"HeapRegionManager::expand_by(unsigned int, WorkerThreads*)",
+"HeapRegionManager::expand(unsigned int, unsigned int, WorkerThreads*)",
+"G1RegionsSmallerThanCommitSizeMapper::commit_regions(unsigned int, unsigned long, WorkerThreads*)",
+"G1CollectedHeap::rebuild_free_region_list()",
+"HeapRegionManager::rebuild_free_list(WorkerThreads*)",
+"WorkerThreads::run_task(WorkerTask*, unsigned int)",
+"semaphore_signal_trap",
+"semaphore_wait_trap",
+"G1ServiceThread::schedule(G1ServiceTask*, long, bool)",
+"G1YoungCollector::pre_evacuate_collection_set(G1EvacInfo*)",
+"G1CollectionSet::finalize_initial_collection_set(double, G1SurvivorRegions*)",
+"G1CollectionSet::finalize_young_part(double, G1SurvivorRegions*)",
+"G1CollectionSet::finalize_old_part(double)",
+"void QuickSort::inner_sort<true, unsigned int, int (*)(unsigned int, unsigned int)>(unsigned int*, unsigned long, int (*)(unsigned int, unsigned int))",
+"compare_region_idx(unsigned int, unsigned int)",
+"G1DirtyCardQueueSet::concatenate_logs_and_stats()",
+"Threads::threads_do(ThreadClosure*)",
+"WorkerThreads::run_task(WorkerTask*)",
+"WatcherThread::run()",
+"Mutex::unlock()",
+"WatcherThread::sleep() const",
+"WorkerThread::run()",
+"G1BatchedTask::work(unsigned int)",
+"G1ParScanThreadStateSet::flush_stats()",
+"G1ParScanThreadState::flush_stats(unsigned long*, unsigned int)",
+"G1PLABAllocator::flush_and_retire_stats(unsigned int)",
+"PLAB::flush_and_retire_stats(PLABStats*)",
+"G1CollectedHeap::fill_with_dummy_object(HeapWordImpl**, HeapWordImpl**, bool)",
+"G1RedirtyCardsLocalQueueSet::flush()",
+"G1ParScanThreadState::~G1ParScanThreadState()",
+"os::free(void*)",
+"G1PostEvacuateCollectionSetCleanupTask2::FreeCollectionSetTask::do_work(unsigned int)",
+"G1CollectedHeap::par_iterate_regions_array(HeapRegionClosure*, HeapRegionClaimer*, unsigned int const*, unsigned long, unsigned int) const",
+"FreeCSetClosure::do_heap_region(HeapRegion*)",
+"CompositeElapsedCounterSource::now()",
+"os::elapsed_counter()",
+"os::javaTimeNanos()",
+"G1CollectedHeap::free_region(HeapRegion*, FreeRegionList*)",
+"HeapRegion::hr_clear(bool)",
+"HeapRegionRemSet::clear_locked(bool)",
+"G1CardSetMemoryManager::flush()",
+"G1MonotonicArena::drop_all()",
+"G1RemSetScanState::G1ClearCardTableTask::do_work(unsigned int)",
+"G1EvacuateRegionsBaseTask::work(unsigned int)",
+"G1EvacuateRegionsBaseTask::evacuate_live_objects(G1ParScanThreadState*, unsigned int, G1GCPhaseTimes::GCParPhases, G1GCPhaseTimes::GCParPhases)",
+"G1ParEvacuateFollowersClosure::do_void()",
+"G1ParScanThreadState::steal_and_trim_queue(GenericTaskQueueSet<OverflowTaskQueue<ScannerTask, (MEMFLAGS)5, 131072u>, (MEMFLAGS)5>*)",
+"G1ParScanThreadState::do_copy_to_survivor_space(G1HeapRegionAttr, oopDesc*, markWord)",
+"G1ParScanThreadState::trim_queue_to_threshold(unsigned int)",
+"G1ParScanThreadState::start_partial_objarray(G1HeapRegionAttr, oopDesc*, oopDesc*)",
+"void G1ScanEvacuatedObjClosure::do_oop_work<narrowOop>(narrowOop*)",
+"void OopOopIterateBackwardsDispatch<G1ScanEvacuatedObjClosure>::Table::oop_oop_iterate_backwards<InstanceRefKlass, narrowOop>(G1ScanEvacuatedObjClosure*, oopDesc*, Klass*)",
+"fwd_copy_again",
+"GenericTaskQueueSet<OverflowTaskQueue<ScannerTask, (MEMFLAGS)5, 131072u>, (MEMFLAGS)5>::steal_best_of_2(unsigned int, ScannerTask&)",
+"void OopOopIterateBackwardsDispatch<G1ScanEvacuatedObjClosure>::Table::oop_oop_iterate_backwards<InstanceKlass, narrowOop>(G1ScanEvacuatedObjClosure*, oopDesc*, Klass*)",
+"G1ParScanThreadState::do_partial_array(PartialArrayScanTask)",
+"fwd_copy_drain",
+"GenericTaskQueueSet<OverflowTaskQueue<ScannerTask, (MEMFLAGS)5, 131072u>, (MEMFLAGS)5>::tasks() const",
+"SpinPause",
+"TaskTerminator::offer_termination(TerminatorTerminator*)",
+"_pthread_cond_wait",
+"_pthread_mutex_firstfit_lock_slow",
+"__psynch_mutexwait",
+"Mutex::lock_without_safepoint_check()",
+"pthread_mutex_lock",
+"_pthread_mutex_firstfit_unlock_slow",
+"__psynch_mutexdrop",
+"swtch_pri",
+"os::elapsedTime()",
+"G1EvacuateRegionsTask::scan_roots(G1ParScanThreadState*, unsigned int)",
+"G1RemSet::scan_heap_roots(G1ParScanThreadState*, unsigned int, G1GCPhaseTimes::GCParPhases, G1GCPhaseTimes::GCParPhases, bool)",
+"G1ScanHRForRegionClosure::do_heap_region(HeapRegion*)",
+"G1ScanHRForRegionClosure::scan_heap_roots(HeapRegion*)",
+"G1ScanHRForRegionClosure::scan_memregion(unsigned int, MemRegion)",
+"HeapWordImpl** HeapRegion::oops_on_memregion_iterate<G1ScanCardClosure, true>(MemRegion, G1ScanCardClosure*)",
+"void OopOopIterateDispatch<G1ScanCardClosure>::Table::oop_oop_iterate<InstanceMirrorKlass, narrowOop>(G1ScanCardClosure*, oopDesc*, Klass*)",
+"void G1ScanCardClosure::do_oop_work<narrowOop>(narrowOop*)",
+"G1RootProcessor::evacuate_roots(G1ParScanThreadState*, unsigned int)",
+"G1RootProcessor::process_java_roots(G1RootClosures*, G1GCPhaseTimes*, unsigned int)",
+"ClassLoaderDataGraph::roots_cld_do(CLDClosure*, CLDClosure*)",
+"G1CLDScanClosure::do_cld(ClassLoaderData*)",
+"ClassLoaderData::oops_do(OopClosure*, int, bool)",
+"void G1ParCopyClosure<(G1Barrier)1, false>::do_oop_work<oopDesc*>(oopDesc**)",
+"void OopOopIterateBackwardsDispatch<G1ScanEvacuatedObjClosure>::Table::oop_oop_iterate_backwards<InstanceMirrorKlass, narrowOop>(G1ScanEvacuatedObjClosure*, oopDesc*, Klass*)",
+"Threads::possibly_parallel_oops_do(bool, OopClosure*, CodeBlobClosure*)",
+"Threads::possibly_parallel_threads_do(bool, ThreadClosure*)",
+"Thread::oops_do(OopClosure*, CodeBlobClosure*)",
+"JavaThread::oops_do_frames(OopClosure*, CodeBlobClosure*)",
+"frame::oops_code_blob_do(OopClosure*, CodeBlobClosure*, DerivedOopClosure*, DerivedPointerIterationMode, RegisterMap const*) const",
+"G1CodeBlobClosure::do_code_blob(CodeBlob*)",
+"nmethod::oops_do_process_weak(nmethod::OopsDoProcessor*)",
+"nmethod::fix_oop_relocations(unsigned char*, unsigned char*, bool)",
+"metadata_Relocation::fix_metadata_relocation()",
+"metadata_Relocation::value()",
+"sys_icache_invalidate",
+"frame::oops_interpreted_do(OopClosure*, RegisterMap const*, bool) const",
+"G1RemSet::scan_collection_set_regions(G1ParScanThreadState*, unsigned int, G1GCPhaseTimes::GCParPhases, G1GCPhaseTimes::GCParPhases, G1GCPhaseTimes::GCParPhases)",
+"G1ScanCollectionSetRegionClosure::do_heap_region(HeapRegion*)",
+"G1CodeRootSet::nmethods_do(CodeBlobClosure*) const",
+"G1KeepAliveClosure::do_oop(oopDesc**)",
+"G1MergeHeapRootsTask::work(unsigned int)",
+"G1MergeHeapRootsTask::G1CombinedClosure::do_heap_region(HeapRegion*)",
+"G1MergeHeapRootsTask::G1MergeCardSetClosure::do_heap_region(HeapRegion*)",
+"G1GCParPhaseTimesTracker::G1GCParPhaseTimesTracker(G1GCPhaseTimes*, G1GCPhaseTimes::GCParPhases, unsigned int, bool)",
+"G1PrepareEvacuationTask::work(unsigned int)",
+"HeapRegionManager::par_iterate(HeapRegionClosure*, HeapRegionClaimer*, unsigned int) const",
+"G1PrepareEvacuationTask::G1PrepareRegionsClosure::do_heap_region(HeapRegion*)",
+"G1RemSet::prepare_region_for_scan(HeapRegion*)",
+"G1CardSet::reset_table_scanner()",
+"G1RebuildFreeListTask::work(unsigned int)",
+"G1STWIsAliveClosure::do_object_b(oopDesc*)",
+"OSXSemaphore::wait()",
+"void WeakProcessor::Task::work<G1STWIsAliveClosure, G1KeepAliveClosure>(unsigned int, G1STWIsAliveClosure*, G1KeepAliveClosure*)",
+];
+var initialStacks = [];
+var stacks;
+
+var _lastInsertedStack = null;
+
+function a(frameIds, samples) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"), samples: samples});
+}
+
+var totalSamplesA = 0, totalSamplesB = 0;
+
+function d(frameIds, samples_a, samples_b) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  totalSamplesA += samples_a;
+  totalSamplesB += samples_b;
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"),
+                      samples_a: samples_a, samples_b: samples_b});
+}
+
+function _extractRegexPrefix(s) {
+  let parsed = s.match(/^\/\.\+(.+)\/g$/);
+  if (parsed != null) {
+    return new RegExp(parsed[1]);
+  }
+}
+
+function _stringToMaybeRegex(s) {
+  if (s == null) return null;
+  let parsed = s.match(/^\/(.+)\/$/);
+  if (parsed != null)
+    return new RegExp(parsed[1], 'g');
+  else
+    return s;
+}
+
+function _makeTransform(type, enabled, what, replacement) {
+  let what2 = (typeof(what) == 'string') ? _stringToMaybeRegex(what) : what;
+  let prefix = (what2 instanceof RegExp) ?
+      _extractRegexPrefix(what2.toString()) : null;
+  if (type == 'replace')
+    return { type: type, enabled: enabled, what: what2, replacement: replacement, prefix: prefix}
+  else
+    return { type: type, enabled: enabled, what: what2}
+}
+
+var userTransforms = [];
+
+function match(string, obj) {
+  if (typeof(obj) == 'string') {
+    return string.includes(obj);
+  } else
+    return string.match(obj);
+}
+
+function applyReplacement(string, what, replacement, prefix) {
+  var s = string;
+  if (prefix != null) {
+    let match = prefix.exec(string);
+    if (match == null)
+      return s;
+    else
+      s = string.substring(Math.max(match.index-1, 0));
+  }
+  return s.replaceAll(what, replacement);
+}
+
+function transformStacks() {
+  console.time("transformStacks");
+  let diff = isDiffgraph;
+  var result;
+  if (userTransforms.length > 0) {
+    var xformedMap = {};
+    for (var i = 0; i < initialStacks.length; i++) {
+      var stack = initialStacks[i];
+      var xformedStr = stack.stackStr;
+      var useIt = true;
+
+      for (var t = 0; t < userTransforms.length; t++) {
+        const transform = userTransforms[t];
+        if (transform.enabled && transform.what != '') {
+          if (transform.type == 'replace') {
+            xformedStr = applyReplacement(xformedStr, transform.what,
+                                          transform.replacement, transform.prefix);
+          } else if (transform.type == 'filter') {
+            if (!match(xformedStr, transform.what))
+              useIt = false;
+          } else if (transform.type == 'remove') {
+            if (match(xformedStr, transform.what))
+              useIt = false;
+          }
+        }
+        if (!useIt) break;
+      }
+
+      if (useIt)
+        if (diff) {
+          let newVal = (xformedMap[xformedStr] || {});
+          newVal.samples_a = (newVal.samples_a || 0) + stack.samples_a;
+          newVal.samples_b = (newVal.samples_b || 0) + stack.samples_b;
+          xformedMap[xformedStr] = newVal;
+        } else
+          xformedMap[xformedStr] = stack.samples + (xformedMap[xformedStr] || 0);
+    }
+
+    var xformedStacks = [];
+    for (xformedStr in xformedMap) {
+      if (diff) {
+        let val = xformedMap[xformedStr];
+        xformedStacks.push({stackStr: xformedStr, samples_a: val.samples_a, samples_b: val.samples_b})
+      } else
+        xformedStacks.push({stackStr: xformedStr, samples: xformedMap[xformedStr]});
+    }
+    result = xformedStacks;
+  } else
+    result = initialStacks;
+
+  console.timeEnd("transformStacks");
+  return result;
+}
+
+console.time("data exec time");
+
+  a([0,0,1,2,3,],1);
+a([3,4,5,6,7,],2);
+a([7,8,9,],1);
+a([6,10,],1);
+a([4,11,],1);
+a([0,12,1,2,13,],1);
+a([3,4,5,6,7,],1);
+a([0,14,15,16,17,18,19,20,21,22,23,24,25,26,27,],1);
+a([6,28,29,30,31,],1);
+a([0,32,33,12,34,35,],1);
+a([0,36,0,1,2,37,],1);
+a([1,38,1,2,3,],1);
+a([0,39,40,41,],1);
+a([1,42,43,41,],1);
+a([1,44,],1);
+a([1,45,],2);
+a([1,46,],1);
+a([1,47,],110);
+a([1,48,],4);
+a([1,49,],6);
+a([1,50,],1);
+a([0,51,52,53,54,55,53,56,57,58,59,60,61,62,63,58,64,65,66,67,68,69,70,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,],1);
+a([24,86,87,],1);
+a([26,45,],1);
+a([26,88,89,90,91,92,93,94,95,96,97,98,99,100,],1);
+a([33,101,],3);
+a([34,44,],5);
+a([35,45,],7);
+a([36,102,],6);
+a([37,103,],150);
+a([38,104,],4);
+a([38,105,],18);
+a([38,48,],11);
+a([38,49,],3);
+a([37,106,],4);
+a([36,107,],1);
+a([36,108,],7);
+a([37,45,],2);
+a([38,109,],1);
+a([39,110,],1);
+a([40,111,],2);
+a([40,112,],1);
+a([41,104,],1);
+a([41,49,],2849);
+a([42,113,],3);
+a([42,114,],233);
+a([40,115,116,],5);
+a([41,117,],1);
+a([38,118,],3);
+a([38,119,],6);
+a([39,111,],4);
+a([40,120,],1);
+a([41,41,],1);
+a([39,121,],2);
+a([40,122,123,],6);
+a([41,124,],1);
+a([41,125,],1);
+a([41,126,127,],1);
+a([40,128,128,112,129,130,],1);
+a([43,49,],2841);
+a([44,113,],4);
+a([44,114,],66);
+a([37,131,],2);
+a([38,132,133,],15);
+a([40,116,],13);
+a([41,41,],1);
+a([40,49,],2);
+a([40,134,],1);
+a([40,130,],7);
+a([38,106,],22);
+a([37,135,135,],16);
+a([39,48,],801);
+a([40,116,],53);
+a([41,130,],19);
+a([40,136,],26);
+a([41,105,],12);
+a([40,137,],2);
+a([40,114,],81);
+a([36,138,],7);
+a([34,139,44,],2);
+a([35,140,],13);
+a([32,97,98,99,141,142,49,],4);
+a([31,143,46,97,98,99,],21);
+a([36,144,],1);
+a([36,145,],3);
+a([37,146,147,103,],4);
+a([40,148,],2);
+a([36,140,],15);
+a([26,149,150,151,152,153,154,155,156,],1);
+a([27,157,],1);
+a([27,89,90,91,92,93,94,101,],3);
+a([34,158,159,],1);
+a([36,160,103,],9);
+a([38,148,],4);
+a([37,161,],1);
+a([36,162,163,],1);
+a([34,139,],1);
+a([35,158,],1);
+a([35,140,],13);
+a([31,143,46,97,98,99,],15);
+a([36,150,151,152,153,164,165,166,80,167,168,],1);
+a([36,144,],3);
+a([36,145,],2);
+a([37,146,147,103,],3);
+a([40,148,],2);
+a([36,140,],15);
+a([26,169,170,171,],1);
+a([28,41,],1);
+a([0,15,16,17,18,172,173,174,29,30,31,],42);
+a([9,175,176,],1);
+a([5,177,178,29,30,31,],2);
+a([4,19,20,21,22,23,179,180,181,182,183,184,185,186,187,188,189,190,191,192,193,194,195,196,197,],1);
+a([26,198,],1);
+a([9,24,199,200,],3);
+a([12,201,],2);
+a([12,202,],1);
+a([13,203,203,203,204,205,206,207,208,],1);
+a([14,204,209,],1);
+a([12,210,],1);
+a([13,211,],1);
+a([12,212,213,],1);
+a([12,214,],1);
+a([10,215,216,],1);
+a([11,217,218,],2);
+a([12,219,],1);
+a([12,220,],1);
+a([13,218,],2);
+a([13,221,],1);
+a([13,222,223,],1);
+a([14,224,225,],1);
+a([13,226,227,],1);
+a([12,228,],2);
+a([10,25,229,230,],1);
+a([11,231,232,233,],1);
+a([11,234,233,],1);
+a([12,235,],1);
+a([11,236,],3);
+a([12,237,],1);
+a([12,238,],1);
+a([11,26,],1);
+a([12,239,240,],1);
+a([13,241,],1);
+a([12,242,],1);
+a([12,243,],1);
+a([11,244,27,],1);
+a([13,233,],2);
+a([11,245,],1);
+a([11,246,],4);
+a([11,247,],3);
+a([11,248,],1);
+a([12,249,],1);
+a([11,250,],2);
+a([11,251,],1);
+a([12,252,],2);
+a([13,253,],1);
+a([11,254,],1);
+a([10,255,256,],2);
+a([11,257,258,259,260,],1);
+a([12,261,262,263,],1);
+a([11,264,265,266,],1);
+a([13,267,],1);
+a([12,268,],1);
+a([13,269,270,],1);
+a([10,271,272,273,274,275,276,277,278,279,],1);
+a([9,280,281,282,283,],1);
+a([10,284,285,286,287,],1);
+a([13,288,289,290,291,],1);
+a([13,292,293,],1);
+a([13,294,],2);
+a([13,295,],1);
+a([14,296,],4);
+a([15,297,],1);
+a([15,298,299,],1);
+a([15,300,297,],1);
+a([13,301,],1);
+a([13,302,303,],1);
+a([14,304,305,306,],1);
+a([14,307,308,],1);
+a([14,305,],1);
+a([13,307,],1);
+a([13,309,],1);
+a([12,310,311,312,313,314,315,],1);
+a([10,316,],1);
+a([10,317,318,],1);
+a([12,319,320,321,322,253,],1);
+a([12,323,],1);
+a([13,324,325,326,327,],1);
+a([13,328,329,213,],1);
+a([10,330,331,332,333,334,],1);
+a([12,335,336,],2);
+a([14,337,],1);
+a([12,338,],1);
+a([10,339,340,341,],1);
+a([10,285,286,342,],1);
+a([12,343,344,345,],1);
+a([12,346,],2);
+a([12,294,],2);
+a([12,347,346,],1);
+a([12,295,],4);
+a([13,296,],2);
+a([14,298,299,],1);
+a([14,348,],1);
+a([12,302,349,],1);
+a([13,307,350,],1);
+a([14,351,],1);
+a([11,310,311,352,],1);
+a([13,353,354,355,253,],1);
+a([13,356,357,358,],1);
+a([13,359,],1);
+a([12,360,],1);
+a([10,361,362,],1);
+a([10,310,311,],3);
+a([12,312,313,314,315,],1);
+a([12,363,364,354,365,366,367,368,],1);
+a([12,369,370,371,],1);
+a([12,372,334,],1);
+a([13,373,374,375,],1);
+a([12,344,],1);
+a([13,376,],1);
+a([12,377,378,],1);
+a([13,311,379,],1);
+a([13,357,380,],1);
+a([13,253,],1);
+a([11,381,],1);
+a([10,382,310,311,383,384,],1);
+a([11,385,386,],1);
+a([12,344,370,],1);
+a([10,387,],1);
+a([11,388,389,],1);
+a([9,390,391,392,393,394,395,253,],1);
+a([14,390,391,392,393,394,390,391,392,393,394,390,391,392,393,394,390,391,392,393,396,397,398,399,400,401,402,403,404,],1);
+a([23,405,406,407,365,366,408,],1);
+a([19,409,390,391,392,393,394,390,391,392,393,394,390,391,392,393,410,411,412,],1);
+a([25,409,390,391,392,393,394,409,390,391,392,393,413,],1);
+a([20,409,390,391,392,393,394,409,390,391,392,393,394,390,391,392,393,394,390,391,392,393,394,390,391,392,393,394,414,415,181,182,183,184,185,186,187,188,189,416,417,253,],1);
+a([18,396,397,398,399,400,418,419,411,420,421,],1);
+a([18,422,423,424,425,],1);
+a([14,409,426,411,427,],1);
+a([15,390,391,428,429,188,189,416,430,431,80,167,],1);
+a([17,392,393,394,390,391,392,393,394,409,390,391,392,393,394,390,391,392,393,394,390,391,392,393,394,432,],1);
+a([15,409,390,391,392,393,394,390,391,392,393,394,390,391,392,393,396,397,398,399,400,401,433,],1);
+a([26,409,390,391,392,393,394,409,390,391,392,393,394,409,390,391,392,393,394,409,390,391,392,393,394,409,390,391,392,393,410,411,434,],1);
+a([16,409,390,391,392,393,394,435,436,437,],1);
+a([13,405,406,438,439,440,441,404,],1);
+a([13,422,423,442,],1);
+a([15,443,365,366,367,444,],1);
+a([13,413,411,445,],1);
+a([9,388,389,],1);
+a([9,446,],1);
+a([7,447,448,449,450,451,452,453,454,455,456,457,],1);
+a([15,458,459,460,461,],1);
+a([17,462,],1);
+a([18,188,189,190,191,],1);
+a([15,463,],1);
+a([12,464,465,466,],1);
+a([11,467,468,469,470,],1);
+a([11,471,472,473,474,475,476,477,],1);
+a([13,478,],1);
+a([13,479,],1);
+a([10,272,273,480,481,482,483,],1);
+a([12,274,275,276,484,279,485,],1);
+a([7,486,487,190,],1);
+a([7,488,489,490,],1);
+a([6,491,492,493,494,],1);
+a([6,495,496,497,],1);
+a([5,498,29,30,31,],3);
+a([5,499,500,501,502,503,504,505,506,],1);
+a([4,507,508,509,510,511,512,513,514,515,516,517,],1);
+a([12,518,519,520,521,522,523,],1);
+a([13,524,525,526,527,],2);
+a([16,528,],1);
+a([13,529,517,],1);
+a([13,526,527,],2);
+a([14,528,],2);
+a([12,530,531,532,],1);
+a([13,533,534,535,],1);
+a([13,536,537,],1);
+a([13,538,528,],2);
+a([4,539,540,],1);
+a([5,541,29,30,31,],36);
+a([4,542,],1);
+a([5,543,],2);
+a([6,544,545,546,547,548,],1);
+a([8,549,],1);
+a([7,550,550,551,],1);
+a([6,552,553,554,555,556,557,],4);
+a([9,558,559,560,561,562,],1);
+a([12,9,],2);
+a([6,563,404,],1);
+a([5,564,565,566,567,568,],1);
+a([9,569,],5);
+a([10,568,],8);
+a([11,570,571,],1);
+a([11,572,],2);
+a([12,571,],1);
+a([10,573,],1);
+a([9,574,],3);
+a([8,569,568,],4);
+a([10,570,],1);
+a([11,571,],1);
+a([10,571,],1);
+a([10,575,571,],1);
+a([9,576,571,],1);
+a([9,577,],1);
+a([8,578,],1);
+a([8,579,],1);
+a([8,580,],1);
+a([9,578,],1);
+a([9,29,30,31,],11);
+a([11,581,582,583,],2);
+a([9,584,582,583,],22);
+a([10,585,],1);
+a([9,586,587,],4);
+a([9,588,],3);
+a([7,589,],1);
+a([6,590,591,592,593,594,569,],5);
+a([12,568,],7);
+a([13,571,],1);
+a([13,575,],1);
+a([14,571,],1);
+a([11,595,596,597,],1);
+a([7,598,599,600,],3);
+a([10,601,602,603,569,568,],1);
+a([15,604,571,],1);
+a([9,605,606,607,608,609,610,611,612,613,],1);
+a([18,614,],1);
+a([16,615,],1);
+a([13,616,],3);
+a([6,617,553,618,619,610,611,615,],1);
+a([7,618,],1);
+a([5,620,],1);
+a([5,621,553,622,623,],2);
+a([6,624,555,557,],1);
+a([5,625,626,],2);
+a([7,627,628,],1);
+a([9,629,],1);
+a([5,630,555,556,557,],1);
+a([5,631,],1);
+a([5,632,],1);
+a([5,528,],56);
+a([5,633,],3);
+a([6,620,],3);
+a([6,631,],1);
+
+
+console.timeEnd("data exec time");
+
+
+function makeTreeNode() {
+  if (isDiffgraph)
+    return {self_samples_a: 0, self_samples_b: 0, self_delta: 0,
+            total_samples_a: 0, total_samples_b: 0, total_delta: 0,
+            delta_abs: 0, children: {}};
+  else
+    return {self: 0, total: 0, children: {}};
+}
+
+function getChildNode(node, childTitle) {
+  var children = node.children;
+  var child = children[childTitle];
+  if (child == undefined) {
+    child = makeTreeNode();
+    children[childTitle] = child;
+  }
+  return child;
+}
+
+function parseStacksToTreeSimple(stacks, treeRoot) {
+  console.time("parseStacksToTreeSimple");
+  var depth = 0;
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.total += stack.samples;
+    node.self += stack.samples;
+  }
+  console.timeEnd("parseStacksToTreeSimple");
+  return depth;
+}
+
+function parseStacksToTreeDiffgraph(stacks, treeRoot) {
+  console.time("parseStacksToTreeDiffgraph");
+  var depth = 0;
+
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+
+    var samplesA = stack.samples_a;
+    var samplesB = stack.samples_b;
+    if (normalizeDiff) samplesB = Math.round(samplesB * b_scale_factor);
+    var delta = samplesB - samplesA;
+
+
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.self_samples_a += samplesA;
+    node.self_samples_b += samplesB;
+    node.self_delta += delta;
+    node.total_samples_a += samplesA;
+    node.total_samples_b += samplesB;
+    node.total_delta += delta;
+    node.delta_abs += Math.abs(delta);
+  }
+  console.timeEnd("parseStacksToTreeDiffgraph");
+  return depth;
+}
+
+function parseStacksToTree(stacks, treeRoot) {
+  if (isDiffgraph)
+    return parseStacksToTreeDiffgraph(stacks, treeRoot);
+  else
+    return parseStacksToTreeSimple(stacks, treeRoot);
+}
+
+const palette = {
+  green: "#50e150",
+  aqua: "#50bebe",
+  orange: "#e17d00",
+  yellow: "#c8c83c",
+  red: "#e15a5a",
+  clojure_green: "#91dc51",
+  clojure_blue: "#8fb5fe",
+};
+
+function getColor(title) {
+  if (title.endsWith("_[j]")) {
+    return palette.green;
+  } else if (title.endsWith("_[i]")) {
+    return palette.aqua;
+  } else if (title.endsWith("_[k]")) {
+    return palette.orange;
+  } else if (title.includes("::") || title.startsWith("-[") || title.startsWith("+[")) {
+    return palette.yellow;
+  } else if (title.includes("/")) { // Clojure (will only work after unmunging)
+    return palette.clojure_blue;
+  } else if (title.includes(".")) { // Java (if it has a dot and is not Clojure)
+    return palette.clojure_green;
+  } else return palette.red;
+}
+
+function decToHex(n) {
+  var hex = n.toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
+
+function getDiffColor(isRed, intensity) {
+  return "hsl(" + ((isRed) ? 0 : 220) + ",100%," + Math.round(90 - intensity * 30) + "%)";
+  // return "hsl(" + ((isRed) ? 0 : 220) + "," + Math.round(100 * intensity) + "%, 60%)";
+}
+
+function scaleColorMap(colorMap, intensity) {
+  return '#' + decToHex(intensity * colorMap.red) +
+    decToHex(intensity * colorMap.green) + decToHex(intensity * colorMap.blue);
+}
+
+var stacks, tree, levels, depth;
+
+var smallestPixelsPerSample, minPixelsPerFrame = 0.25, minSamplesToShow;
+
+function generateLevelsSimple(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.total >= minSamplesToShow) {
+    levels[level].push({left: left, width: node.total, color: getColor(title),
+                        title: title});
+
+    left += node.self;
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].total - a[1].total);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsSimple(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.total;
+    }
+  }
+}
+
+function generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.delta_abs >= minSamplesToShow) {
+    var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
+    var color = getDiffColor((node.total_delta > 0), Math.min(Math.abs(change), 1.0));
+    levels[level].push({left: left, width: node.delta_abs,
+                        self_samples_a: node.self_samples_a,
+                        self_samples_b: node.self_samples_b,
+                        self_delta: node.self_delta,
+                        total_samples_a: node.total_samples_a,
+                        total_samples_b: node.total_samples_b,
+                        total_delta: node.total_delta,
+                        color: color,
+                        title: title});
+
+    left += Math.abs(node.self_delta);
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].delta_abs - a[1].delta_abs);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsDiffgraph(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.delta_abs;
+    }
+  }
+}
+
+function generateLevels(levels, node, title, level, x, minSamplesToShow) {
+  if (isDiffgraph)
+    generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow);
+  else
+    generateLevelsSimple(levels, node, title, level, x, minSamplesToShow);
+}
+
+function refreshData() {
+  if (isDiffgraph && normalizeDiff)
+    b_scale_factor = totalSamplesA / totalSamplesB;
+
+  stacks = transformStacks();
+
+  tree = makeTreeNode();
+
+  depth = parseStacksToTree(stacks, tree);
+  smallestPixelsPerSample = canvasWidth / (tree.total || tree.delta_abs);
+  minSamplesToShow = minPixelsPerFrame / smallestPixelsPerSample;
+
+  levels = [];
+  generateLevels(levels, tree, "all", 0, 0, minSamplesToShow);
+  depth = levels.length;
+}
+
+refreshData();
+
+var canvasHeight;
+
+function initCanvas() {
+  canvasHeight = (depth + 1) * 16;
+  canvas.style.width = canvasWidth + 'px';
+  canvas.width = canvasWidth * (devicePixelRatio || 1);
+  canvas.height = canvasHeight * (devicePixelRatio || 1);
+  if (devicePixelRatio) c.scale(devicePixelRatio, devicePixelRatio);
+  c.font = document.body.style.font;
+}
+
+initCanvas();
+isNormalizedDiv.style.display = isDiffgraph ? 'inherit' : 'none';
+if (graphTitle == "")
+  titleDiv.style.display = 'none';
+else
+  graphTitleSpan.innerText = graphTitle;
+
+
+var highlightPattern = null, currentRootFrame, currentRootLevel, px;
+
+function render(newRootFrame, newLevel) {
+  console.time("render");
+  // Background
+  var gradient = c.createLinearGradient(0, 0, 0, canvasHeight);
+  gradient.addColorStop(0.05, "#eeeeee");
+  gradient.addColorStop(0.95, "#eeeeb0");
+  c.fillStyle = gradient;
+  c.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  currentRootFrame = newRootFrame || levels[0][0];
+  currentRootLevel = newLevel || 0;
+  px = canvasWidth / currentRootFrame.width;
+
+  const marked = [];
+
+  function mark(f) {
+    return marked[f.left] >= f.width || (marked[f.left] = f.width);
+  }
+
+  function totalMarked() {
+    let total = 0;
+    let left = 0;
+    for (let x in marked) {
+      if (+x >= left) {
+        total += marked[x];
+        left = +x + marked[x];
+      }
+    }
+    return total;
+  }
+
+  const x0 = currentRootFrame.left;
+  const x1 = x0 + currentRootFrame.width;
+
+  function drawFrame(f, y, alpha) {
+    if (f.left < x1 && f.left + f.width > x0) {
+      c.fillStyle = highlightPattern && f.title.match(highlightPattern) && mark(f) ? '#ee00ee' : f.color;
+      c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+
+      if (f.width * px >= 21) {
+        const chars = Math.floor(f.width * px / 7);
+        const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 2) + '..';
+        c.fillStyle = '#000000';
+        c.fillText(title, Math.max(f.left - x0, 0) * px + 3, y + 12, f.width * px - 6);
+      }
+
+      if (alpha) {
+        c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+      }
+    }
+  }
+
+  for (let h = 0; h < levels.length; h++) {
+    const y = reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16;
+    const frames = levels[h];
+    for (let i = 0; i < frames.length; i++) {
+      if (frames[i].width >= minSamplesToShow)
+        drawFrame(frames[i], y, h < currentRootLevel);
+    }
+  }
+
+  if (highlightPattern != null) {
+    matchContainer.style.display = 'inherit';
+    matchedLabel.textContent = pct(totalMarked(), currentRootFrame.width) + '%';
+  } else
+    matchContainer.style.display = 'none';
+  console.timeEnd("render");
+}
+
+render();
+
+function round2dig(n) {
+  return Math.round(n * 100) / 100;
+}
+
+function ratioToPct(n) {
+  return ((n > 0) ? "+" : "") + (n * 100).toFixed(2) + "%";
+}
+
+function findFrame(frames, x) {
+  let left = 0;
+  let right = frames.length - 1;
+
+  while (left <= right) {
+    const mid = (left + right) >>> 1;
+    const f = frames[mid];
+
+    if (f.left > x) {
+      right = mid - 1;
+    } else if (f.left + f.width <= x) {
+      left = mid + 1;
+    } else {
+      return f;
+    }
+  }
+
+  if (frames[left] && (frames[left].left - x) * px < 0.5) return frames[left];
+  if (frames[right] && (x - (frames[right].left + frames[right].width)) * px < 0.5) return frames[right];
+
+  return null;
+}
+
+canvas.onmousemove = function() {
+  const h = Math.floor((reverseGraph ? event.offsetY : (canvasHeight - event.offsetY)) / 16);
+  if (h >= 0 && h < levels.length) {
+    const f = findFrame(levels[h], event.offsetX / px + currentRootFrame.left);
+    if (f && f.width >= minSamplesToShow) {
+      hl.style.left = (Math.max(f.left - currentRootFrame.left, 0) * px + canvas.offsetLeft) + 'px';
+      hl.style.width = (Math.min(f.width, currentRootFrame.width) * px) + 'px';
+      hl.style.top = ((reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16) + canvas.offsetTop) + 'px';
+      // hl.firstChild.textContent = f.title;
+      hl.style.display = 'block';
+      if (isDiffgraph) {
+        var rel_change = (f.total_samples_a == 0) ? 1.0 : f.total_delta / f.total_samples_a;
+        var total_change = f.total_delta / tree.total_samples_a;
+        canvas.title = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
+        // , self_samples_a: ${f.self_samples_a}, self_samples_b: ${f.self_samples_b},  self_delta: ${f.self_delta},  total_samples_a: ${f.total_samples_a},  total_samples_b: ${f.total_samples_b}, total_delta: ${f.total_delta})`;
+      } else
+        canvas.title = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + '%)';
+      canvas.style.cursor = 'pointer';
+      canvas.onclick = function() {
+        if (f != currentRootFrame) {
+          render(f, h);
+          canvas.onmousemove();
+        }
+      };
+      status.textContent = 'Function: ' + canvas.title;
+      return;
+    }
+  }
+  canvas.onmouseout();
+}
+
+canvas.onmouseout = function() {
+  hl.style.display = 'none';
+  status.textContent = '\xa0';
+  canvas.title = '';
+  canvas.style.cursor = '';
+  canvas.onclick = '';
+}
+
+function samples(n, add_plus) {
+  return (add_plus && n > 0 ? "+" : "") + (n === 1 ? '1 sample' : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + ' samples';
+}
+
+function pct(a, b) {
+  return a >= b ? '100' : (100 * a / b).toFixed(2);
+}
+
+//// Configuration panel
+
+function highlightApply() {
+  const pattern = highlightInput.value;
+  highlightPattern = (pattern == "") ? null : _stringToMaybeRegex(pattern);
+  render(currentRootFrame, currentRootLevel);
+}
+
+function highlightClear() {
+  highlightPattern = null;
+  render(currentRootFrame, currentRootLevel);
+}
+
+function copySelectedFrameAsText() {
+  navigator.clipboard.writeText(currentRootFrame.title);
+}
+
+function copySelectedFrameAsRegex() {
+  let rx = currentRootFrame.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  navigator.clipboard.writeText(rx);
+}
+
+function userTransformsSwap(idx1, idx2) {
+  const swap = userTransforms[idx1];
+  userTransforms[idx1] = userTransforms[idx2];
+  userTransforms[idx2] = swap;
+}
+
+function addNewTransform() {
+  syncTransformsModelWithUI();
+  let type = newTransformType.value;
+  userTransforms.push(_makeTransform(type, true, "", ""));
+  redrawTransformsSection();
+}
+
+function deleteTransform(originator) {
+  syncTransformsModelWithUI();
+  userTransforms.splice(originator.internalId, 1);
+  redrawTransformsSection();
+}
+
+function cloneTransform(originator) {
+  syncTransformsModelWithUI();
+  const idx = originator.internalId;
+  userTransforms.splice(idx+1, 0, Object.assign({}, userTransforms[idx]));
+  redrawTransformsSection();
+}
+
+function moveTransformUp(originator) {
+  const idx = originator.internalId;
+  if (idx == 0) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx-1, idx);
+  redrawTransformsSection();
+}
+
+function moveTransformDown(originator) {
+  const idx = originator.internalId;
+  if (idx == userTransforms.length-1) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx, idx+1);
+  redrawTransformsSection();
+}
+
+function refreshAfterEnabledToggle() {
+  syncTransformsModelWithUI();
+  redrawTransformsSection();
+}
+
+function oneByClass(container, classname) {
+  return container.getElementsByClassName(classname)[0];
+}
+
+function syncTransformsModelWithUI() {
+  for (var i = 0; i < transformsContainer.children.length; i++) {
+    const el = transformsContainer.children[i];
+    const model = userTransforms[i];
+    userTransforms[i] =
+      _makeTransform(model.type, oneByClass(el, 'chkEnabled').checked,
+                     oneByClass(el, 'what').value,
+                     model.type == 'replace' ? oneByClass(el, 'replacement').value : null);
+  }
+}
+
+function redrawTransformsSection() {
+  transformsContainer.innerHTML = "";
+  for (var i = 0; i < userTransforms.length; i++) {
+    const transform = userTransforms[i];
+    var newEl = (transform.type == 'replace') ?
+        transformReplaceTemplate.cloneNode(true) :
+        transformFilterTemplate.cloneNode(true);
+    newEl.style = '';
+    newEl.internalId = i;
+
+    const what = transform.what;
+    if (typeof(what) == 'string')
+      oneByClass(newEl, 'what').value = what;
+    else
+      oneByClass(newEl, 'what').value = what.toString().match(/^(\/.+\/)g?$/)[1];
+
+    if (transform.type == 'replace')
+      oneByClass(newEl, 'replacement').value = transform.replacement;
+    else if (transform.type == 'remove')
+      oneByClass(newEl, 'label').textContent = "Remove:";
+    oneByClass(newEl, 'chkEnabled').checked = transform.enabled;
+
+    oneByClass(newEl, 'chkEnabled').internalId = i;
+    oneByClass(newEl, 'btnMoveUp').internalId = i;
+    oneByClass(newEl, 'btnMoveDown').internalId = i;
+    oneByClass(newEl, 'btnClone').internalId = i;
+    oneByClass(newEl, 'btnDelete').internalId = i;
+    transformsContainer.appendChild(newEl);
+  }
+}
+
+redrawTransformsSection();
+
+function scrollToTopOrBottom() {
+  window.scrollTo(0, reverseGraph ? 0 : document.body.scrollHeight);
+}
+
+scrollToTopOrBottom();
+
+function applyConfiguration() {
+  console.time("apply config");
+  minPixelsPerFrame = minFrameWidthInPx.value || 0.25;
+  normalizeDiff = isNormalized.checked;
+  let reverseChanged = (reverseGraph != isReversedInput.checked);
+  reverseGraph = isReversedInput.checked;
+  syncTransformsModelWithUI();
+  refreshData();
+  initCanvas();
+  render();
+  if (reverseChanged)
+    scrollToTopOrBottom();
+  console.timeEnd("apply config");
+}
+
+function toggleSidebarVisibility() {
+  sidebarVisible = !sidebarVisible;
+  updateSidebarState();
+  applyConfiguration();
+}
+
+    </script>
+  </body>
+</html>

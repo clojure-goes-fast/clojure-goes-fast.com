@@ -2,47 +2,41 @@
  :date-published "2017-12-11"
  :reddit-link "https://www.reddit.com/r/Clojure/comments/7j2hr6/cljasyncprofiler_clojure_profiler_with_flame/"}
 
-In
-the
-[previous installment](http://clojure-goes-fast.com/blog/profiling-tool-jvisualvm/),
-we learned how to use VisualVM to profile your Clojure applications. VisualVM is
-an excellent profiler: beginner-friendly, has enough features but not bloated,
+_Updated on 2023-06-09: bumped version numbers and usage examples._  
+_A more comprehensive clj-async-profiler documentation is available on [Knowledge
+Base](http://clojure-goes-fast.com/kb/profiling/clj-async-profiler/)._  
+_Runnable code for this post can be found
+[here](https://github.com/clojure-goes-fast/clojure-goes-fast.com/tree/master/code/async-profiler)._
+
+In the [previous
+installment](http://clojure-goes-fast.com/blog/profiling-tool-jvisualvm/), we
+learned how to use VisualVM to profile your Clojure applications. VisualVM is an
+excellent profiler: beginner-friendly, has enough features but not bloated,
 all-in-all a good one to dip your toes into the waters of profiling. However,
-VisualVM (and many other JVM profilers) suffer
-from [safepoint bias](http://psy-lob-saw.blogspot.com/2015/12/safepoints.html).
-Long story short, most sampling profilers can get a snapshot of the stack only
-at the so-called **safepoints** — points of execution where the runtime can stop
-and look around. The placement of those safepoints is quite arbitrary, and it
+VisualVM (and many other JVM profilers) suffer from [safepoint
+bias](http://psy-lob-saw.blogspot.com/2015/12/safepoints.html). Long story
+short, most sampling profilers can get a snapshot of the stack only at the
+so-called **safepoints** — points of execution where the runtime can stop and
+look around. The placement of those safepoints is quite arbitrary, and it
 hampers the accuracy of profilers that have this problem.
 
 ### async-profiler
 
 Fortunately, other profilers exist that don't rely on safepoints to do the
-sampling. One such profiler is an
-open-source
-[async-profiler](https://github.com/jvm-profiling-tools/async-profiler). It is a
-low overhead sampling profiler that operates by attaching a native Java agent to
-a running JVM process and collecting the stack traces samples by using
+sampling. One such profiler is an open-source
+[async-profiler](https://github.com/async-profiler/async-profiler). It is a low
+overhead sampling profiler that operates by attaching a native Java agent to a
+running JVM process and collecting the stack traces samples by using
 HotSpot-specific APIs. async-profiler works only on GNU/Linux and MacOS, and on
 the former, it additionally utilizes `perf_events` to dig into native code as
-well (more on that in some future blog posts).
+well.
 
-You can build async-profiler yourself by cloning the repository and following
-the README instructions. It ships with a convenient binary that can attach to
-any JVM process and start profiling.
+The output of async-profiler is commonly rendered with flame graphs. Flame
+graphs are a relatively recent fashion in the world of profiling. They are a
+visualization of profiled software, allowing the most frequent code-paths to be
+identified quickly and accurately.
 
-Unlike VisualVM, async-profiler doesn't have a GUI. One way to see its results
-is printing them to a console, which is while being simple is not particularly
-informative. But the modus operandi of async-profiler is to collect **collapsed
-stacktraces** that can be later transformed into flame graphs.
-
-### Flame graphs
-
-Flame graphs are a relatively recent fashion in the world of profiling. They are
-a visualization of profiled software, allowing the most frequent code-paths to
-be identified quickly and accurately.
-
-The most popular way of creating flame graphs is Brendan
+The most popular way of creating flame graphs on your own is Brendan
 Gregg's [FlameGraph](https://github.com/brendangregg/FlameGraph) library. The
 set of scripts can take the profiling data and generate an SVG image from it.
 The resulting image shows which methods appear on stack statistically more often
@@ -71,21 +65,16 @@ post.
 
 ### clj-async-profiler
 
-The two tools described above are perfectly fine to be used together, and each
-on its own. They don't strive to be a complete profiling solution but rather
-building blocks for a flexible and customizable profiling workflow that you
-might need. But it doesn't mean there shouldn't be an *easy* way to consume
-these two projects. With that in mind, I
-created
-[clj-async-profiler](https://github.com/clojure-goes-fast/clj-async-profiler), a
-tool for on-demand creation of flame graphs from the statistical profiling data
-sampled in the current or external JVM process.
+Clojure users have convenient access to async-profiler in the form of
+[clj-async-profiler](https://github.com/clojure-goes-fast/clj-async-profiler).
+Unlike VisualVM, clj-async-profiler is not a standalone application, but a
+library that you include into your own application as a dependency.
 
 Let's learn it by example. First, add the following dependency to your
-project.clj/build.boot/[deps.edn](https://clojure.org/guides/deps_and_cli):
+`project.clj` or `deps.edn`:
 
 ```clojure
-[com.clojure-goes-fast/clj-async-profiler "0.1.0"]
+[com.clojure-goes-fast/clj-async-profiler "1.0.4"]
 ```
 
 Now we'll conceive a toy profiling example.
@@ -110,41 +99,38 @@ Our preparatory steps are done, time to run the profiler!
 user=> (require '[clj-async-profiler.core :as prof])
 nil
 
-user=> (prof/start {})
-"Starting [cpu] profiling\n"
-
-user=> (burn-cpu 10)
+user=> (prof/profile (burn-cpu 10))
 nil
-
-user=> (prof/stop {})
-#object[java.io.File 0x5c9cd2f7 "/tmp/clj-async-profiler/results/flamegraph-2017-12-11-01-37-05.svg"]
 ```
 
-The result of the `stop` function points to a generated SVG flame graph. You can
-open it directly in the browser, like
-`file:///tmp/clj-async-profiler/results/flamegraph-....svg`.
+After the execuion finishes, the flamegraph will be generated in
+`/tmp/clj-async-profiler/results/` directory. You can open it directly in the
+browser, like
+`file:///tmp/clj-async-profiler/results/01-cpu-flamegraph-.....html`, or run
+`(prof/serve-ui 8080)` to start a profiler UI local webserver.
 
 <center>
 <figure class="figure">
-<object type="image/svg+xml" data="/img/posts/async-profiler-flamegraph.svg" width="100%"></object>
+<div class="downscale-iframe-66" style="height:500px">
+<iframe src="/img/posts/async-profiler-burn-cpu.html" style="height:750px"></iframe>
+</div>
 <figcaption class="figure-caption text-center">
-  <a href="/img/posts/async-profiler-flamegraph.svg" target="_blank">Click here</a>
-  to open in full.</figcaption>
+    <a href="/img/posts/async-profiler-burn-cpu.html" target="_blank">Click here</a> to open in full.
+</figcaption>
 </figure>
 </center>
 
-The above picture shows us that our function `burn-cpu` appeared in almost 100%
-of samples (no surprise), and that `test-div` accounts for 98.8% of the
-execution time. That's how much slower the ratio division is when compared to
-addition (but again, this is a toy example, don't take these numbers as a hard
-evidence).
+The above picture shows us that our function `burn-cpu` appeared in 92% of
+samples, and that `test-div` accounts for 91.32% of the execution time. That's
+how much slower the ratio division is when compared to addition (but again, this
+is a toy example, don't take these numbers as a hard evidence).
 
 The image of a flamegraph is interactive. Try playing with it! You can highlight
 stack frames to get the profiling numbers, you can click on them to zoom in and
-out. You can also click **Search** to highlight all of the frames that match the
-provided regexp and get their total time percentage. For example, you can enter
-`^java.*`, and it will tell you that Java-side code takes 95.8% of the total
-time in our test.
+out. You can also use **Highlight** section on the right to highlight all of the
+frames that match the provided regexp and get their total time percentage. For
+example, you can enter `/java.*/`, and it will tell you that Java-side code
+takes 92.76% of the total time in our test.
 
 #### Bonus features
 
@@ -153,21 +139,18 @@ for the specified duration in seconds, and then generates a flamegraph. It
 returns a future that will deliver the path to the generated flamegraph; thus it
 doesn't block the execution thread.
 
-Functions `start`, `stop`, and `profile-for` optionally accept a process ID as
-their first argument. If PID is provided, clj-async-profiler will profile the
-external JVM process specified by the PID. By default, the JVM where profiler is
-started from is profiled.
+Functions `start`, `stop`, `profile`, `profile-for` optionally accept a process
+ID as `:pid` argument in the options map. If PID is provided, clj-async-profiler
+will profile the external JVM process specified by the PID. By default, the JVM
+where profiler is started from is profiled.
 
-clj-async-profiler includes a basic webserver that allows viewing the
-flamegraphs remotely. `(serve-files <port>)` will start the webserver, similar
-to Python's `SimpleHTTPServer` on the specified port.
+All features and options of clj-async-profiler are listed in the
+[README](https://github.com/clojure-goes-fast/clj-async-profiler) and [Knowledge
+Base](http://clojure-goes-fast.com/kb/profiling/clj-async-profiler/).
 
-All features and options of clj-async-profiler are listed in
-the [README](https://github.com/clojure-goes-fast/clj-async-profiler).
+### Conclusion: VisualVM or clj-async-profiler?
 
-### Conclusion: VisualVM or async-profiler?
-
-First, let's outline the advantages of each. Async-profiler:
+First, let's outline the advantages of each. clj-async-profiler:
 
 - All benefits of flame graphs apply. Flame graphs are really pleasant to work
   with.
@@ -202,26 +185,23 @@ Control](http://www.oracle.com/technetwork/java/javaseproducts/mission-control/j
 had become free. JMC has most of the benefits of VisualVM and also isn't
 influenced by safepoints.*
 
-Async-profiler, on the other hand, is more of a low-level "hacker" tool. It
+clj-async-profiler, on the other hand, is more of a low-level "hacker" tool. It
 doesn't put the profiling data into a walled garden of incompatible binary
 formats. It can be started rapidly from within the application. And once you
 familiarize yourself with flame graphs, reading the profiles for you will be
 much faster than VisualVM's UI.
 
-For me, async-profiler has become a go-to ad hoc profiler. But I continue to use
-VisualVM for reasons mentioned above, and as a second pair of "eyes" to look at
-the performance picture. I hope this post has expanded your knowledge about
+For me, clj-async-profiler has become a go-to ad hoc profiler. But I continue to
+use VisualVM for reasons mentioned above, and as a second pair of "eyes" to look
+at the performance picture. I hope this post has expanded your knowledge about
 profiling and introduced you to another useful tool in your arsenal.
 
 Let it burn!
 
-
-<!-- <img src="/img/posts/async-profiler-flamegraph.svg"> -->
-<!-- <img class="img-responsive" src="/img/posts/visualvm-sampler.png"> -->
 ### References
 
-- http://psy-lob-saw.blogspot.com/2015/12/safepoints.html
-- http://psy-lob-saw.blogspot.co.za/2016/06/the-pros-and-cons-of-agct.html
-- http://psy-lob-saw.blogspot.com/2016/02/why-most-sampling-java-profilers-are.html
-- http://www.brendangregg.com/flamegraphs.html
-- http://psy-lob-saw.blogspot.com/2017/02/flamegraphs-intro-fire-for-everyone.html
+- [http://psy-lob-saw.blogspot.com/2015/12/safepoints.html](http://psy-lob-saw.blogspot.com/2015/12/safepoints.html)
+- [http://psy-lob-saw.blogspot.co.za/2016/06/the-pros-and-cons-of-agct.html](http://psy-lob-saw.blogspot.co.za/2016/06/the-pros-and-cons-of-agct.html)
+- [http://psy-lob-saw.blogspot.com/2016/02/why-most-sampling-java-profilers-are.html](http://psy-lob-saw.blogspot.com/2016/02/why-most-sampling-java-profilers-are.html)
+- [http://www.brendangregg.com/flamegraphs.html](http://www.brendangregg.com/flamegraphs.html)
+- [http://psy-lob-saw.blogspot.com/2017/02/flamegraphs-intro-fire-for-everyone.html](http://psy-lob-saw.blogspot.com/2017/02/flamegraphs-intro-fire-for-everyone.html)
