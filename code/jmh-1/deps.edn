@@ -1,0 +1,8 @@
+{:paths ["src" "target/classes"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.openjdk.jmh/jmh-core {:mvn/version "1.36"}
+        org.openjdk.jmh/jmh-generator-annprocess {:mvn/version "1.36"}}
+ :aliases
+ {:build {:deps {io.github.clojure/tools.build {:git/tag "v0.9.4"
+                                                :git/sha "76b78fe"}}
+          :ns-default build}}}

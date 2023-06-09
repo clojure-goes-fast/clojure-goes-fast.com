@@ -2,6 +2,11 @@
  :date-published "2018-10-22 11:00:00"
  :reddit-link "https://www.reddit.com/r/Clojure/comments/9qbtaw/using_jmh_with_clojure/"}
 
+_Updated on 2023-06-09: added instructions for tools.deps, updated for
+Leiningen, removed Boot._  
+_Runnable code for this post can be found
+[here](https://github.com/clojure-goes-fast/clojure-goes-fast.com/tree/master/code/jmh-1)._
+
 Hello, performance junkies, long time no see. Today we will learn to access the
 tool that every JVM gofaster should (mis)use at least once in their lives —
 Aleksey Shipilёv's [Java Microbenchmarking
@@ -140,30 +145,59 @@ effective. [jmh-clojure](https://github.com/jgpc42/jmh-clojure) is another
 effort to make JMH usage more similar to standard Clojure workflows. Perhaps,
 someday I will write about my experience with it too.
 
-#### Leiningen
+#### tools.deps
 
-Feel free to create a new project with `lein new`, but for the example I'm
-giving, it is enough to make an empty directory.
-
-The `project.clj` has to look like this:
+Start by creating an empty project. We'll need several files, first `deps.edn`:
 
 ```clj
-(defproject jmh-lein "0.1.0-SNAPSHOT"
-  :java-source-paths ["src/"]
-  :dependencies [[org.clojure/clojure "1.9.0"]
-                 [org.openjdk.jmh/jmh-core "1.21"]
-                 [org.openjdk.jmh/jmh-generator-annprocess "1.21"]]
-  :aliases {"jmh" ["exec" "-ep" "(bench.Multiply/run)"]})
+{:paths ["src" "target/classes"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.openjdk.jmh/jmh-core {:mvn/version "1.36"}
+        org.openjdk.jmh/jmh-generator-annprocess {:mvn/version "1.36"}}}
 ```
 
-Another file you need is `src/bench/Multiply.java`:
+Then, in the same top-level directory, add `build.clj`:
+
+```clj
+(ns build
+  (:require [clojure.tools.build.api :as b]))
+
+(def default-opts
+  {:basis (b/create-basis {})
+   :src-dirs ["src"]
+   :class-dir "target/classes"})
+
+(defn javac [opts]
+  (b/delete {:path "target"})
+  (b/javac (merge default-opts opts)))
+```
+
+Yet another file to create would be `src/jmh.clj`. We need so many build files
+because of the multi-stage nature of running a JMH benchmark.
+
+```clj
+(ns jmh
+  (:import (org.openjdk.jmh.runner Runner)
+           (org.openjdk.jmh.runner.options OptionsBuilder)))
+
+(defn run-benchmark [{:strs [bench profiler] :as opts}]
+  (assert bench)
+  (let [opts (OptionsBuilder.)]
+    (.include opts (str bench))
+    (when profiler
+      (.addProfiler opts (str profiler)))
+    (.run (Runner. (.build opts)))))
+
+(defn -main [& args]
+  (run-benchmark (apply hash-map args)))
+```
+
+Finally, create the benchmark file, `src/bench/Multiply.java`:
 
 ```java
 package bench;
 
 import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.runner.*;
-import org.openjdk.jmh.runner.options.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -183,14 +217,6 @@ public class Multiply {
     public void mulWrong() {
         long x = 123L * 456L;
     }
-
-    public static void run() throws RunnerException {
-        Options opt = new OptionsBuilder()
-            .include(Multiply.class.getSimpleName())
-            .build();
-
-        new Runner(opt).run();
-    }
 }
 ```
 
@@ -198,13 +224,13 @@ This is our benchmarking class. By using different JMH annotations, we configure
 how long to spend warming up the benchmark, for how much time to run it, which
 units to output the results in. Each method in the class that is marked with
 `@Benchmark` annotation will be run many times in a special JMH-managed loop.
-The static method `run` is our entrypoint to the benchmark where we can inject
-some extra configuration through `OptionsBuilder` object. This is the method that
-our `jmh` alias is calling.
 
-You can now run `lein jmh` in the terminal. Some debugging info will get
-printed, and then the benchmarking iterations will proceed. In the end, you
-should get something like this:
+Now you can, at last, run the benchmark from the terminal:
+
+    clojure -T:build javac && clojure -m jmh bench Multiply
+
+Some debugging info will get printed, and then the benchmarking iterations will
+proceed. In the end, you should get something like this:
 
 ```
 Benchmark          Mode  Cnt  Score   Error  Units
@@ -212,36 +238,20 @@ Multiply.mul       avgt    5  3.452 ± 0.574  ns/op
 Multiply.mulWrong  avgt    5  0.583 ± 0.338  ns/op
 ```
 
-#### Boot
+#### Leiningen
 
-Again, just make an empty directory and put this `build.boot` in it:
+Create the same directory structure as for tools.deps above, but instead of
+ `deps.edn` and `build.clj` you'll need a `project.clj`:
 
 ```clj
-(set-env! :source-paths #{"src"}
-          :dependencies '[[org.clojure/clojure "1.9.0"]
-                          [org.openjdk.jmh/jmh-core "1.21"]
-                          [org.openjdk.jmh/jmh-generator-annprocess "1.21"]])
-
-(deftask jmh []
-  (comp (javac)
-        (with-pass-thru fs
-          (let [cp (->> (conj (output-dirs fs)
-                              (System/getProperty "fake.class.path")
-                              *compile-path*)
-                        (clojure.string/join java.io.File/pathSeparator))]
-            (System/setProperty "java.class.path" cp)))
-        (call :eval ['(bench.Multiply/run)])))
+(defproject jmh-lein "0.1.0-SNAPSHOT"
+  :java-source-paths ["src/"]
+  :dependencies [[org.clojure/clojure "1.11.1"]
+                 [org.openjdk.jmh/jmh-core "1.36"]
+                 [org.openjdk.jmh/jmh-generator-annprocess "1.36"]])
 ```
 
-The main difference from Leiningen is that Boot doesn't automatically set the
-correct `java.class.path` property, and JMH expects that. The `with-pass-thru`
-step in the middle does two things — it combines `fake.class.path` property
-(this is where Boot keeps the list of all dependencies) and also the output dirs
-from the `(javac)` step, and then it sets it all into the `java.class.path`
-property.
-
-You should also create `src/bench/Multiply.java` file with the same content as
-in Leiningen version. You can now run `boot jmh` from the terminal.
+You can run the benchmark with `lein run -m jmh bench Multiply`.
 
 ### A more interesting example
 
@@ -256,14 +266,12 @@ more traveled branch of the condition before the actual check has been made.
 [This article](https://danluu.com/branch-prediction/) provides an in-depth look
 at the history of branch prediction.
 
-Anyway, here's the code of the benchmark:
+Anyway, here's the code of the benchmark. Create it as `src/bench/BranchPrediction.java`:
 
 ```java
 package bench;
 
 import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.runner.*;
-import org.openjdk.jmh.runner.options.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -316,14 +324,6 @@ public class BranchPrediction {
     public long sortedArray(BenchState state) {
         return sumArray(state.sorted);
     }
-
-    public static void run() throws RunnerException {
-        Options opt = new OptionsBuilder()
-            .include(BranchPrediction.class.getSimpleName())
-            .build();
-
-        new Runner(opt).run();
-    }
 }
 ```
 
@@ -358,17 +358,17 @@ benchmark. One profiler we'll try to use today is `perfnorm` which measures
 different CPU performance counters and normalizes the results per benchmark
 iteration.
 
-First, you'll need to install `perf` (sorry, Linux only). Then, change the
-`Options` declaration to:
+First, you'll need to install `perf` (sorry, Linux only). Then, launch the
+benchmark like this:
 
-```java
-Options opt = new OptionsBuilder()
-    .include(BranchPrediction.class.getSimpleName())
-    .addProfiler("perfnorm")
-    .build();
+```sh
+# tools.deps
+clojure -T:build javac && clojure -m jmh bench BrenchPrediction profiler perfnorm
+# Leiningen
+lein run -m jmh bench Multiply profiler perfnorm
 ```
 
-And just run the benchmark again. Here's what I got (redacted):
+Here's what I got (redacted):
 
 ```
 Benchmark                                     (size)  Mode  Cnt        Score   Error  Units
