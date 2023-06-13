@@ -1,0 +1,54 @@
+# JMH version: 1.36
+# VM version: JDK 17.0.7, OpenJDK 64-Bit Server VM, 17.0.7+7
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 5 s each
+# Measurement: 5 iterations, 5 s each
+# Benchmark mode: Average time, time/op
+# Machine: Steam Deck, 2022
+
+Conj to PersistentVector:
+
+| Benchmark          |  n | Time (ns/op)     | L1d miss% | Instructions |   Cycles |  IPC |
+|--------------------+----+------------------+-----------+--------------+----------+------|
+| Vec.conjPersistent |  0 |   0.582 ±  0.012 |      0.00 |        9.026 |    2.032 | 4.44 |
+| Vec.conjPersistent |  1 |  10.624 ±  0.419 |      1.88 |      132.308 |   35.910 | 3.68 |
+| Vec.conjPersistent |  2 |  23.534 ±  0.386 |      1.78 |      278.835 |   75.563 | 3.69 |
+| Vec.conjPersistent |  3 |  35.929 ±  1.435 |      1.84 |      457.549 |  121.439 | 3.76 |
+| Vec.conjPersistent |  4 |  48.322 ±  0.743 |      1.84 |      630.641 |  165.439 | 3.81 |
+| Vec.conjPersistent |  5 |  61.987 ±  1.657 |      1.89 |      789.197 |  209.017 | 3.77 |
+| Vec.conjPersistent |  6 |  74.968 ±  1.958 |      1.91 |      959.294 |  254.834 | 3.76 |
+| Vec.conjPersistent |  8 | 102.903 ±  3.449 |      1.97 |     1303.371 |  347.373 | 3.75 |
+| Vec.conjPersistent | 16 | 223.126 ±  3.722 |      2.32 |     2685.369 |  757.510 | 3.54 |
+| Vec.conjPersistent | 32 | 513.709 ± 11.557 |      3.01 |     5483.848 | 1744.594 | 3.14 |
+
+
+Conj to TransientVector (1.12.0-alpha3):
+
+| Benchmark          |  n | Time (ns/op)     | L1d miss% | Instructions |   Cycles |  IPC |
+|--------------------+----+------------------+-----------+--------------+----------+------|
+| Vec.conjTransient  |  0 |  41.875 ±  0.642 |      4.80 |      301.014 |  141.976 | 2.12 |
+| Vec.conjTransient  |  1 |  52.277 ±  0.408 |      2.99 |      510.988 |  177.205 | 2.88 |
+| Vec.conjTransient  |  2 |  52.332 ±  1.040 |      2.78 |      552.971 |  178.136 | 3.10 |
+| Vec.conjTransient  |  3 |  54.629 ±  0.944 |      2.62 |      595.281 |  184.882 | 3.21 |
+| Vec.conjTransient  |  4 |  55.817 ±  0.990 |      2.51 |      638.361 |  190.034 | 3.35 |
+| Vec.conjTransient  |  5 |  59.299 ±  0.843 |      2.32 |      681.311 |  201.838 | 3.37 |
+| Vec.conjTransient  |  6 |  60.913 ±  0.723 |      2.21 |      725.670 |  207.631 | 3.49 |
+| Vec.conjTransient  |  8 |  65.924 ±  0.646 |      2.04 |      795.860 |  223.155 | 3.56 |
+| Vec.conjTransient  | 16 |  87.975 ±  0.522 |      1.51 |     1126.255 |  296.804 | 3.79 |
+| Vec.conjTransient  | 32 | 129.467 ±  2.876 |      1.10 |     1768.106 |  439.685 | 4.02 |
+
+
+Conj to TransientVector (after patch):
+
+| Benchmark          |  n | Time (ns/op)     | L1d miss% | Instructions |   Cycles |  IPC |
+|--------------------+----+------------------+-----------+--------------+----------+------|
+| Vec.conjTransient  |  0 |  25.458 ± 0.246  |      3.62 |      212.249 |   86.394 | 2.45 |
+| Vec.conjTransient  |  1 |  36.255 ± 1.090  |      2.23 |      428.321 |  123.238 | 3.47 |
+| Vec.conjTransient  |  2 |  37.973 ± 0.536  |      2.06 |      467.485 |  129.337 | 3.61 |
+| Vec.conjTransient  |  3 |  42.081 ± 0.738  |      1.96 |      512.131 |  143.728 | 3.56 |
+| Vec.conjTransient  |  4 |  44.471 ± 0.991  |      1.85 |      555.990 |  151.014 | 3.68 |
+| Vec.conjTransient  |  5 |  49.650 ± 0.908  |      1.72 |      600.221 |  167.420 | 3.58 |
+| Vec.conjTransient  |  6 |  51.589 ± 1.047  |      1.67 |      641.561 |  176.093 | 3.64 |
+| Vec.conjTransient  |  8 |  63.432 ± 1.730  |      1.56 |      713.879 |  215.827 | 3.30 |
+| Vec.conjTransient  | 16 |  80.421 ± 0.271  |      1.20 |     1047.826 |  273.149 | 3.83 |
+| Vec.conjTransient  | 32 | 110.870 ± 1.958  |      0.91 |     1631.591 |  377.692 | 4.31 |

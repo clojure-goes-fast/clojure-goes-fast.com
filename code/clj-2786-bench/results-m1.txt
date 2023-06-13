@@ -1,0 +1,54 @@
+# JMH version: 1.36
+# VM version: JDK 17.0.3, OpenJDK 64-Bit Server VM, 17.0.3+7
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 5 s each
+# Measurement: 5 iterations, 5 s each
+# Benchmark mode: Average time, time/op
+# Machine: Macbook Pro 13-inch, M1, 2020
+
+Conj to PersistentVector:
+
+| Benchmark          |  n | Time (ns/op)    | Alloc (B/op) |
+|--------------------+----+-----------------+--------------|
+| Vec.conjPersistent |  0 |   0.556 ± 0.002 |            0 |
+| Vec.conjPersistent |  1 |   5.557 ± 0.137 |           64 |
+| Vec.conjPersistent |  2 |  16.639 ± 0.213 |          128 |
+| Vec.conjPersistent |  3 |  26.513 ± 0.434 |          200 |
+| Vec.conjPersistent |  4 |  35.947 ± 0.393 |          272 |
+| Vec.conjPersistent |  5 |  45.331 ± 0.986 |          352 |
+| Vec.conjPersistent |  6 |  54.495 ± 1.234 |          432 |
+| Vec.conjPersistent |  8 |  73.329 ± 0.608 |          608 |
+| Vec.conjPersistent | 16 | 149.538 ± 1.617 |         1472 |
+| Vec.conjPersistent | 32 | 306.494 ± 3.470 |         3968 |
+
+
+Conj to TransientVector (1.12.0-alpha3):
+
+| Benchmark          |  n | Time (ns/op)    | Alloc (B/op) |
+|--------------------+----+-----------------+--------------|
+| Vec.conjTransient  |  0 |  17.421 ± 1.279 |          384 |
+| Vec.conjTransient  |  1 |  38.276 ± 1.833 |          424 |
+| Vec.conjTransient  |  2 |  48.034 ± 0.326 |          424 |
+| Vec.conjTransient  |  3 |  56.485 ± 1.366 |          432 |
+| Vec.conjTransient  |  4 |  65.015 ± 0.405 |          432 |
+| Vec.conjTransient  |  5 |  74.629 ± 0.942 |          440 |
+| Vec.conjTransient  |  6 |  83.753 ± 1.518 |          440 |
+| Vec.conjTransient  |  8 | 102.414 ± 1.373 |          448 |
+| Vec.conjTransient  | 16 | 171.422 ± 0.945 |          480 |
+| Vec.conjTransient  | 32 | 320.974 ± 6.855 |          544 |
+
+
+Conj to TransientVector (after patch):
+
+| Benchmark          |  n | Time (ns/op)    | Alloc (B/op) |
+|--------------------+----+-----------------+--------------|
+| Vec.conjTransient  |  0 |  16.389 ± 0.364 |          216 |
+| Vec.conjTransient  |  1 |  20.902 ± 0.406 |          256 |
+| Vec.conjTransient  |  2 |  22.150 ± 1.612 |          256 |
+| Vec.conjTransient  |  3 |  24.583 ± 0.552 |          264 |
+| Vec.conjTransient  |  4 |  26.405 ± 0.093 |          264 |
+| Vec.conjTransient  |  5 |  28.437 ± 0.920 |          272 |
+| Vec.conjTransient  |  6 |  30.156 ± 0.093 |          272 |
+| Vec.conjTransient  |  8 |  34.002 ± 0.207 |          280 |
+| Vec.conjTransient  | 16 |  56.225 ± 0.679 |          312 |
+| Vec.conjTransient  | 32 | 106.415 ± 1.831 |          376 |
