@@ -1,0 +1,4 @@
+{:paths ["src" "target/classes"]
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        org.openjdk.jmh/jmh-core {:mvn/version "1.36"}
+        org.openjdk.jmh/jmh-generator-annprocess {:mvn/version "1.36"}}}

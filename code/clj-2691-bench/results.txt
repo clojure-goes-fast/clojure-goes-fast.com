@@ -1,0 +1,95 @@
+# Machine: MacBook Pro 13-inch, aarch64 M1, 2020
+
+
+# JMH version: 1.35
+# VM version: JDK 1.8.0_342, OpenJDK 64-Bit Server VM, 25.342-b07
+# VM invoker: /Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/jre/bin/java
+# Blackhole mode: full + dont-inline hint (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 3 s each
+# Measurement: 5 iterations, 3 s each
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+
+Benchmark                           Mode  Cnt  Score   Error  Units
+IfNotLoop.baseline                  avgt    5  0.327 ± 0.007  ns/op
+IfNotLoop.testDirectIf              avgt    5  0.332 ± 0.019  ns/op
+IfNotLoop.testDirectIfNot           avgt    5  0.334 ± 0.015  ns/op
+IfNotLoop.testDirectOpaqueIf        avgt    5  1.269 ± 0.010  ns/op
+IfNotLoop.testDirectOpaqueIfNot     avgt    5  1.276 ± 0.037  ns/op
+IfNotLoop.testIf                    avgt    5  0.333 ± 0.010  ns/op
+IfNotLoop.testIfNot                 avgt    5  0.735 ± 0.024  ns/op
+IfNotLoop.testOpaqueIf              avgt    5  1.551 ± 0.044  ns/op
+IfNotLoop.testOpaqueIfNot           avgt    5  1.843 ± 0.046  ns/op
+IfNotOneShot.baseline               avgt    5  2.013 ± 0.026  ns/op
+IfNotOneShot.testDirectIf           avgt    5  2.196 ± 0.380  ns/op
+IfNotOneShot.testDirectIfNot        avgt    5  2.159 ± 0.069  ns/op
+IfNotOneShot.testDirectOpaqueIf     avgt    5  2.351 ± 0.011  ns/op
+IfNotOneShot.testDirectOpaqueIfNot  avgt    5  2.490 ± 0.736  ns/op
+IfNotOneShot.testIf                 avgt    5  2.176 ± 0.022  ns/op
+IfNotOneShot.testIfNot              avgt    5  2.943 ± 0.362  ns/op
+IfNotOneShot.testOpaqueIf           avgt    5  3.280 ± 0.508  ns/op
+IfNotOneShot.testOpaqueIfNot        avgt    5  4.046 ± 0.108  ns/op
+
+
+
+
+# JMH version: 1.35
+# VM version: JDK 11.0.16, OpenJDK 64-Bit Server VM, 11.0.16+8-LTS
+# VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
+# Blackhole mode: full + dont-inline hint (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 3 s each
+# Measurement: 5 iterations, 3 s each
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+
+Benchmark                           Mode  Cnt  Score   Error  Units
+IfNotLoop.baseline                  avgt    5  0.324 ± 0.006  ns/op
+IfNotLoop.testDirectIf              avgt    5  0.330 ± 0.010  ns/op
+IfNotLoop.testDirectIfNot           avgt    5  3.082 ± 0.016  ns/op
+IfNotLoop.testDirectOpaqueIf        avgt    5  1.501 ± 0.031  ns/op
+IfNotLoop.testDirectOpaqueIfNot     avgt    5  1.494 ± 0.032  ns/op
+IfNotLoop.testIf                    avgt    5  0.331 ± 0.008  ns/op
+IfNotLoop.testIfNot                 avgt    5  3.077 ± 0.077  ns/op
+IfNotLoop.testOpaqueIf              avgt    5  4.705 ± 0.133  ns/op
+IfNotLoop.testOpaqueIfNot           avgt    5  2.009 ± 0.032  ns/op
+IfNotOneShot.baseline               avgt    5  1.970 ± 0.144  ns/op
+IfNotOneShot.testDirectIf           avgt    5  1.950 ± 0.141  ns/op
+IfNotOneShot.testDirectIfNot        avgt    5  1.923 ± 0.025  ns/op
+IfNotOneShot.testDirectOpaqueIf     avgt    5  2.584 ± 1.011  ns/op
+IfNotOneShot.testDirectOpaqueIfNot  avgt    5  2.634 ± 1.085  ns/op
+IfNotOneShot.testIf                 avgt    5  1.959 ± 0.163  ns/op
+IfNotOneShot.testIfNot              avgt    5  2.854 ± 0.087  ns/op
+IfNotOneShot.testOpaqueIf           avgt    5  3.340 ± 0.040  ns/op
+IfNotOneShot.testOpaqueIfNot        avgt    5  4.194 ± 0.011  ns/op
+
+
+
+
+# JMH version: 1.35
+# VM version: JDK 17.0.3, OpenJDK 64-Bit Server VM, 17.0.3+7
+# VM invoker: /Library/Java/JavaVirtualMachines/jdk-17.0.3+7/Contents/Home/bin/java
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 3 s each
+# Measurement: 5 iterations, 3 s each
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+
+Benchmark                           Mode  Cnt  Score   Error  Units
+IfNotLoop.baseline                  avgt    5  0.323 ± 0.001  ns/op
+IfNotLoop.testDirectIf              avgt    5  0.331 ± 0.011  ns/op
+IfNotLoop.testDirectIfNot           avgt    5  0.334 ± 0.012  ns/op
+IfNotLoop.testDirectOpaqueIf        avgt    5  0.329 ± 0.006  ns/op
+IfNotLoop.testDirectOpaqueIfNot     avgt    5  0.333 ± 0.014  ns/op
+IfNotLoop.testIf                    avgt    5  0.330 ± 0.003  ns/op
+IfNotLoop.testIfNot                 avgt    5  0.736 ± 0.011  ns/op
+IfNotLoop.testOpaqueIf              avgt    5  0.743 ± 0.019  ns/op
+IfNotLoop.testOpaqueIfNot           avgt    5  1.378 ± 0.172  ns/op
+IfNotOneShot.baseline               avgt    5  0.742 ± 0.026  ns/op
+IfNotOneShot.testDirectIf           avgt    5  0.732 ± 0.012  ns/op
+IfNotOneShot.testDirectIfNot        avgt    5  0.777 ± 0.042  ns/op
+IfNotOneShot.testDirectOpaqueIf     avgt    5  0.691 ± 0.017  ns/op
+IfNotOneShot.testDirectOpaqueIfNot  avgt    5  0.683 ± 0.016  ns/op
+IfNotOneShot.testIf                 avgt    5  0.783 ± 0.020  ns/op
+IfNotOneShot.testIfNot              avgt    5  1.277 ± 0.054  ns/op
+IfNotOneShot.testOpaqueIf           avgt    5  1.284 ± 0.086  ns/op
+IfNotOneShot.testOpaqueIfNot        avgt    5  1.955 ± 0.166  ns/op
