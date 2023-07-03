@@ -45,9 +45,13 @@
                (str pre post)))
     article))
 
+(defn remove-newlines-from-description [article]
+  (update article :description #(str/replace % #"\n" " ")))
+
 (defn update-article [article]
   (-> article
       strip-date-from-post-url
+      remove-newlines-from-description
       article-date->date-published))
 
 (defn read-draft-preview-posts [config]

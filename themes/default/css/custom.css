@@ -292,6 +292,7 @@ br.inlist {
 
 div.downscale-iframe-66 {
     width: 100%;
+    display: grid;
 }
 
 .downscale-iframe-66 iframe {
