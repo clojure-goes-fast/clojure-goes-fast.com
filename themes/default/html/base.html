@@ -17,14 +17,14 @@
     {% style "//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" %}
     {% style "/css/custom.css" %}
 
-    {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js" %}
-    {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/clojure.min.js" %}
-    {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/clojure-repl.min.js" %}
-    {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/java.min.js" %}
-    {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/bash.min.js" %}
-    {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/shell.min.js" %}
-    {% script "//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/x86asm.min.js" %}
-    <script>hljs.highlightAll();</script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/highlight.min.js"></script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/clojure.min.js"></script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/clojure-repl.min.js"></script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/java.min.js"></script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/bash.min.js"></script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/shell.min.js"></script>
+    <script defer src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.6.0/languages/x86asm.min.js"></script>
+    <script>window.addEventListener('load', () => hljs.highlightAll());</script>
   </head>
   <body>
     {% block content %}[[TEMPLATING ERROR]]{% endblock %}
@@ -37,6 +37,6 @@
         <span>Logo is derived from <a href="https://commons.wikimedia.org/wiki/File:Clojure_logo.svg" target="_blank">Clojure logo</a>, copyright by Rich Hickey. </span>
         <span>Icons from <a href="https://iconmonstr.com/" target="_blank">Iconmonstr</a>.</span>
       </div>
-    </footer>
+    </
   </body>
 </html>

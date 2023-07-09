@@ -1,6 +1,6 @@
 {:title "Project Valhalla vs. ray tracer: will it go faster?"
  :date-published "2023-07-03 15:00:00"
- :og-image "/img/posts/valhalla-spheres.png"
+ :og-image "/img/posts/valhalla-spheres.webp"
  :reddit-link "https://old.reddit.com/r/java/comments/14pjcu2/project_valhalla_vs_ray_tracer_will_it_go_faster/?"
  :hn-link "https://news.ycombinator.com/item?id=36572760"}
 
@@ -133,7 +133,7 @@ Allocated: 3,388 MB
 
 <center>
 <figure class="figure">
-<img class="img-responsive" src="/img/posts/valhalla-spheres.png" style="max-height: 300px;">
+<img class="img-responsive" src="/img/posts/valhalla-spheres.webp" style="max-height: 300px;">
 <figcaption class="figure-caption text-center">
     Midway dopamine kick.
 </figcaption>

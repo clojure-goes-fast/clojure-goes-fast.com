@@ -165,6 +165,10 @@ div.content.article {
 
 .article pre code {
     padding: .75rem;
+    display: block;
+    overflow-x: auto;
+    color: #333;
+    background: #f8f8f8;
     line-height: inherit;
 }
 
