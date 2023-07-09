@@ -183,6 +183,18 @@ br.inlist {
     margin-right: 2em;
 }
 
+#tooltip {
+    left: -1000px;
+    position: absolute;
+    max-width: 320px;
+    border-radius: .1rem;
+    font-size: .7rem;
+    text-overflow: ellipsis;
+    background: #f0f0f0;
+    padding: 3px;
+    border: 1px solid gray;
+}
+
 /* Comments */
 
 #isso-root .avatar {

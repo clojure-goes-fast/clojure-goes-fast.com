@@ -249,7 +249,7 @@ It is not accidental. Leiningen launches two Clojure processes: one for itself,
 and one for the actual project. We need to profile both of them, so we do, and
 we save the output to different files, `lein-host.txt` and `lein-child.txt`.
 Then, thanks to the beautiful textual nature of collapsed stacktraces, we can
-straightforwardly merge them[<sup>1</sup>](#fn1)<a name="bfn1"></a>:
+straightforwardly merge them[[1]](#fn1)<a name="bfn1"></a>:
 
 ```console
 $ cat lein-host.txt lein-child.txt > lein.txt
@@ -387,6 +387,6 @@ meanwhile your REPL is loading, go make yourself a cup of tea. You earned it.
 
 ##### Footnotes
 
-1. <a name="fn1"></a> Notice
+1. <a name="fn1"></a><span> Notice
    a
-   [Useful use of cat(1)](https://www.in-ulm.de/~mascheck/various/uuoc/)!.[↑](#bfn1)
+   [Useful use of cat(1)](https://www.in-ulm.de/~mascheck/various/uuoc/)!</span>[↑](#bfn1)

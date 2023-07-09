@@ -173,14 +173,14 @@ expressions also helps.
 Diffgraphs are also rendered in HTML now, so everything above applies to
 diffgraphs too. In diffgraphs, Filter and Remove transforms can be more
 beneficial than in regular flamegraphs. You can also dynamically switch between
-normalized and non-normalized diffing within the
-flamegraph[<sup>1</sup>](#fn1)<a name="bfn1"></a>).
+normalized and non-normalized diffing within the flamegraph[[1]](#fn1)<a
+name="bfn1"></a>).
 
 ### Other changes
 
 The main breaking change of the new release is that SVG generation is no longer
 supported. I assume it won't matter much to most users unless you specifically
-relied on the profiler's output being an SVG file[<sup>2</sup>](#fn2)<a
+relied on the profiler's output being an SVG file[[2]](#fn2)<a
 name="bfn2"></a>). In that case, you are stuck with the previous version of
 clj-async-profiler; maybe, in the future, SVG generation will make it back as an
 option if there is enough user interest.
@@ -232,9 +232,9 @@ here.
 
 #### Footnotes
 
-1. <a name="fn1"></a> A normalized diffgraph means that the samples are scaled
+1. <a name="fn1"></a><span> A normalized diffgraph means that the samples are scaled
   in one of the profiles in such a way that the total number of samples is equal
-  between both profiles.[↑](#bfn1)
-2. <a name="fn2"></a> If you enjoy embedding interactive SVG flamegraphs into
+  between both profiles.</span>[↑](#bfn1)
+2. <a name="fn2"></a><span> If you enjoy embedding interactive SVG flamegraphs into
   HTML pages, you can do just that with HTML graphs using the `<iframe>`
-  tag.[↑](#bfn2)
+  tag.</span>[↑](#bfn2)

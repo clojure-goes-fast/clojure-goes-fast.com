@@ -52,7 +52,7 @@ eliminate their identity. For what purpose? Here are some specific optimizations
 you could do to such objects then:
 
 1. Omit object header.
-2. Allocate them on the stack instead of heap[<sup>1</sup>](#fn1)<a
+2. Allocate them on the stack instead of heap[[1]](#fn1)<a
    name="bfn1"></a>.
 3. When in an array of such objects, store their content flattened and tightly
    packed together instead of having an array of references.
@@ -144,8 +144,8 @@ Allocated: 3,388 MB
 
 On my _Macbook Pro M1 2020_, it takes ~13.7 seconds to produce this image with
 the supplied arguments, and the program allocates 3.4 Gb worth of
-objects[<sup>2</sup>](#fn2)<a name="bfn2"></a>. Let's figure out what kind of
-workload dominates in the tracer. I'm going to use
+objects[[2]](#fn2)<a name="bfn2"></a>. Let's figure out what kind of workload
+dominates in the tracer. I'm going to use
 [clj-async-profiler](https://github.com/clojure-goes-fast/clj-async-profiler);
 for any non-Clojurists reading this, you'll want to use
 [async-profiler](https://github.com/async-profiler/async-profiler) directly. In
@@ -565,14 +565,14 @@ upstream), and if it does work, then — hey — why say no to free performance?
 
 That being said, if Valhalla ships in its present state, with the current means
 of introspection and awareness (which is to say — missing), it may become an
-advanced tool for highly specialized cases[<sup>3</sup>](#fn3)<a
-name="bfn3"></a>. What I've experienced so far is that the approach to applying
-Valhalla optimizations is very stochastic; their effects are unpredictable and
-require empiric evaluation. While it's feasible in a toy project like this, it
-could become overwhelming in a large real-world application to go through the
-possible combinations of value and primitive classes and guess how the JVM would
-behave. I hope that over time, we'll get better instruments to illuminate what's
-going on with the data objects under the covers of the JVM.
+advanced tool for highly specialized cases[[3]](#fn3)<a name="bfn3"></a>. What
+I've experienced so far is that the approach to applying Valhalla optimizations
+is very stochastic; their effects are unpredictable and require empiric
+evaluation. While it's feasible in a toy project like this, it could become
+overwhelming in a large real-world application to go through the possible
+combinations of value and primitive classes and guess how the JVM would behave.
+I hope that over time, we'll get better instruments to illuminate what's going
+on with the data objects under the covers of the JVM.
 
 This concludes my exploration of Project Valhalla for now. I'm excited about the
 direction Java is heading, grateful for the careful evolution approach taken by
@@ -592,21 +592,21 @@ you for reading!
 
 #### Footnotes
 
-1. <a name="fn1"></a> Java designers don't like the term "stack allocation" in
-   the context of Java because it is, in fact, impossible. Due to various design
-   constraints, a program wouldn't be able to refer to an object if it were on
-   the stack. Instead, the preferred term is "scalarization", which means
-   breaking down the object into primitives and putting those onto the stack or
-   even straight in CPU registers. This way, allocation can be avoided
-   altogether. One example of an optimization that may enable scalarization is
-   [escape
-   analysis](https://blogs.oracle.com/javamagazine/post/escape-analysis-in-the-hotspot-jit-compiler).[↑](#bfn1)
-2. <a name="fn2"></a> This is the cumulative allocated amount over the entire
-   run, not to be confused with the size of the retained set that has to be
-   present in memory at any given time.[↑](#bfn2)
-3. <a name="fn3"></a> This is a very narrow and one-dimensional view of mine.
-   Besides value and primitive classes, Project Valhalla also brings the
+1. <a name="fn1"></a><span> Java designers don't like the term "stack
+   allocation" in the context of Java because it is, in fact, impossible. Due to
+   various design constraints, a program wouldn't be able to refer to an object
+   if it were on the stack. Instead, the preferred term is "scalarization",
+   which means breaking down the object into primitives and putting those onto
+   the stack or even straight in CPU registers. This way, allocation can be
+   avoided altogether. One example of an optimization that may enable
+   scalarization is [escape
+   analysis](https://blogs.oracle.com/javamagazine/post/escape-analysis-in-the-hotspot-jit-compiler).</span>[↑](#bfn1)
+2. <a name="fn2"></a><span> This is the cumulative allocated amount over the
+   entire run, not to be confused with the size of the retained set that has to
+   be present in memory at any given time.</span>[↑](#bfn2)
+3. <a name="fn3"></a><span> This is a very narrow and one-dimensional view of
+   mine. Besides value and primitive classes, Project Valhalla also brings the
    unification of generics, generalized containers for reference objects and
    primitives alike, consolidation of objects and primitives under a single type
    hierarchy, and more. These broader features will be useful to all Java
-   programmers.[↑](#bfn3)
+   programmers.</span>[↑](#bfn3)

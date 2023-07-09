@@ -59,10 +59,9 @@ GCs if you don't feel like diving into more informative sources right now:
 
 - Classic GCs (also called STW for Stop-The-World) work by stopping all
   application threads whenever there is no free memory left, removing all
-  garbage and (optionally[<sup>1</sup>](#fn1)<a name="bfn1"></a>) compacting
-  live objects, and then resuming the application. This stop-the-world pause can
-  last for up to tens of seconds and increases linearly with the size of the
-  heap.
+  garbage and _optionally[[1]](#fn1)<a name="bfn1"></a>_ compacting live
+  objects, and then resuming the application. This stop-the-world pause can last
+  for up to tens of seconds and increases linearly with the size of the heap.
 - Many modern GCs (e.g., G1) are also _generational_ — they group objects into
   several generations based on how many GC cycles the object has survived, and
   then for each generation, they apply different garbage collection strategies
@@ -306,10 +305,10 @@ infers the thresholds from the allocation rates it sees in the first few minutes
 of the program launch. You can also change it to **static** and manually set the
 amount of free memory left at which point the GC should trigger. If you value
 latency more than throughput, you can even set the heuristic to **compact** —
-this will make the GC run almost back-to-back[<sup>2</sup>](#fn2)<a
-name="bfn2"></a> so that there is almost no chance of pacing/degraded mode
-happenning. We eventually settled with the compact heuristic for this project,
-and the CPU usage hasn't increased that much.
+this will make the GC run almost back-to-back[[2]](#fn2)<a name="bfn2"></a> so
+that there is almost no chance of pacing/degraded mode happenning. We eventually
+settled with the compact heuristic for this project, and the CPU usage hasn't
+increased that much.
 
 Another nice feature is that unlike with generational GCs, it is much harder to
 render Shenandoah unstable by changing the tunables. You might hamper the
@@ -329,10 +328,10 @@ Here are a few discoveries I've made:
 
 - Heavy churn of weak references (soft, phantom, finalizers) can substantially
   increase Shenandoah pauses because they must be processed in stop-the-world
-  phase[<sup>3</sup>](#fn3)<a name="bfn3"></a>. Even if you don't employ weak
-  references directly, some of the libraries or frameworks used in your program
-  can rely on them. In our case, it was Netty's leak detection mechanism which
-  uses finalizers to spot unreleased ref-counted objects. Disabling the leak
+  phase[[3]](#fn3)<a name="bfn3"></a>. Even if you don't employ weak references
+  directly, some of the libraries or frameworks used in your program can rely on
+  them. In our case, it was Netty's leak detection mechanism which uses
+  finalizers to spot unreleased ref-counted objects. Disabling the leak
   detection in production noticeably improved the pause times.
 - Java garbage collectors in general don't like contended synchronized blocks
   because those inflate the monitors and increase the size of the rootset. We
@@ -419,14 +418,15 @@ they can do. Until next time!
 
 #### Footnotes
 
-1. <a name="fn1"></a> Some GCs, like [Concurrent Mark
+1. <a name="fn1"></a><span> Some GCs, like [Concurrent Mark
   Sweep](https://docs.oracle.com/javase/8/docs/technotes/guides/vm/gctuning/cms.html)
   collector, don't perform compaction and thus may have lower pauses for some
   period of time. Eventually the heap becomes too fragmented though, and they
-  drop to FullGC.[↑](#bfn1)
-2. <a name="fn2"></a> There is logic in Shenandoah's compact heuristic to
+  drop to FullGC.</span>[↑](#bfn1)
+2. <a name="fn2"></a><span> There is logic in Shenandoah's compact heuristic to
    prevent fruitless cycles by tracking the amount of memory allocated since the
    last GC cycle. When the application doesn't allocate much, compact mode won't
-   run back-to-back.[↑](#bfn2)
-3. <a name="fn3"></a> This only applies to references with short-lived
-   referents. Weak references with live referents don't trouble the GC.[↑](#bfn3)
+   run back-to-back.</span>[↑](#bfn2)
+3. <a name="fn3"></a><span> This only applies to references with short-lived
+   referents. Weak references with live referents don't trouble the
+   GC.</span>[↑](#bfn3)

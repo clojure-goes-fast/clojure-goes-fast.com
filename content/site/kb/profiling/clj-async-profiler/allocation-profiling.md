@@ -45,10 +45,10 @@ user=> (prof/profile
 Visually, an allocation flamegraph is almost identical to a regular CPU
 flamegraph. What is different is that at the top of every stack, there is a
 special frame (or multiple frames) that denotes class of objects that were
-allocated there[<sup>1</sup>](#fn1)<a name="bfn1"></a>. You can see in the
-flamegraph above that Cheshire is responsible for 52% of the allocation volume;
-meanwhile, `slurp` makes 48% of the allocations. Let's hoist `slurp` outside the
-loop and profile just the parsing.
+allocated there[[1]](#fn1)<a name="bfn1"></a>. You can see in the flamegraph
+above that Cheshire is responsible for 52% of the allocation volume; meanwhile,
+`slurp` makes 48% of the allocations. Let's hoist `slurp` outside the loop and
+profile just the parsing.
 
 ```clj
 (let [s (slurp "twitter.json")]
@@ -87,7 +87,7 @@ e.g.,
 
 #### Footnotes
 
-1. <a name="fn1"></a> The suffix in brackets is an annotation that tells whether
+1. <a name="fn1"></a><span> The suffix in brackets is an annotation that tells whether
   the allocation happened in Java code (`[i]` for inlined) or native code (`[k]`
   for kernel). This may not be important to you initially, so feel free to
-  ignore it.[↑](#bfn1)
+  ignore it.</span>[↑](#bfn1)

@@ -7,10 +7,10 @@ Unlike some other functional languages where the standard libraries revolve
 around lists, Clojure puts vectors and maps front and forward.
 
 Clojure vectors are an excellent data structure for sequential data. They
-provide almost O(1) lookups and updates[<sup>1</sup>](#fn1)<a name="bfn1"></a>,
-so it is natural to use them for large collections where speed is essential.
-However, vectors still have their overhead and might not be the fit for the
-tightest and most demanding performance spots.
+provide almost O(1) lookups and updates[[1]](#fn1)<a name="bfn1"></a>, so it is
+natural to use them for large collections where speed is essential. However,
+vectors still have their overhead and might not be the fit for the tightest and
+most demanding performance spots.
 
 For example, when you are tasked to represent mathematical matrices and their
 multiplication, you might initially reach for vectors. [Matrix
@@ -271,7 +271,7 @@ user=> (let [a (make-matrix-a 100)
 Very good, we managed to speed up the matrix multiplication almost five times
 further. We can finally use
 [clj-java-decompiler](http://clojure-goes-fast.com/blog/introspection-tools-java-decompilers/)
-to make sure the generated code matches what we expect[<sup>2</sup>](#fn2)<a
+to make sure the generated code matches what we expect[[2]](#fn2)<a
 name="bfn2"></a>:
 
 ```clojure
@@ -326,9 +326,9 @@ operations. That's all for today, and until next time, go fast!
 
 ##### Footnotes
 
-1. <a name="fn1"></a> O(log<sub>32</sub>n) to be precise, which can be at most 6
-for the vector of a maximum size. [↑](#bfn1)
-2. <a name="fn2"></a> To make this demo less noisy, I have disabled [locals
+1. <a name="fn1"></a><span> O(log<sub>32</sub>n) to be precise, which can be at most 6
+for the vector of a maximum size.</span>[↑](#bfn1)
+2. <a name="fn2"></a><span> To make this demo less noisy, I have disabled [locals
 clearing](https://clojuredocs.org/clojure.core/*compiler-options*) and enabled
 [direct linking](https://clojure.org/reference/compilation#directlinking). By
-default, your decompiler output will look slightly different. [↑](#bfn2)
+default, your decompiler output will look slightly different.</span>[↑](#bfn2)

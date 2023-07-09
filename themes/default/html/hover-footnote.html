@@ -1,0 +1,27 @@
+<div id="tooltip" name="tt"></div>
+<script>
+  // From https://stackoverflow.com/a/66412303
+  document.body.addEventListener(
+    "mouseover", function(ev) {
+      const tt = document.getElementById("tooltip");
+      if (ev.target.tagName == "A") {
+        let href = ev.target.getAttribute("href");
+        if (href.length > 2 && href.slice(0, 3) == "#fn") { // Only for footnotes
+          let a = document.querySelector("[name=" + href.substr(1) + "]");
+          if (a) {
+            tt.innerHTML = a.nextSibling.innerHTML;
+            // tt.innerHTML = a.nextSibling.textContent;
+            tt.style.left = Math.min(ev.pageX,window.innerWidth - tt.offsetWidth) + "px";
+            tt.style.top = (ev.pageY + 15 > window.pageYOffset + window.innerHeight - tt.offsetHeight
+                            ? ev.pageY - tt.offsetHeight
+                            : ev.pageY + 15) + "px";
+          }
+        }
+      }
+    });
+
+  document.body.addEventListener(
+    "mouseout", function(ev) {
+      document.getElementById("tooltip").style.left="-1000px";
+    });
+</script>
