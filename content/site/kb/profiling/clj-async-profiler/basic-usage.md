@@ -7,7 +7,9 @@
 
 This short tutorial will show, by example, how to use clj-async-profiler to
 profile your programs. We'll be using the [Clojure CLI
-tool](https://clojure.org/guides/deps_and_cli) in this tutorial.
+tool](https://clojure.org/guides/deps_and_cli) in this tutorial. You can follow
+along or download the final code from
+[here](https://github.com/clojure-goes-fast/clojure-goes-fast.com/tree/master/code/profiling-tutorial).
 
 First, let's create a sample project that we are going to profile. Do this in
 your terminal:
