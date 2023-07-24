@@ -1,5 +1,6 @@
 {:title "Profiling tool: async-profiler"
  :date-published "2017-12-11"
+ :date-updated "2023-06-09"
  :reddit-link "https://www.reddit.com/r/Clojure/comments/7j2hr6/cljasyncprofiler_clojure_profiler_with_flame/"}
 
 _Updated on 2023-06-09: bumped version numbers and usage examples._  

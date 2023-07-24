@@ -1,5 +1,6 @@
 {:title "Benchmarking tool: Criterium"
  :date-published "2017-09-23"
+ :date-updated "2023-06-09"
  :reddit-link "https://www.reddit.com/r/Clojure/comments/7241ls/benchmarking_tool_criterium/"}
 
 _Updated on 2023-06-09: revised numbers, added section about

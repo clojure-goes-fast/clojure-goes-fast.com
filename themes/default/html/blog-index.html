@@ -21,7 +21,7 @@
     {% for post in posts %}
     <div class="p-1">
         <a class="h6" href="{{post.uri}}">{{post.title}}</a>
-        <span class="float-right">{{post.date|date:"MMM dd, YYYY"}}</span>
+        <span class="float-right">{{post.date-published|date:"MMM dd, YYYY"}}</span>
     </div>
     {% endfor %}
   </div>

@@ -30,13 +30,17 @@
 (def date-format (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss"))
 
 (defn article-date->date-published [article]
-  (if-let [dp (:date-published article)]
-    (assoc article :date (-> (cond-> dp
-                               (not (.contains dp " ")) (str " 12:00:00"))
-                             (LocalDateTime/parse date-format)
-                             (.atZone (ZoneId/systemDefault))
-                             .toInstant Date/from))
-    article))
+  (letfn [(fix-date [date]
+            (-> (cond-> date
+                  (not (.contains date " ")) (str " 12:00:00"))
+                (LocalDateTime/parse date-format)
+                (.atZone (ZoneId/systemDefault))
+                .toInstant Date/from))]
+    (let [dp (or (:date-updated article)
+                 (:date-published article))]
+      (cond-> article
+        (:date-published article) (update :date-published fix-date)
+        dp (assoc :date (fix-date dp))))))
 
 (defn strip-date-from-post-url [article]
   (if (= (:type article) :post)

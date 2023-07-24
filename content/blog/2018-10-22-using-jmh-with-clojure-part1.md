@@ -1,5 +1,6 @@
 {:title "Using JMH with Clojure - part 1"
  :date-published "2018-10-22 11:00:00"
+ :date-updated "2023-06-09 11:00:00"
  :reddit-link "https://www.reddit.com/r/Clojure/comments/9qbtaw/using_jmh_with_clojure/"}
 
 _Updated on 2023-06-09: added instructions for tools.deps, updated for
