@@ -9,6 +9,7 @@
  :tag-root-uri                 "tags-output"
  :public-dest                  "public"
  :blog-prefix                  ""
+ :sitemap-ignored-paths        [#"/img/"]
  :rss-name                     "blog/atom.xml"
  :post-date-format             "yyyy-MM-dd"
  :archive-group-format         "yyyy MMMM"
