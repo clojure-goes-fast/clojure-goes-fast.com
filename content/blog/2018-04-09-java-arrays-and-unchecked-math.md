@@ -40,9 +40,8 @@ as the matrix grows in size. Let's start with this simple implementation:
                   0 (range n))))))))
 ```
 
-Now, let's use
-[Criterium](http://clojure-goes-fast.com/blog/benchmarking-tool-criterium/) to
-benchmark this implementation:
+Now, let's use [Criterium](/blog/benchmarking-tool-criterium/) to benchmark this
+implementation:
 
 ```clojure-repl
 user=> (let [a (make-matrix-v 100)
@@ -57,8 +56,7 @@ For multiplication of two 100x100 matrices, 214 milliseconds is quite a lot.
 Remember, it increases cubically, so if you take 200x200 matrices, the time to
 multiply them will become 2 seconds. Not only representing matrices as vectors
 is embarrassingly slow, but it is also a woeful squander of
-[memory](http://clojure-goes-fast.com/blog/introspection-tool-object-memory-meter/)
-too:
+[memory](/blog/introspection-tool-object-memory-meter/) too:
 
 ```clojure-repl
 user=> (mm/measure (make-matrix-v 100))
@@ -185,11 +183,10 @@ becomes equally fast after JIT kicks in).
 
 For any other arity, the reflection will be used, at runtime, to navigate
 through the array. We have already discussed before that reflection is a
-[performance
-killer](http://clojure-goes-fast.com/blog/performance-nemesis-reflection/). The
-worst thing about aget/aset reflection is that it won't produce any warnings
-since the reflection is not caused by the compiler — it is encoded directly in
-the function implementation.
+[performance killer](/blog/performance-nemesis-reflection/). The worst thing
+about aget/aset reflection is that it won't produce any warnings since the
+reflection is not caused by the compiler — it is encoded directly in the
+function implementation.
 
 ### Unchecked math
 
@@ -270,9 +267,8 @@ user=> (let [a (make-matrix-a 100)
 
 Very good, we managed to speed up the matrix multiplication almost five times
 further. We can finally use
-[clj-java-decompiler](http://clojure-goes-fast.com/blog/introspection-tools-java-decompilers/)
-to make sure the generated code matches what we expect[[2]](#fn2)<a
-name="bfn2"></a>:
+[clj-java-decompiler](/blog/introspection-tools-java-decompilers/) to make sure
+the generated code matches what we expect[[2]](#fn2)<a name="bfn2"></a>:
 
 ```clojure
 (set! *unchecked-math* true)

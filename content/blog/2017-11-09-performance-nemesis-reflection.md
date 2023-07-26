@@ -42,10 +42,8 @@ you write the first solution to the task at hand.
 First, we use a regular expression to find a substring to the left of the
 equality symbol. Then we filter out non-alphabetic characters and switch the
 case of the remaining ones. Finally, we join the characters back into a string.
-Now, it's time to benchmark your creation. Our old
-friend
-[Criterium](http://clojure-goes-fast.com/blog/benchmarking-tool-criterium/) will
-help.
+Now, it's time to benchmark your creation. Our old friend
+[Criterium](/blog/benchmarking-tool-criterium/) will help.
 
 ```clojure-repl
 user=> (crit/quick-bench (solution-1 test-string))
@@ -122,9 +120,9 @@ Wait, what? You went through all these lengths to get a 40 times **slower**
 solution? Screw this, Clojure sucks! _Closes Emacs._
 
 Please, don't rush to conclusions. It is very easy to speed up this code if you
-can identify the cause of the slowdown. And you now know how to do it
-using [VisualVM](http://clojure-goes-fast.com/blog/profiling-tool-jvisualvm/).
-Let's rerun the last benchmark with the sampling profiler on.
+can identify the cause of the slowdown. And you now know how to do it using
+[VisualVM](/blog/profiling-tool-jvisualvm/). Let's rerun the last benchmark with
+the sampling profiler on.
 
 <center>
 <figure class="figure">

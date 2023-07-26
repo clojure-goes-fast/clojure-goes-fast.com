@@ -9,8 +9,8 @@ dedicated blog post clarifying them. I will try to give you the taste of what
 you are able to do with this profiler and what mistakes should be avoided.
 
 If this is the first time you hear about clj-async-profiler check [this
-introduction](http://clojure-goes-fast.com/blog/profiling-tool-async-profiler/).
-It explains the motivation behind this profiler and how to start using it.
+introduction](/blog/profiling-tool-async-profiler/). It explains the motivation
+behind this profiler and how to start using it.
 
 ### Stack demunging and unique color scheme
 
@@ -26,8 +26,8 @@ function call usually involves two method invocations, `.invoke` and
 
 Here's a side-by-side comparison of the same program profiled with 0.2.0 and
 0.3.0. The `burn-cpu` code is taken from the [introduction
-post](http://clojure-goes-fast.com/blog/profiling-tool-async-profiler/),
-profiled as `(prof/profile (burn-cpu 10))`.
+post](/blog/profiling-tool-async-profiler/), profiled as `(prof/profile
+(burn-cpu 10))`.
 
 <center>
 <figure class="figure">

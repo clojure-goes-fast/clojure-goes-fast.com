@@ -1,7 +1,7 @@
 {:site-title                   "Clojure Goes Fast"
  :author                       "Sashko Yakushev"
  :description                  "High-performance Clojure made simple."
- :site-url                     "http://clojure-goes-fast.com/"
+ :site-url                     "https://clojure-goes-fast.com/"
  :post-root                    "blog"
  :page-root                    "site"
  :post-root-uri                "blog"

@@ -1,7 +1,7 @@
 # Java ray tracer
 
 Used to experiment with Project Valhalla in this post:
-http://clojure-goes-fast.com/blog/valhalla-vs-ray-tracer/
+https://clojure-goes-fast.com/blog/valhalla-vs-ray-tracer/
 
 Requires [Early Access Buiid of Project
 Valhalla](https://jdk.java.net/valhalla/) (in fact, it doesn't until you start

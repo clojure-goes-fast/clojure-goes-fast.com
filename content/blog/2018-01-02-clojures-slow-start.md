@@ -54,14 +54,13 @@ three cases, we'll be using the minimum possible number of dependencies (nothing
 besides what comes with or is required by the build tool). Clojure version is
 1.9.0 in all cases.
 
-For profiling, we'll
-take [async-profiler](https://github.com/jvm-profiling-tools/async-profiler)
-which has the ability to begin profiling from the very start of JVM process. In
-the
-[previous post](http://clojure-goes-fast.com/blog/profiling-tool-async-profiler/),
-I announced a Clojure wrapper around async-profiler — we won't need it here
-because it is not suited for startup profiling. The default async-profiler is
-precisely what we need here.
+For profiling, we'll take
+[async-profiler](https://github.com/jvm-profiling-tools/async-profiler) which
+has the ability to begin profiling from the very start of JVM process. In the
+[previous post](/blog/profiling-tool-async-profiler/), I announced a Clojure
+wrapper around async-profiler — we won't need it here because it is not suited
+for startup profiling. The default async-profiler is precisely what we need
+here.
 
 We will not add any "accelerating" JVM flags like `-XX:+TieredCompilation
 -XX:TieredStopAtLevel=1 -Xverify:none`. While I use those day-to-day, the choice

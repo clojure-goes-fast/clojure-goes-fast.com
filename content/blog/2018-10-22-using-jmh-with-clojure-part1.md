@@ -11,14 +11,13 @@ _Runnable code for this post can be found
 Hello, performance junkies, long time no see. Today we will learn to access the
 tool that every JVM gofaster should (mis)use at least once in their lives —
 Aleksey Shipilёv's [Java Microbenchmarking
-Harness](http://openjdk.java.net/projects/code-tools/jmh/).
+Harness](https://github.com/openjdk/jmh).
 
-Earlier, we reviewed
-[Criterium](http://clojure-goes-fast.com/blog/benchmarking-tool-criterium/)
-which is an easy to use benchmarking tool for Clojure. Criterium is a library
-you include and run directly from the REPL. It calculates some statistics on the
-results and ensures that the function you run is warmed up properly, but beyond
-that, it's quite trivial.
+Earlier, we reviewed [Criterium](/blog/benchmarking-tool-criterium/) which is an
+easy to use benchmarking tool for Clojure. Criterium is a library you include
+and run directly from the REPL. It calculates some statistics on the results and
+ensures that the function you run is warmed up properly, but beyond that, it's
+quite trivial.
 
 JMH, on the other hand, is much more intricate. It provides a toolset to fight
 against common benchmarking enemies, such as dead code elimination, constant
@@ -44,7 +43,7 @@ fast is long multiplication on JVM:
 338 milliseconds for 1 billion iterations makes it ~0.3 nanoseconds per
 multiplication. Modern CPUs are fast! We can ensure that the compiled code is
 correct with
-[clj-java-decompiler](http://clojure-goes-fast.com/blog/introspection-tools-java-decompilers/#live-decompilation-in-the-repl):
+[clj-java-decompiler](/blog/introspection-tools-java-decompilers/#live-decompilation-in-the-repl):
 
 ```clj
 (decompile
@@ -415,7 +414,7 @@ and write your own sophisticated benchmarks.
   [talk](https://vimeo.com/78900556) about JMH. He has many of those, check
   Google for more.
 - [JMH
-  samples](http://hg.openjdk.java.net/code-tools/jmh/file/tip/jmh-samples/src/main/java/org/openjdk/jmh/samples/)
+  samples](https://github.com/openjdk/jmh/tree/master/jmh-samples/src/main/java/org/openjdk/jmh/samples)
   is full of nicely commented examples of what JMH is capable of.
 - Nitsan Wakart has a whole page dedicated to different [JMH
   resources](http://psy-lob-saw.blogspot.com/p/jmh-related-posts.html) on the web.

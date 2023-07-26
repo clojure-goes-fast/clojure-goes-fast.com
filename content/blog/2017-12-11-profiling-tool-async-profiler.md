@@ -5,16 +5,15 @@
 
 _Updated on 2023-06-09: bumped version numbers and usage examples._  
 _A more comprehensive clj-async-profiler documentation is available on [Knowledge
-Base](http://clojure-goes-fast.com/kb/profiling/clj-async-profiler/)._  
+Base](/kb/profiling/clj-async-profiler/)._  
 _Runnable code for this post can be found
 [here](https://github.com/clojure-goes-fast/clojure-goes-fast.com/tree/master/code/async-profiler)._
 
-In the [previous
-installment](http://clojure-goes-fast.com/blog/profiling-tool-jvisualvm/), we
-learned how to use VisualVM to profile your Clojure applications. VisualVM is an
-excellent profiler: beginner-friendly, has enough features but not bloated,
-all-in-all a good one to dip your toes into the waters of profiling. However,
-VisualVM (and many other JVM profilers) suffer from [safepoint
+In the [previous installment](/blog/profiling-tool-jvisualvm/), we learned how
+to use VisualVM to profile your Clojure applications. VisualVM is an excellent
+profiler: beginner-friendly, has enough features but not bloated, all-in-all a
+good one to dip your toes into the waters of profiling. However, VisualVM (and
+many other JVM profilers) suffer from [safepoint
 bias](http://psy-lob-saw.blogspot.com/2015/12/safepoints.html). Long story
 short, most sampling profilers can get a snapshot of the stack only at the
 so-called **safepoints** — points of execution where the runtime can stop and
@@ -147,7 +146,7 @@ where profiler is started from is profiled.
 
 All features and options of clj-async-profiler are listed in the
 [README](https://github.com/clojure-goes-fast/clj-async-profiler) and [Knowledge
-Base](http://clojure-goes-fast.com/kb/profiling/clj-async-profiler/).
+Base](/kb/profiling/clj-async-profiler/).
 
 ### Conclusion: VisualVM or clj-async-profiler?
 

@@ -8,10 +8,9 @@ an embeddable low-overhead perf-based profiler for Clojure and Java, then the
 new [0.4.0
 version]((https://github.com/clojure-goes-fast/clj-async-profiler/blob/master/CHANGELOG.md))
 will bring you a couple of exciting features. If you are yet to try it, check
-the [introductory
-post](http://clojure-goes-fast.com/blog/profiling-tool-async-profiler/), and
-maybe it encourages you to add clj-async-profiler to your toolbelt of
-performance analysis tools.
+the [introductory post](/blog/profiling-tool-async-profiler/), and maybe it
+encourages you to add clj-async-profiler to your toolbelt of performance
+analysis tools.
 
 In this post, I will describe what's new in the latest version of the profiler.
 
@@ -144,9 +143,8 @@ variations and non-equal profiling durations, so be sure not to compare apples
 to oranges with this tool.
 
 Like every flamegraph-rendering function in clj-async-profiler,
-`generate-diffraph` supports the same options, for example, `:transform` (see [previous
-post](http://clojure-goes-fast.com/blog/clj-async-profiler-tips/#stack-transforming)
-for details).
+`generate-diffraph` supports the same options, for example, `:transform` (see
+[previous post](/blog/clj-async-profiler-tips/#stack-transforming) for details).
 Stack post-processing with `:transform` is even more useful for diffgraphs,
 since modifications to code may change the parent frames causing the non-changed
 children frames to misalign. With post-processing, you can hack around that.

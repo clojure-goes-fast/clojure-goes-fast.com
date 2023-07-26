@@ -4,7 +4,7 @@
  :reddit-link "https://www.reddit.com/r/Clojure/comments/7241ls/benchmarking_tool_criterium/"}
 
 _Updated on 2023-06-09: revised numbers, added section about
-[time+](http://clojure-goes-fast.com/kb/benchmarking/time-plus/)._  
+[time+](/kb/benchmarking/time-plus/)._  
 _Runnable code for this post can be found
 [here](https://github.com/clojure-goes-fast/clojure-goes-fast.com/tree/master/code/criterium)._
 
@@ -64,8 +64,8 @@ JIT to trigger, and do a few more runs to consider the deviation.
 
 As a remedy to `time/dotimes` two inconveniences (guessing the adequate number
 of iterations and having to divide the final time by it), one can use the macro
-I called [time+](http://clojure-goes-fast.com/kb/benchmarking/time-plus/). It is
-a simple paste-and-go macro that you can include into your [system-wide Clojure
+I called [time+](/kb/benchmarking/time-plus/). It is a simple paste-and-go macro
+that you can include into your [system-wide Clojure
 profile](https://gist.github.com/alexander-yakushev/63515455759e66bfa19dbaa126fccf56)
 and then use in any project that you start locally.
 
