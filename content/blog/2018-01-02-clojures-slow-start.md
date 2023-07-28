@@ -283,7 +283,7 @@ flames would be higher.
       library for resolving dependencies through Maven.
     - Thin column `leiningen/core/project$read.invoke` (3.61%) goes through
       `leiningen/core/project$load_plugins.invoke` (3.32%) towards
-      `cemerick/pomegranate/aether$resolve_dependencies.invokeStatic` (3.18%).
+      `cemerick/.../aether$resolve_dependencies` (3.18%).
       Looks like here Leiningen resolves plugins through Pomegranate.
     - `leiningen/core/main$task_args.invoke` (5.57%) also seems to be executing
       nREPL-related code.
@@ -347,7 +347,7 @@ $ /path/to/FlameGraph/flamegraph.pl --colors=java --minwidth 2 boot.txt > boot.s
   called [pods](https://github.com/boot-clj/boot/wiki/Pods). Boot runs in a
   single JVM process, but it still loads Clojure **twice**, one for its own
   purposes (build tooling), and one for the application context.
-- Green `org/projectodd/shimdandy/impl/ClojureRuntimeShimImpl.require` (21.00%)
+- Green `.../ClojureRuntimeShimImpl.require` (21.00%)
   seems to be initializing more Boot namespaces.
 - `clojure/lang/AFn.call` (19.75%) on the right resolves and adds dependencies
   (4.46%), initializes tools.nrepl (11.31%), and prettifies REPL exceptions with
