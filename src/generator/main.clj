@@ -138,6 +138,15 @@
                      (assoc params :sidebar (sidebar-fn params))
                      params)))))
 
+(alter-var-root
+ #'cryogen-core.sitemap/loc
+ (fn [og]
+   (fn [file]
+     (let [loc (og file)]
+       (if-let [[_ wo-index] (re-matches #"(.*)index\.html" loc)]
+         wo-index
+         loc)))))
+
 (defn build* [opts changeset]
   (let [gen-drafts? (:draft opts)]
     (comp/compile-assets-timed
