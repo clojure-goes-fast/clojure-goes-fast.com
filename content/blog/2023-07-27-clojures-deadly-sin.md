@@ -617,8 +617,8 @@ linked lists. Let's measure it using [time+](/kb/benchmarking/time-plus/):
 
 (let [v (vec (range 10000))]
   (time+
-   (loop [[c & r] v]
-     (if c
+   (loop [[c & r :as v] (seq v)]
+     (if v
        (recur r)
        nil))))
 
@@ -690,7 +690,7 @@ Consider an example[[7]](#fn7)<a name="bfn7"></a>:
 ;; Time per call: 63.66 us   Alloc per call: 28,456b
 
 
-;;;; Transducers
+;;;; Transducers+into
 
 (time+
  (into []
@@ -702,6 +702,20 @@ Consider an example[[7]](#fn7)<a name="bfn7"></a>:
        (repeat 1000 10)))
 
 ;; Time per call: 43.95 us   Alloc per call: 6,264b
+
+
+;;;; Transducers+sequence
+
+(time+
+ (doall
+  (sequence (comp (map inc)
+                  (map inc)
+                  (map #(* % 2))
+                  (map inc)
+                  (map inc))
+            (repeat 1000 10))))
+
+;; Time per call: 86.16 us   Alloc per call: 102,776b
 ```
 
 The lazy version in the example takes 410 µs and 480KB of trash to perform
@@ -710,7 +724,10 @@ times faster** and allocates **16 times less** for the same result. And that is
 with all the intermediate vectors being generated on each step. The
 [transducer](https://clojure.org/reference/transducers) version is even faster
 at 44 µs and even less garbage spawned because it fuses all the mappings into a
-single step.
+single step. As a last snippet, I show that composing the transformation steps
+with transducers and producing a lazy sequence with `sequence` is still much
+faster and allocation-efficient than building a processing pipeline with lazy
+sequences directly.
 
 I wanted to show the profiler results for the above examples, but with such
 performance disparity, there is nothing to gain from them. The profile for the
