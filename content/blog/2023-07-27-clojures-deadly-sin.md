@@ -1,7 +1,9 @@
 {:title "Clojure's deadly sin"
  :date-published "2023-07-27 18:30:00"
  :og-image "/img/posts/laziness-they-have-no-idea.webp"
- :reddit-link "https://reddit.com/r/Clojure/comments/15b5dj9/clojures_deadly_sin/"}
+ :reddit-link
+ "https://reddit.com/r/Clojure/comments/15b5dj9/clojures_deadly_sin/"
+ :hn-link "https://news.ycombinator.com/item?id=37021933"}
 
 This article is about laziness in Clojure. It is intended to be a comprehensive
 and objective (however possible) critique of lazy sequences as a _feature_. In
