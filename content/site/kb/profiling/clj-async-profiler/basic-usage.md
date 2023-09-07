@@ -23,7 +23,7 @@ Create a file `deps.edn` with the following content:
 
 ```clj
 {:paths ["src"]
- :deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}}}
+ :deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.5"}}}
 ```
 
 If you follow this tutorial on Linux, you should also execute this to let the
@@ -35,7 +35,7 @@ sudo sysctl -w kernel.kptr_restrict=0
 ```
 
 Next, create a file `src/tutorial/binary_trees.clj` with the following content.
-This will be the code that we are going to benchmark. It is taken from
+This will be the code that we are going to profile. It is taken from
 [clojure-benchmarks](https://github.com/jafingerhut/clojure-benchmarks/blob/master/binarytrees/binarytrees.clj-5.clj)
 repository that contains solutions to Alioth Benchmarking Game tasks.
 
@@ -149,7 +149,7 @@ garbage collection work also made an appearance on the profile, which could mean
 that the profiled code is allocation-heavy.
 
 Recursive functions like the one you see above are notorious for being
-inconvenient to profile, but later we'll learn tricks to elucidate even
+inconvenient to profile, but later we'll learn tricks to elucidate even the most
 convoluted recursive graphs.
 
 ### Functions and options
@@ -162,14 +162,14 @@ of options:
   going to happen. The default is `:cpu` which stands for regular CPU profiling.
   See [Event types](#event-types).
 - `:threads` — if true, the profiling data will be presented for each thread
-  separately. Note that this does not improve the resolution of the profile, it
+  separately. Note that this does not improve the resolution of the profile; it
   only separates the results by-thread.
 - `:interval` — sampling interval in nanoseconds. The default is 1000000, which
-  means one millisecond. You can try setting it closer to 100 microseconds to
-  increase the resolution of the profile, but the operating system will unlikely
-  let you reduce it further. Also, decreasing the interval increases the
-  profiling overhead. To obtain more data, running the profiler for longer is
-  better than tampering with the sampling interval.
+  means one millisecond. You can try setting it closer to 100000 (100
+  microseconds) to increase the resolution of the profile, but the operating
+  system probably won't let you reduce it further. Also, decreasing the interval
+  increases the profiling overhead. To obtain more data, running the profiler
+  for longer is usually better than tampering with the sampling interval.
 - `:framebuf` — the buffer size in bytes that the profiler internally uses,
   defaults to 1000000 (1MB). You can try increasing this value if your profile
   shows many `[frame_buffer_overflow]` samples; otherwise, you don't have to
@@ -178,13 +178,13 @@ of options:
   instead of the current one.
 
 The profiler collects samples until `stop` is called. Besides stopping the
-profiler, it does some post-processing on the results, dumps the results into a
-text file, and generates a flamegraph from these results. Both are saved into
+profiler, it does some post-processing of the result, dumps the result into a
+text file, and generates a flamegraph from this result file. Both are saved into
 the `/tmp/clj-async-profiler/results/` directory. `stop` also accepts a map of
 the following options:
 
 - `:generate-flamegraph?` — defaults to true, but if set to false, it will only
-  dump the results to the text file, not generate a flamegraph.
+  dump the result to a text file.
 - `:title` — optional title to be included in the generated flamegraph (for
   example, to differentiate between several profiling sessions).
 - `:predefined-transforms` — pertains to advanced in-browser flamegraph
@@ -206,14 +206,13 @@ both `start` and `stop`, so the supported options are the same.
 in seconds. Obviously, the code you want to profile should already be running in
 the background in another thread(s).
 
-`generate-flamegraph` is a function that can be invoked manually given the
-profiling result text file and the same options map as to `stop`.
+`generate-flamegraph` can be invoked manually by giving it the profiling result
+text file and the same options map like `stop` expects.
 
 `generate-diffgraph` is used to create [differential
 flamegraphs](/kb/profiling/clj-async-profiler/diffgraphs/) — special flamegraphs
-used to highlight differences between two similar but divergent profiles. The
-function takes two profiling results text files and a map of options like
-`stop`.
+that highlight differences between two similar but divergent profiles. The
+function takes two profiling result text files and a map of options for `stop`.
 
 `list-event-types` prints the list of event types supported by the current
 machine. See [Event types](#event-types).

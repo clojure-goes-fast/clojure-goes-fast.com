@@ -267,7 +267,7 @@ a sequence of _all_ lines in the file, and the laziness ensures that not all of
 them are resident in memory at once. This gives the developer one less hurdle to
 think about. In case they didn't think about it, the program might be more
 robust because of laziness; say, the developer only tested such code on small
-files, and the laziness assured the correct execution on large files too.
+files, and laziness assured the correct execution on large files too.
 
 #### Unified sequence API
 
@@ -298,12 +298,12 @@ contain either a successful result or an error (e.g.,
 Thus, errors in Haskell are first-class citizens of the regular evaluation flow
 and don't conflict with the laziness of the language.
 
-Clojure, however, uses Java's stack-based exception infrastructure as its
+Clojure, however, uses Java's callstack-based exception infrastructure as its
 primary error-handling mechanism. This is the most pragmatic choice since any
 other solution would require repackaging all exceptions that could be thrown by
 the underlying Java code. This could have had tremendous performance
-implications. Besides, in a dynamically typed Clojure, result-based error
-handling would just not be as convenient as in a statically typed language.
+implications. Besides, in dynamically typed Clojure, result-based error handling
+would just not be as convenient as in a statically typed language.
 
 So, we're stuck with exceptions. And we have lazy sequences. What can go wrong?
 Consider the following bug that I'm sure 99% of all Clojure programmers ran into
@@ -397,11 +397,11 @@ it will receive the dynamic variables as if it ran immediately.
 ;; => [0 100 200 300 400 500 600 700 800 900]
 ```
 
-In my opinion, this interaction with laziness significantly reduces the
-usefulness of dynamic variables for anything important. Sure, multi-threading
-also "breaks" dynamic variables, so laziness is not the only one to blame. But
-this is something to be constantly aware of, and most of the time, it is easier
-and more sensible to forgo dynamic variables in your code altogether.
+In my opinion, this interaction with laziness significantly reduces usefulness
+of dynamic variables for anything important. Sure, multi-threading also "breaks"
+dynamic variables, so laziness is not the only one to blame. But this is
+something to be constantly aware of, and most of the time, it is easier and more
+sensible to forgo dynamic variables in your code altogether.
 
 #### Releasing resources
 
