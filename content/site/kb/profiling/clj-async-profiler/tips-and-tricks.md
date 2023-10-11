@@ -1,5 +1,5 @@
 {:title "Tips and tricks"
- :page-index 6
+ :page-index 7
  :layout :kb-page
  :toc true}
 
