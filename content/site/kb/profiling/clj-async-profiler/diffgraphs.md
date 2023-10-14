@@ -19,9 +19,9 @@ Let's start a REPL with clj-async-profiler loaded. First, we'll profile a piece
 of code that does some number crunching involving different mathematical
 operations:
 
-```clojure-repl
+```clj
 user=> (require '[clj-async-profiler.core :as prof])
-nil
+
 user=> (prof/profile
         (dotimes [_ 10] (reduce +' (range 1 10000000)))
         (dotimes [_ 10] (reduce *' (range 1 20000)))
@@ -45,7 +45,7 @@ default, which are pretty slow.
 
 Now, let's say we've "optimized" the program to do this instead:
 
-```clojure-repl
+```clj
 user=> (prof/profile
         (dotimes [_ 15] (reduce +' (range 1 10000000)))
         (dotimes [_ 5] (reduce / (range 1 10000))))
@@ -70,7 +70,7 @@ results (`txt` files) and the options map. Instead of full paths to text files,
 you can provide numeric IDs — those same IDs that you can see at the beginning
 of flamegraphs' filenames, like `01`.
 
-```clojure-repl
+```clj
 user=> (prof/generate-diffgraph 1 2 {})
 ```
 

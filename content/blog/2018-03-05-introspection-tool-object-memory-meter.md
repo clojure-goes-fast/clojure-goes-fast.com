@@ -43,7 +43,7 @@ or
 [clj-refactor](https://github.com/clojure-emacs/clj-refactor.el/blob/master/examples/add-project-dependency.gif).
 Then, you can do this:
 
-```clojure-repl
+```clj
 user=> (require '[clj-memory-meter.core :as mm])
 nil
 
@@ -55,7 +55,7 @@ user=> (mm/measure "hello world")
 components, calculates the total memory occupancy, and returns a human-readable
 result. You can call it on any Java or Clojure object:
 
-```clojure-repl
+```clj
 ;; This is how much memory an empty vector occupies.
 user=> (mm/measure [])
 "240 B"
@@ -85,7 +85,7 @@ You can provide `:shallow true` as a parameter to do only a shallow analysis of
 the object's memory usage. It counts the object header plus the space for object
 fields, without following the references.
 
-```clojure-repl
+```clj
 ;; includes the underlying char[] array
 user=> (mm/measure "Clojure goes fast!")
 "80 B"
@@ -99,7 +99,7 @@ You can pass `:debug true` to `measure` to print the object layout tree with
 sizes for each part. Or you can pass `:debug <number>` to limit the nesting
 level being printed:
 
-```clojure-repl
+```clj
 user=> (mm/measure (vec (repeat 50 "hello")) :debug true)
 
 root [clojure.lang.PersistentVector] 536 bytes (40 bytes)

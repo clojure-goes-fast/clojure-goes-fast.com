@@ -9,7 +9,7 @@ wrap the code in [dotimes](https://clojuredocs.org/clojure.core/dotimes) so that
 it gets executed enough times for JIT to trigger and for the measurement setup
 overhead to be amortized:
 
-```clojure-repl
+```clj
 user=> (time
         (dotimes [_ 1e6]
           (reduce + (map #(/ % 100.0) (range 100)))))
@@ -39,7 +39,7 @@ you are done changing the code. The following macro adds convenience during
 active development but does not replace proper benchmarking tools. It is also
 not suitable for any kind of microbenchmarking.*
 
-```clojure
+```clj
 (let [time*
       (fn [^long duration-in-ms f]
         (let [^com.sun.management.ThreadMXBean bean (java.lang.management.ManagementFactory/getThreadMXBean)
@@ -93,10 +93,10 @@ straightforward:
 Using `time+` is identical to how `time` is used, except that the repetition
 is performed automatically:
 
-```clojure-repl
+```clj
 user=> (time+ (reduce + (map #(/ % 100.0) (range 100))))
+
 Time per call: 1.78 us   Alloc per call: 6,320b   Iterations: 1122541
-nil
 ```
 
 After running the code for 2 seconds, `time+` prints the time and allocated
@@ -104,8 +104,8 @@ bytes per iteration, and the number of iterations. You can specify the total
 time in milliseconds as the first argument to the macro:
 
 
-```clojure-repl
+```clj
 user=> (time+ 5000 (Thread/sleep 10))
+
 Time per call: 12.26 ms   Alloc per call: 1b   Iterations: 430
-nil
 ```

@@ -73,11 +73,11 @@ You begin by adding `com.clojure-goes-fast/jvm-hiccup-meter` as a dependency.
 Then:
 
 ```clj
-(require '[clj-hiccup-meter.core :as hmeter])
+user=> (require '[clj-hiccup-meter.core :as hmeter])
 
-(def hm (hmeter/start-hiccup-meter callback-fn :resolution-ms 10))
+user=> (def hm (hmeter/start-hiccup-meter callback-fn :resolution-ms 10))
 
-(hm) ;; To stop the meter thread.
+user=> (hm) ;; To stop the meter thread.
 ```
 
 `callback-fn` is called on each measurement iteration and receives a perceived

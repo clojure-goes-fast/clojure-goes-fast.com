@@ -20,9 +20,9 @@ it in a loop that runs at least for a few seconds.
 ;; 1000 iterations is an example. You'll have to tune the number for your
 ;; particular code to achieve the 5-10 seconds runtime.
 
-(prof/profile
- (dotimes [_ 1000]
-   <my-code>))
+user=> (prof/profile
+        (dotimes [_ 1000]
+          <my-code>))
 ```
 
 When profiling other events (e.g., `:alloc`, `:lock`), you might not be able to
@@ -56,5 +56,5 @@ you should do the following:
    process (and which also allows code execution from).
 3. Execute from Clojure:
    ```clj
-   (reset! prof/async-profiler-agent-path "/path/to/libasyncProfiler.so")
+   user=> (reset! prof/async-profiler-agent-path "/path/to/libasyncProfiler.so")
    ```

@@ -24,9 +24,9 @@ locally, except you have to set up a couple of things upfront. First of all,
 make sure that capturing perf events is allowed for non-root users (since you
 will most probably run your service on Linux):
 
-```sh
-sudo sysctl -w kernel.perf_event_paranoid=1
-sudo sysctl -w kernel.kptr_restrict=0
+```shell
+$ sudo sysctl -w kernel.perf_event_paranoid=1
+$ sudo sysctl -w kernel.kptr_restrict=0
 ```
 
 Next, you will need a spare open port to bind clj-async-profiler's web UI to.

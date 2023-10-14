@@ -17,7 +17,7 @@ it will print the time it took in milliseconds.
 Let's see how quickly Clojure can calculate the mean value of a sequence (using
 a terribly inefficient algorithm). A **wrong** way to do this would be:
 
-```clojure-repl
+```clj
 user=> (time (reduce + (map #(/ % 100.0) (range 100))))
 "Elapsed time: 0.252375 msecs"
 49.5
@@ -44,7 +44,7 @@ running the compiled version from there on.
 The factors mentioned above lead us to a conclusion that we should run the
 expression inside `time` multiple times to get a more meaningful result:
 
-```clojure-repl
+```clj
 user=> (time (dotimes [_ 1e6] (reduce + (map #(/ % 100.0) (range 100)))))
 "Elapsed time: 1133.6695 msecs"
 nil
@@ -72,7 +72,7 @@ and then use in any project that you start locally.
 Using `time+` is identical to how `time` is used, except that the repetition
 is performed automatically:
 
-```clojure-repl
+```clj
 user=> (time+ (reduce + (map #(/ % 100.0) (range 100))))
 Time per call: 1.78 us   Alloc per call: 6,320b   Iterations: 1122541
 nil
@@ -83,7 +83,7 @@ bytes per iteration, and the number of iterations. You can specify the total
 time in milliseconds as the first argument to the macro:
 
 
-```clojure-repl
+```clj
 user=> (time+ 5000 (Thread/sleep 10))
 Time per call: 12.26 ms   Alloc per call: 1b   Iterations: 430
 nil
@@ -96,14 +96,14 @@ use benchmarking tool for Clojure. It is designed as a robust replacement for
 `time` that takes into account some common benchmarking pitfalls. To use
 Criterium, you should add this to your dependencies:
 
-```clojure
+```clj
 [criterium "0.4.6"] ; Per the time of writing
 ```
 
 And require it in the namespace where you want to measure:
 
-```clojure
-(require '[criterium.core :as criterium])
+```clj
+user=> (require '[criterium.core :as criterium])
 ```
 
 *If you find yourself using Criterium often, you ought to add it to your
@@ -114,7 +114,7 @@ in
 
 `quick-bench` is the fastest way to benchmark an expression:
 
-```clojure-repl
+```clj
 user=> (criterium/quick-bench (reduce + (map #(/ % 100.0) (range 100))))
 
 Evaluation count : 450582 in 6 samples of 75097 calls.
@@ -132,7 +132,7 @@ time+dotimes approach.
 
 Let's check how precise the JVM is when going to sleep for short timespans:
 
-```clojure-repl
+```clj
 user=> (criterium/quick-bench (Thread/sleep 10))
 
 Evaluation count : 48 in 6 samples of 8 calls.
@@ -166,7 +166,7 @@ to learn what else is in there.
 You will get wrong benchmarking results if the evaluated expression contains
 unrealized laziness. Criterium is also susceptible to this:
 
-```clojure-repl
+```clj
 user=> (criterium/quick-bench (map #(Math/tan %) (range 1000)))
 
 Evaluation count : 48000000 in 6 samples of 8000000 calls.
@@ -192,7 +192,7 @@ this slightly convoluted example (remember
 that [repeatedly](http://clojuredocs.org/clojure.core/repeatedly) returns a lazy
 sequence):
 
-```clojure
+```clj
 (defn full-lazy []
   (repeatedly 10 (fn [] (map #(Math/tan %) (range 1000)))))
 

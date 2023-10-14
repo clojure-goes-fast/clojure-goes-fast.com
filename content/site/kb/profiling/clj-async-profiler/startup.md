@@ -20,11 +20,22 @@ startup profiling mode that requires launching the Java process with its agent.
 The parameters passed to this agent require knowing their custom syntax. You
 also need the version of the agent (which is native library) that is correctly
 compiled for you current CPU architecture. clj-async-profiler simplifes both of
-those troubles for you. First, you do this in the REPL:
+those troubles for you.
 
-```clojure-repl
+First, you have to launch a REPL **in a different project**, not in the one you
+want to profile the startup time. In fact, you can launch it outside of any
+project, only specifying the clj-async-profiler dependency, like this:
+
+```shell
+$ clj -Sdeps "{:deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version \"1.0.6-SNAPSHOT\"}}}"
+```
+
+Then, type this into the REPL:
+
+```clj
 user=> (require '[clj-async-profiler.core :as prof])
 user=> (prof/print-jvm-opt-for-startup-profiling {})
+;; Text below is printed by the function.
 
 Add this as a JVM option for the Java process you want to profile.
 If you use Clojure CLI to launch, don't forget to add -J in front:
@@ -52,14 +63,14 @@ with `-J` prefix.
 Let's try to profile Clojure's startup to see what it is mostly doing while
 loading. We invoke the newly learned function first:
 
-```clojure-repl
+```clj
 user=> (prof/print-jvm-opt-for-startup-profiling {:interval 10000, :threads true})
 ```
 
 This gives us JVM option that we'll weave into the following shell command:
 
 ```shell
-clojure -J-agentpath:/tmp/clj-async-profiler/libasyncProfiler-darwin-universal.so=start,event=cpu,file=/tmp/clj-async-profiler/results/02-startup-cpu-2023-10-11-20-04-33.txt,interval=10000,threads,collapsed -M -e '(System/exit 0)'
+$ clojure -J-agentpath:/tmp/clj-async-profiler/libasyncProfiler-darwin-universal.so=start,event=cpu,file=/tmp/clj-async-profiler/results/02-startup-cpu-2023-10-11-20-04-33.txt,interval=10000,threads,collapsed -M -e '(System/exit 0)'
 ```
 
 This command launches a Clojure process with the profiler agent attached from
@@ -68,7 +79,7 @@ the beginning, performs all the bootstrapping, and finally invokes `(System/exit
 the process finishes. Once that happens, let's jump back to the REPL and run
 this:
 
-```clojure-repl
+```clj
 user=> (prof/generate-flamegraph "/tmp/clj-async-profiler/results/01-startup-cpu-2023-10-11-19-50-07.txt" {})
 ```
 

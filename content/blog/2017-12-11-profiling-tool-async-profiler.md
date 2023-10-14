@@ -73,13 +73,13 @@ library that you include into your own application as a dependency.
 Let's learn it by example. First, add the following dependency to your
 `project.clj` or `deps.edn`:
 
-```clojure
+```clj
 [com.clojure-goes-fast/clj-async-profiler "1.0.4"]
 ```
 
 Now we'll conceive a toy profiling example.
 
-```clojure
+```clj
 (defn test-sum []
   (reduce + (map inc (range 1000))))
 
@@ -95,12 +95,9 @@ Now we'll conceive a toy profiling example.
 
 Our preparatory steps are done, time to run the profiler!
 
-```clojure-repl
+```clj
 user=> (require '[clj-async-profiler.core :as prof])
-nil
-
 user=> (prof/profile (burn-cpu 10))
-nil
 ```
 
 After the execuion finishes, the flamegraph will be generated in

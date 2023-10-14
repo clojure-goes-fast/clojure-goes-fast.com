@@ -12,7 +12,7 @@ sense.
 Anyway, you might start with a function that will generate a test string for you
 (you aren't gonna type the damn thing manually, are you?)
 
-```clojure
+```clj
 (require '[clojure.string :as str]
          '[criterium.core :as crit])
 
@@ -28,7 +28,7 @@ Anyway, you might start with a function that will generate a test string for you
 Great, now, armed with the top of the line functional programming techniques,
 you write the first solution to the task at hand.
 
-```clojure
+```clj
 (defn solution-1 [s]
   (let [before-= (second (re-matches #"([^=]+)=.+" s))]
     (->> before-=
@@ -45,7 +45,7 @@ case of the remaining ones. Finally, we join the characters back into a string.
 Now, it's time to benchmark your creation. Our old friend
 [Criterium](/blog/benchmarking-tool-criterium/) will help.
 
-```clojure-repl
+```clj
 user=> (crit/quick-bench (solution-1 test-string))
 
 Evaluation count : 41664 in 6 samples of 6944 calls.
@@ -68,7 +68,7 @@ Java interop."
 So, this time you leave all the FP nonsense behind and drop to the stuff that
 the real folks use.
 
-```clojure
+```clj
 (defn solution-2 [s]
   (let [before-= (.substring s 0 (.indexOf s "="))
         arr (.toCharArray before-=)
@@ -105,8 +105,8 @@ boxed Object.*
 Whew. Look how much more text is needed just to describe this solution. At
 least, it's going to be faster.
 
-```clojure-repl
-=> (crit/quick-bench (solution-2 test-string))
+```clj
+user=> (crit/quick-bench (solution-2 test-string))
 
 Evaluation count : 1254 in 6 samples of 209 calls.
              Execution time mean : 473.388358 µs
@@ -170,7 +170,7 @@ belongs to.
 
 Contrast this with Clojure. This is a perfectly valid Clojure code:
 
-```clojure
+```clj
 (defn empty? [s] (.isEmpty s))
 ```
 
@@ -200,13 +200,13 @@ Now, you know what reflection is, and that it causes performance issues for us.
 Next step is to find out where the compiler had to use reflection. Put the
 following line at the beginning of the file and recompile everything:
 
-```clojure
+```clj
 (set! *warn-on-reflection* true)
 ```
 
 In the REPL you'll see something like this:
 
-```clojure-repl
+```text
 Reflection warning, /path/to/core.clj:27:34 - call to method indexOf can't be resolved (target class is unknown).
 Reflection warning, /path/to/core.clj:27:18 - call to method substring can't be resolved (target class is unknown).
 Reflection warning, /path/to/core.clj:28:13 - reference to field toCharArray can't be resolved.
@@ -228,7 +228,7 @@ or `defn` arglist), before an expression that returns an object, and before the
 function name or arglist in `defn` (to signify that the function returns objects
 of that type). Here are the examples of type hinting:
 
-```clojure
+```clj
 (let [^String s (something-returning-a-string)]
   (.isEmpty s))
 
@@ -248,7 +248,7 @@ of that type). Here are the examples of type hinting:
 It is time to revise our `solution-2` function and place a few strategic type
 hints to make it fast. Turns out, you can remove all reflection with just three:
 
-```clojure
+```clj
 (defn solution-3 [^String s]
   (let [before-= (.substring s 0 (.indexOf s "="))
         ^chars arr (.toCharArray before-=)
@@ -306,7 +306,7 @@ to use an unwieldy construct like `^"[Ljava.lang.String;"`.
 
 Enough chit-chat, you say, let's see the numbers.
 
-```clojure-repl
+```clj
 user=> (crit/quick-bench (solution-3 test-string))
 
 Evaluation count : 1767324 in 6 samples of 294554 calls.

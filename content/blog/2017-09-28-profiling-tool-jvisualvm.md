@@ -122,7 +122,7 @@ So, "Sampler" that is.
 Before we begin the profiling, we need to give ourselves something to run. The
 following two functions will do.
 
-```clojure
+```clj
 (defn burn-cpu [op secs]
   (let [start (System/nanoTime)]
     (while (< (/ (- (System/nanoTime) start) 1e9) secs)

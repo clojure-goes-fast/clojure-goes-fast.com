@@ -19,11 +19,11 @@ that calls into `corge`. We take 10 samples of the executed code, which means we
 count the times each stack appears on the running thread. Let's say we obtained
 something like this:
 
-```
-foo         1
-foo;bar     2
-foo;bar;baz 5
-qux;corge   2
+```text
+;foo;         1
+;foo;bar;     2
+;foo;bar;baz; 5
+;qux;corge;   2
 ```
 
 The stack is recorded as semicolon-separated stack frames, and next to it is the
@@ -148,7 +148,7 @@ useful. As a reminder, the stacks in clj-async-profiler are represented like
 this:
 
 ```
-frame1;frame2;frame3;frame4
+;frame1;frame2;frame3;frame4;
 ```
 
 A regex-based Replace transform is allowed not just to rename individual frames

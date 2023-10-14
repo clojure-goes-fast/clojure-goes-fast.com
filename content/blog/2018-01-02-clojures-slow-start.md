@@ -79,7 +79,9 @@ from [Github](https://github.com/jvm-profiling-tools/async-profiler). Then
 you'll have to compile the native agent with `make`. Note that `JAVA_HOME`
 environment variable must be set when running make. On MacOS you can do:
 
-    JAVA_HOME=$(/usr/libexec/java_home) make
+```shell
+$ JAVA_HOME=$(/usr/libexec/java_home) make
+```
 
 If all goes well, you'll find a directory `build`, with two files: `jattach` and
 `libasyncProfiler.so`. We'll only be needing the last one. You may move this
@@ -101,7 +103,7 @@ websites.
 
 Check if you have the correct Clojure version:
 
-```console
+```shell
 $ clj                                                                                                                                                   ~
 Clojure 1.9.0
 user=>
@@ -109,7 +111,7 @@ user=>
 
 Now let's measure the time from start to instant exit:
 
-```console
+```shell
 $ time clj -e '(System/exit 0)'
 clj -e '(System/exit 1)'  1.80s user 0.12s system 181% cpu 1.057 total
 ```
@@ -119,7 +121,7 @@ you might have experienced with real-world projects. So, Clojure is not the
 primary time hog after all. But it is still too long for something so seemingly
 simple. Let's find out what is happening exactly.
 
-```console
+```shell
 $ cd /tmp
 $ clj -J-agentpath:/path/to/agent/libasyncProfiler.so=start,event=cpu,file=raw-clojure.txt,collapsed -e '(System/exit 0)'
 $ /path/to/FlameGraph/flamegraph.pl --colors=java --minwidth 2 raw-clojure.txt > raw-clojure.svg
@@ -201,8 +203,8 @@ its base library. There are several potential ways to help that:
 
 We are using Leiningen 2.8.1.
 
-```console
-$ lein version                                                                                                                                              ~
+```shell
+$ lein version
 Leiningen 2.8.1 on Java 1.8.0_102 Java HotSpot(TM) 64-Bit Server VM
 ```
 
@@ -210,7 +212,7 @@ To profile Leiningen startup, we need a more complicated setup. First, we'll
 have to create a new Lein project; otherwise, there is no way to specify the
 exact Clojure version for `lein repl`.
 
-```console
+```shell
 $ lein new profile-lein
 $ cd profile-lein
 $ sed -i 's/1\.8\.0/1.9.0/g' project.clj
@@ -221,7 +223,7 @@ Clojure 1.9.0
 
 Now we can measure the startup time with Lein:
 
-```console
+```shell
 $ echo '(System/exit 0)' | time lein repl
 ...
 lein repl  6.88s user 0.61s system 124% cpu 6.003 total
@@ -231,7 +233,7 @@ The elapsed time of 6 seconds is much more than Clojure's original second.
 Let's find out what exactly happens in there. There are some changes to be made
 to `project.clj`, here's what it should look like:
 
-```
+```clj
 (defproject profile-lein "0.1.0-SNAPSHOT"
   :jvm-opts ["-agentpath:/path/to/agent/libasyncProfiler.so=start,event=cpu,file=lein-child.txt,collapsed"]
   :dependencies [[org.clojure/clojure "1.9.0"]])
@@ -239,7 +241,7 @@ to `project.clj`, here's what it should look like:
 
 And then launch the REPL like this:
 
-```console
+```shell
 $ echo '(System/exit 0)' | LEIN_JVM_OPTS='-agentpath:/path/to/agent/libasyncProfiler.so=start,event=cpu,file=lein-host.txt,collapsed' lein repl
 ```
 
@@ -250,7 +252,7 @@ we save the output to different files, `lein-host.txt` and `lein-child.txt`.
 Then, thanks to the beautiful textual nature of collapsed stacktraces, we can
 straightforwardly merge them[[1]](#fn1)<a name="bfn1"></a>:
 
-```console
+```shell
 $ cat lein-host.txt lein-child.txt > lein.txt
 $ /path/to/FlameGraph/flamegraph.pl --colors=java --minwidth 2 lein.txt > lein.svg
 ```
@@ -306,7 +308,7 @@ candidates for optimization.
 
 Check Boot version. If Clojure is not 1.9.0, change it in `~/.boot/boot.properties`.
 
-```console
+```shell
 $ boot -V
 ...
 BOOT_CLOJURE_VERSION=1.9.0
@@ -315,16 +317,15 @@ BOOT_VERSION=2.7.2
 
 Now measure the start time:
 
-```console
+```shell
 $ time boot repl -s
 boot repl -s  14.71s user 0.60s system 288% cpu 5.303 total
 ```
 
 5.3 seconds, almost the same as Leiningen.
 
-```console
-$
-BOOT_JVM_OPTIONS='-agentpath:/path/to/agent/libasyncProfiler.so=start,event=cpu,file=boot.txt,collapsed' boot repl -s
+```shell
+$ BOOT_JVM_OPTIONS='-agentpath:/path/to/agent/libasyncProfiler.so=start,event=cpu,file=boot.txt,collapsed' boot repl -s
 $ /path/to/FlameGraph/flamegraph.pl --colors=java --minwidth 2 boot.txt > boot.svg
 ```
 

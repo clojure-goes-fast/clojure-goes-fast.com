@@ -21,7 +21,7 @@ Let's see allocation profiling in action. First, download this file
 and we'll try to parse it with Cheshire and understand where the allocations
 happen.
 
-```clojure-repl
+```clj
 user=> (require '[cheshire.core :as json]
                 '[clj-async-profiler.core :as prof])
 
@@ -51,11 +51,11 @@ above that Cheshire is responsible for 52% of the allocation volume; meanwhile,
 profile just the parsing.
 
 ```clj
-(let [s (slurp "twitter.json")]
-  (prof/profile
-   {:event :alloc}
-   (dotimes [_ 1000]
-     (json/decode s))))
+user=> (let [s (slurp "twitter.json")]
+         (prof/profile
+          {:event :alloc}
+          (dotimes [_ 1000]
+            (json/decode s))))
 ```
 
 You'll also notice that the function `parse*` is recursive, which makes the

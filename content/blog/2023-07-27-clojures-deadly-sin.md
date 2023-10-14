@@ -244,7 +244,7 @@ sequence? Go for it:
      (drop 30) ;; This and the next step gives us 30th-40th elements of the sequence.
      (take 10))
 
-=> (832040 1346269 2178309 3524578 5702887 9227465 14930352 24157817 39088169 63245986)
+;; (832040 1346269 2178309 3524578 5702887 9227465 14930352 24157817 39088169 63245986)
 ```
 
 #### Acting like you have infinite memory
@@ -348,7 +348,7 @@ program. To truly fix this example, we have to watch for exceptions inside each
        s))
 
 (really-safe-invert-seq (range 10))
-;; => (##Inf 1 1/2 1/3 1/4 1/5 1/6 1/7 1/8 1/9)
+;; (##Inf 1 1/2 1/3 1/4 1/5 1/6 1/7 1/8 1/9)
 ```
 
 Of all the problems created by laziness, I consider this to be a really serious
@@ -373,7 +373,7 @@ its previous value.
              (map #(* % *multiplier*) (range 10)))]
   (vec seq1))
 
-;; => [0 1 2 3 4 5 6 7 8 9]
+;; [0 1 2 3 4 5 6 7 8 9]
 ```
 
 The root value of the dynamic variable `*multiplier*` is 1. We bind it to 100
@@ -394,7 +394,7 @@ it will receive the dynamic variables as if it ran immediately.
                   (range 10)))]
   (vec seq1))
 
-;; => [0 100 200 300 400 500 600 700 800 900]
+;; [0 100 200 300 400 500 600 700 800 900]
 ```
 
 In my opinion, this interaction with laziness significantly reduces usefulness
@@ -505,9 +505,8 @@ effects anywhere in your code. Then, all of a sudden, you witness this:
   (map println nums) ;; Let's print each number for debugging.
   (reduce + nums))
 
-(sum-numbers (range 10))
-
-;; => 45
+user=> (sum-numbers (range 10))
+45
 ;; But where are the printlns?
 ```
 
@@ -538,7 +537,7 @@ programmer to understand where those CPU cycles are spent. Simple example using
 [Criterium](https://clojure-goes-fast.com/blog/benchmarking-tool-criterium/):
 
 ```clj
-(crit/quick-bench (map inc (range 10000)))
+user=> (crit/quick-bench (map inc (range 10000)))
 
 ;;    Evaluation count : 34285704 in 6 samples of 5714284 calls.
 ;; Execution time mean : 16.188222 ns
@@ -550,7 +549,7 @@ but rather that you should be vigilant when benchmarking code that potentially
 involves laziness. This is the result that you should have obtained:
 
 ```clj
-(crit/quick-bench (doall (map inc (range 10000))))
+user=> (crit/quick-bench (doall (map inc (range 10000))))
 
 ;;    Evaluation count : 2088 in 6 samples of 348 calls.
 ;; Execution time mean : 299.631257 µs

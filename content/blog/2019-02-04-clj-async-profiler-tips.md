@@ -53,7 +53,7 @@ your machine. On MacOS, you'll probably see something like this (Linux users
 will get some extra native events):
 
 ```clj
-user> (prof/list-event-types)
+user=> (prof/list-event-types)
 
 Basic events:
   cpu
@@ -71,12 +71,12 @@ file and will try to parse it with Cheshire and understand where the allocations
 happen.
 
 ```clj
-(require '[cheshire.core :as json])
+user=> (require '[cheshire.core :as json])
 
-(prof/profile
- {:event :alloc}
- (dotimes [_ 500]
-   (json/decode (slurp "twitter.json"))))
+user=> (prof/profile
+        {:event :alloc}
+        (dotimes [_ 500]
+          (json/decode (slurp "twitter.json"))))
 ```
 
 This is the profile I got:
@@ -98,11 +98,11 @@ modify the code so that it doesn't slurp in the loop and just profile the actual
 parsing:
 
 ```clj
-(let [s (slurp "twitter.json")]
-  (prof/profile
-   {:event :alloc}
-   (dotimes [_ 500]
-     (json/decode s))))
+user=> (let [s (slurp "twitter.json")]
+         (prof/profile
+          {:event :alloc}
+          (dotimes [_ 500]
+            (json/decode s))))
 ```
 
 <center>
@@ -209,13 +209,15 @@ The tangent of 12345.0 is -8.917885942518717
 Then, we'll start [wrk](https://github.com/giltene/wrk2) to bombard our small
 server at 10000 RPS:
 
-    $ wrk -c 500 -d 60 -R 10000 'http://localhost:8080/12345'
+```shell
+$ wrk -c 500 -d 60 -R 10000 'http://localhost:8080/12345'
+```
 
 Finally, meanwhile wrk is working, we'll start the profiler in the same REPL
 where out HTTP server is running:
 
 ```clj
-(prof/profile-for 10)
+user=> (prof/profile-for 10)
 ```
 
 <center>
@@ -235,12 +237,12 @@ also don't care much about them. So, to address these points, we can profile
 with the following transform function:
 
 ```clj
-(prof/profile-for
- 10 {:transform (fn [s]
-                  ;; This transform removes stacks that contain `Parker::` or
-                  ;; `kevent`, and collapses consecutive Netty frames.
-                  (when-not (re-find #"(Parker::|kevent)" s)
-                    (str/replace s #"(io\.netty\..+?;)+" "io.netty...;")))})
+user=> (prof/profile-for
+        10 {:transform (fn [s]
+                         ;; This transform removes stacks that contain `Parker::` or
+                         ;; `kevent`, and collapses consecutive Netty frames.
+                         (when-not (re-find #"(Parker::|kevent)" s)
+                           (str/replace s #"(io\.netty\..+?;)+" "io.netty...;")))})
 ```
 
 <center>
@@ -266,8 +268,9 @@ look at the profile of just one thread, use the following trick:
 ```clj
 ;; Suppose, something you want to profile is already running in one of the
 ;; background threads.
-(prof/profile-for 10 {:threads true
-                      :transform #(when (> (.indexOf ^String % "my-thread-name") -1) %)})
+user=> (prof/profile-for
+        10 {:threads true
+            :transform #(when (> (.indexOf ^String % "my-thread-name") -1) %)})
 ```
 
 If you accumulate a massive profile with per-thread profiling enabled, the

@@ -192,7 +192,7 @@ potentially do much more than simple filter/remove/replace, and somebody might
 still need that. Another option was added called `:predefined-transforms` which
 accepts a sequence of maps that look like this:
 
-```clojure
+```clj
 ;; Notice that you should use Clojure's regular expression syntax here. It will
 ;; be converged into JavaScript's regex syntax automatically.
 

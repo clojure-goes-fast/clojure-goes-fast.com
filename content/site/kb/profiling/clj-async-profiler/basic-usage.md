@@ -14,7 +14,7 @@ along or download the final code from
 First, let's create a sample project that we are going to profile. Do this in
 your terminal:
 
-```sh
+```shell
 $ mkdir -p profiling-tutorial/src/tutorial/
 $ cd profiling-tutorial
 ```
@@ -29,9 +29,9 @@ Create a file `deps.edn` with the following content:
 If you follow this tutorial on Linux, you should also execute this to let the
 profiler access perf events:
 
-```sh
-sudo sysctl -w kernel.perf_event_paranoid=1
-sudo sysctl -w kernel.kptr_restrict=0
+```shell
+$ sudo sysctl -w kernel.perf_event_paranoid=1
+$ sudo sysctl -w kernel.kptr_restrict=0
 ```
 
 Next, create a file `src/tutorial/binary_trees.clj` with the following content.
@@ -86,7 +86,7 @@ repository that contains solutions to Alioth Benchmarking Game tasks.
 Now we are ready to launch the REPL. Here, we'll run a simple terminal REPL like
 this:
 
-```sh
+```shell
 $ clj -J-Djdk.attach.allowAttachSelf
 ```
 
@@ -95,7 +95,7 @@ option `-Djdk.attach.allowAttachSelf`. Starting from Java 11, it is required so
 that clj-async-profiler is able to dynamically attach to the running process.
 Once the REPL starts, let's do the following:
 
-```clojure-repl
+```clj
 user=> (require 'tutorial.binary-trees)
 nil
 user=> (require '[clj-async-profiler.core :as prof])

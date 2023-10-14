@@ -68,7 +68,7 @@ bytecode representation.
 
 Just a reminder, our sample function looks like this:
 
-```clojure
+```clj
 (defn foo
   "I don't do a whole lot."
   [x]
@@ -211,9 +211,11 @@ Let's decompile our already existing classfile with the decompiler of your
 choice. I'll use JAD.
 
 ```shell
-# JAD writes the output to a file named <class.jad>, we have to view it manually.
+## JAD writes the output to a file named <class.jad>, we have to view it manually.
 $ jad core\$foo.class && cat core\$foo.jad
+```
 
+```java
 package testbed;
 
 import clojure.lang.*;
@@ -244,9 +246,11 @@ the bytecode.
 
 Let's try another one:
 
-```
+```shell
 $ jad core__init.class && cat core__init.jad
+```
 
+```java
 ...
     public static void load() {
         ((IFn)const__0.getRawRoot()).invoke(const__1);
@@ -323,10 +327,9 @@ intricacies.
 Add `[com.clojure-goes-fast/clj-java-decompiler "0.1.0"]` to your dependencies
 (might as well load it dynamically) and start playing:
 
-```
-user> (require '[clj-java-decompiler.core :refer [decompile]])
-nil
-user> (decompile (fn [] (println "Hello, decompiler!")))
+```clj
+user=> (require '[clj-java-decompiler.core :refer [decompile]])
+user=> (decompile (fn [] (println "Hello, decompiler!")))
 
 // Decompiling class: user$fn__13649
 import clojure.lang.*;
@@ -356,11 +359,11 @@ instantly decompile anything you want!
 
 ...that `case` compiles to Java's `switch`?
 
-```
-user> (decompile (case "foo"
-                   "foo" 1
-                   "bar" 2
-                   3))
+```clj
+user=> (decompile (case "foo"
+                    "foo" 1
+                    "bar" 2
+                    3))
 
 ...
     public static Object invokeStatic() {
@@ -386,11 +389,11 @@ user> (decompile (case "foo"
 
 ...that `loop` compiles into Java's `while` (and an efficient one)?
 
-```
-user> (decompile (loop [i 0, sum 0]
-                   (if (> i 10)
-                     sum
-                     (recur (unchecked-inc i) (unchecked-add sum i)))))
+```clj
+user=> (decompile (loop [i 0, sum 0]
+                    (if (> i 10)
+                      sum
+                      (recur (unchecked-inc i) (unchecked-add sum i)))))
 
 ...
     public static Object invokeStatic() {
@@ -409,8 +412,8 @@ user> (decompile (loop [i 0, sum 0]
 about
 [reflection](http://clojure-goes-fast.com/blog/performance-nemesis-reflection/)?
 
-```
-user> (decompile (fn [] (.substring @(volatile! "foobar") 3)))
+```clj
+user=> (decompile (fn [] (.substring @(volatile! "foobar") 3)))
 
 ...
     public static Object invokeStatic() {

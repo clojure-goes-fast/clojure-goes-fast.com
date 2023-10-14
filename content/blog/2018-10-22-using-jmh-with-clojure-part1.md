@@ -33,9 +33,9 @@ when you decide to measure something minuscule. For example, let's check how
 fast is long multiplication on JVM:
 
 ```clj
-(time
- (dotimes [_ 1e9]
-   (unchecked-multiply 123 456)))
+user=> (time
+        (dotimes [_ 1e9]
+          (unchecked-multiply 123 456)))
 
 ;; "Elapsed time: 337.849181 msecs"
 ```
@@ -46,9 +46,9 @@ correct with
 [clj-java-decompiler](/blog/introspection-tools-java-decompilers/#live-decompilation-in-the-repl):
 
 ```clj
-(decompile
- (dotimes [_ 1e9]
-   (unchecked-multiply 123 456)))
+user=> (decompile
+        (dotimes [_ 1e9]
+          (unchecked-multiply 123 456)))
 ```
 
 ```java
@@ -63,7 +63,7 @@ public static Object invokeStatic() {
 Looks reasonable. So, is it really that fast? Let's double-check with Criterium:
 
 ```clj
-(crit/quick-bench (unchecked-multiply 123 456))
+user=> (crit/quick-bench (unchecked-multiply 123 456))
 
 ;; Execution time mean : 6.694309 ns
 ```
@@ -99,11 +99,11 @@ We want to measure how long it takes to walk an array of 100000 elements
 sequentially:
 
 ```clj
-(let [sz 100000
-      ^ints arr (int-array sz)]
-  (crit/quick-bench
-   (dotimes [i sz]
-     (aget arr i))))
+user=> (let [sz 100000
+             ^ints arr (int-array sz)]
+         (crit/quick-bench
+          (dotimes [i sz]
+            (aget arr i))))
 
 ;; Execution time mean : 57.017862 µs
 ```
@@ -227,9 +227,11 @@ units to output the results in. Each method in the class that is marked with
 
 Now you can, at last, run the benchmark from the terminal:
 
-    clojure -T:build javac && clojure -m jmh bench Multiply
+```shell
+$ clojure -T:build javac && clojure -m jmh bench Multiply
+```
 
-Some debugging info will get printed, and then the benchmarking iterations will
+Some debugging info will be printed, and then the benchmarking iterations will
 proceed. In the end, you should get something like this:
 
 ```
@@ -361,11 +363,11 @@ iteration.
 First, you'll need to install `perf` (sorry, Linux only). Then, launch the
 benchmark like this:
 
-```sh
-# tools.deps
-clojure -T:build javac && clojure -m jmh bench BrenchPrediction profiler perfnorm
-# Leiningen
-lein run -m jmh bench Multiply profiler perfnorm
+```shell
+## tools.deps
+$ clojure -T:build javac && clojure -m jmh bench BrenchPrediction profiler perfnorm
+## Leiningen
+$ lein run -m jmh bench Multiply profiler perfnorm
 ```
 
 Here's what I got (redacted):

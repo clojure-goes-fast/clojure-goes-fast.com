@@ -152,8 +152,8 @@ for any non-Clojurists reading this, you'll want to use
 my case, I start a REPL with the Java classes already compiled and do this:
 
 ```clj
-(require '[clj-async-profiler.core :as prof])
-(prof/profile (raytracer.Render/render 500 20 "out.ong"))
+user=> (require '[clj-async-profiler.core :as prof])
+user=> (prof/profile (raytracer.Render/render 500 20 "out.ong"))
 ```
 
 <center>
@@ -175,7 +175,7 @@ vector dot products, subtractions, and other mathematical computations. Let's
 see what types of objects are being allocated and where.
 
 ```clj
-(prof/profile {:event :alloc} (raytracer.Render/render 500 20 "out.ong"))
+user=> (prof/profile {:event :alloc} (raytracer.Render/render 500 20 "out.ong"))
 ```
 
 <center>

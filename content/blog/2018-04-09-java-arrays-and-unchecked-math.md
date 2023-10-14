@@ -18,7 +18,7 @@ multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication) is an
 O(n<sup>3</sup>) algorithm; hence every performance flaw will rapidly multiply
 as the matrix grows in size. Let's start with this simple implementation:
 
-```clojure
+```clj
 ;; Allows both random and single-value initialization
 (defn make-matrix-v [n & [val]]
   (vec
@@ -43,7 +43,7 @@ as the matrix grows in size. Let's start with this simple implementation:
 Now, let's use [Criterium](/blog/benchmarking-tool-criterium/) to benchmark this
 implementation:
 
-```clojure-repl
+```clj
 user=> (let [a (make-matrix-v 100)
              b (make-matrix-v 100)]
          (crit/quick-bench (mult-matrix-v a b)))
@@ -58,7 +58,7 @@ multiply them will become 2 seconds. Not only representing matrices as vectors
 is embarrassingly slow, but it is also a woeful squander of
 [memory](/blog/introspection-tool-object-memory-meter/) too:
 
-```clojure-repl
+```clj
 user=> (mm/measure (make-matrix-v 100))
 "308.5 KB"
 ```
@@ -75,7 +75,7 @@ Clojure standard library provides certain
 able to use Java arrays. With them, we can rewrite our implementation to be much
 more efficient and lean:
 
-```clojure
+```clj
 (set! *warn-on-reflection* true) ;; To avoid accidental reflection
 
 ;; Saves us some typing further on
@@ -125,7 +125,7 @@ A few things in the code above probably require an explanation:
 We can now verify that the array implementation is better in terms of both
 performance and memory occupancy:
 
-```clojure-repl
+```clj
 user=> (let [a (make-matrix-a 100)
              b (make-matrix-a 100)]
          (crit/quick-bench (mult-matrix-a a b)))
@@ -149,7 +149,7 @@ redundant because Clojure's `aget` and `aset` support variable number of
 indices. The problem with them, though, is that they are terribly slow for more
 than one dimension:
 
-```clojure-repl
+```clj
 user=> (let [^longs arr (make-array Long/TYPE 10)]
          (crit/quick-bench (aget arr 0)))
 Execution time mean : 9.781887 ns
@@ -163,7 +163,7 @@ That's 1660 times slower! How did that happen? The answer lies in the
 implementation of
 [aget](https://github.com/clojure/clojure/blob/clojure-1.9.0/src/clj/clojure/core.clj#L3878):
 
-```clojure
+```clj
 (defn aget
   {:inline (fn [a i] `(. clojure.lang.RT (aget ~a (int ~i))))
    :inline-arities #{2}}
@@ -203,7 +203,7 @@ mathematical operations with functions that have `unchecked-` prefix, e.g.,
 `unchecked-inc` or `unchecked-multiply`. You can compare the behavior of checked
 and unchecked functions yourself:
 
-```clojure-repl
+```clj
 user=> (crit/quick-bench (* 42 57))
 Execution time mean : 15.097586 ns
 
@@ -234,7 +234,7 @@ operation substitution was not possible.
 
 The updated solution will thus become:
 
-```clojure
+```clj
 (set! *unchecked-math* true)
 
 (defn mult-matrix-a-unchecked [^"[[J" a, ^"[[J" b]
@@ -256,7 +256,7 @@ The updated solution will thus become:
 It is identical to the previous one, except for turning `*unchecked-math` var on
 and off. Now, to the benchmarks:
 
-```clojure-repl
+```clj
 user=> (let [a (make-matrix-a 100)
              b (make-matrix-a 100)]
          (crit/quick-bench (mult-matrix-a-unchecked a b)))
@@ -270,7 +270,7 @@ further. We can finally use
 [clj-java-decompiler](/blog/introspection-tools-java-decompilers/) to make sure
 the generated code matches what we expect[[2]](#fn2)<a name="bfn2"></a>:
 
-```clojure
+```clj
 (set! *unchecked-math* true)
 
 (decompile ;; <=== This is what changed
