@@ -12,9 +12,6 @@ clj-async-profiler initiliazation code (maybe, it's not a Clojure application at
 all). Regardless, clj-async-profiler offers a way to collect such profiles while
 retaining access to its flamegraph rendering features.
 
-*Note: the described feature is available in clj-async-profiler since version
-1.0.6-SNAPSHOT.*
-
 The underlying library that clj-async-profiler uses, **async-profiler**, has a
 startup profiling mode that requires launching the Java process with its agent.
 The parameters passed to this agent require knowing their custom syntax. You
@@ -27,7 +24,7 @@ want to profile the startup time. In fact, you can launch it outside of any
 project, only specifying the clj-async-profiler dependency, like this:
 
 ```shell
-$ clj -Sdeps "{:deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version \"1.0.6-SNAPSHOT\"}}}"
+$ clj -Sdeps "{:deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version \"1.1.1\"}}}"
 ```
 
 Then, type this into the REPL:
