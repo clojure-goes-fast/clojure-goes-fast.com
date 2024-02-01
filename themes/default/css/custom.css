@@ -241,7 +241,7 @@ br.inlist {
 .kb div.content.article {
     padding-left: 1rem;
     padding-right: 1rem;
-    margin-bottom: 10px;
+    margin-bottom: 3rem;
 }
 
 @media (min-width: 880px) {
