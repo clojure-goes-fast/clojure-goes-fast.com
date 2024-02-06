@@ -129,8 +129,8 @@ terminal. They would look the same in `.bash_profile`, `.zshrc`, or
 `fish.config`:
 
 ```shell
-alias clojure="clojure -M:user"
-alias clj="clj -M:user"
+alias clojure="clojure -A:user"
+alias clj="clj -A:user"
 ```
 
 But since our `:user` alias hijacks command line options, you would still have
@@ -176,7 +176,7 @@ like this:
 {...
  :aliases
  {:user {:extra-deps
-         {com.clojure-goes-fast/clj-async-profiler   {:mvn/version "1.1.1"}
+         {com.clojure-goes-fast/clj-async-profiler   {:mvn/version "1.2.0"}
           com.clojure-goes-fast/clj-java-decompiler  {:mvn/version "0.3.4"}
           com.clojure-goes-fast/clj-memory-meter     {:mvn/version "0.3.0"}
           criterium/criterium                        {:mvn/version "0.4.5"}}

@@ -164,6 +164,12 @@ of options:
 - `:threads` — if true, the profiling data will be presented for each thread
   separately. Note that this does not improve the resolution of the profile; it
   only separates the results by-thread.
+- `:features` — a list of additional features to enable. Currently supported
+  features:
+  + `:vtable` — show targets of vtable/itable calls. Helps to understand which
+    specific polymorphic dispatch is causing the slowdown.
+  + `:comptask` — show JIT compilation task. Useful when trimming down
+    application load time.
 - `:interval` — sampling interval in nanoseconds. The default is 1000000, which
   means one millisecond. You can try setting it closer to 100000 (100
   microseconds) to increase the resolution of the profile, but the operating
@@ -240,9 +246,12 @@ should be available:
 - `:lock` — collect stack traces of threads that contend on acquiring locks.
 - `:wall` — like `:cpu`, but include stack traces of `BLOCKED` and `WAITING`
   threads.
-- `:itimer` — fallback event type for CPU profiling that doesn't use *perf* and
+- `:ctimer` — fallback event type for CPU profiling that doesn't use *perf* and
   thus only sees Java stack frames without the native ones. You can try
   profiling this event type if you have problems generating a `:cpu` profile.
+  This event type is only available on Linux.
+- `:itimer` — another fallback even for CPU profiling, even less precise than
+  `:ctimer`, but has better compatibility.
 
 On a Linux machine, you will see more supported events powered by Performance
 Monitoring Counters, such as cache misses, branch misses, page faults, context
