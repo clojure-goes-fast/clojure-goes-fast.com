@@ -534,7 +534,7 @@ will always have at least one side effect — the time spent to execute it (also
 memory allocations, disk I/O, and any other resource usage). By deferring the
 execution to another point in time, the language makes it harder for the
 programmer to understand where those CPU cycles are spent. Simple example using
-[Criterium](https://clojure-goes-fast.com/blog/benchmarking-tool-criterium/):
+[Criterium](/blog/benchmarking-tool-criterium/):
 
 ```clj
 user=> (crit/quick-bench (map inc (range 10000)))

@@ -410,7 +410,7 @@ user=> (decompile (loop [i 0, sum 0]
 
 ...what it means when the compiler warns
 about
-[reflection](http://clojure-goes-fast.com/blog/performance-nemesis-reflection/)?
+[reflection](/blog/performance-nemesis-reflection/)?
 
 ```clj
 user=> (decompile (fn [] (.substring @(volatile! "foobar") 3)))

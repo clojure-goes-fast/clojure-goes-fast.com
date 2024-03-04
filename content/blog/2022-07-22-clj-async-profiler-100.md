@@ -9,8 +9,8 @@ marks a principal milestone for this project. Almost five years have passed
 since its creation, and during these years, I used clj-async-profiler almost
 daily to make the programs I write faster and better. New challenges presented
 new ideas for improving the profiler, which in turn materialized in such
-features as [diffgraphs](blog/clj-async-profiler-040/), [stack
-transforms](blog/clj-async-profiler-tips#stack-transforming), demunging, etc.
+features as [diffgraphs](/blog/clj-async-profiler-040/), [stack
+transforms](/blog/clj-async-profiler-tips#stack-transforming), demunging, etc.
 Today, I released clj-async-profiler 1.0.0, which comes with more goodies that
 will hopefully improve your experience of using the profiler. In this post, I
 want to highlight these changes and teach you how to make use of them in your

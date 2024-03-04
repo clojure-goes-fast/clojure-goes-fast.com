@@ -29,8 +29,8 @@ This works; however, doing it this way causes two mild annoyances:
 Both of these irritations can be solved by the following custom macro that I use
 for quick-and-dirty benchmarking when I'm in the active process of modifying the
 code. Adding it to the system-wide profile in Leiningen or tools.deps (see [this
-guide](/clojure-goes-fast.com/blog/system-wide-user-clj/)) will make it readily
-available during the development of any project of yours.
+guide](/blog/system-wide-user-clj/)) will make it readily available during the
+development of any project of yours.
 
 *NB: you should absolutely use Criterium or JMH to obtain accurate results once
 you are done changing the code. The following macro adds convenience during

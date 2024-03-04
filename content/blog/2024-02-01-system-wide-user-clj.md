@@ -165,8 +165,7 @@ rebel-readline and my user.clj loaded.
 
 I keep many different helper functions in this global `user.clj`. For example,
 functions that simplify reflection access to private fields and methods. `heap`,
-which we've already seen.
-[time+](https://clojure-goes-fast.com/kb/benchmarking/time-plus/). Because all
+which we've already seen. [time+](/kb/benchmarking/time-plus/). Because all
 those functions are defined under `user` namespace, they become globally
 accessible as `(user/heap)` and so on. Another helper I use all the time loads
 performance tools into the current namespace. First, my full `:user` alias looks

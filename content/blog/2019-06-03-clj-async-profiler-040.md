@@ -6,7 +6,7 @@ If you are already a user of
 [clj-async-profiler](https://github.com/clojure-goes-fast/clj-async-profiler),
 an embeddable low-overhead perf-based profiler for Clojure and Java, then the
 new [0.4.0
-version]((https://github.com/clojure-goes-fast/clj-async-profiler/blob/master/CHANGELOG.md))
+version](https://github.com/clojure-goes-fast/clj-async-profiler/blob/master/CHANGELOG.md)
 will bring you a couple of exciting features. If you are yet to try it, check
 the [introductory post](/blog/profiling-tool-async-profiler/), and maybe it
 encourages you to add clj-async-profiler to your toolbelt of performance
