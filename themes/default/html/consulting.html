@@ -1,0 +1,18 @@
+{% extends "/html/base.html" %}
+
+{% block meta-desc %}
+<title>Consulting - Clojure Goes Fast</title>
+<meta property="og:title" content="Consulting - Clojure Goes Fast">
+<meta property="og:description" content="Clojure Goes Fast consulting services.">
+<meta property="og:image" content="{{site-url}}/img/logo-ua.png">
+{% endblock %}
+
+{% block content %}
+{% include "/html/navbar.html" %}
+
+<div class="container">
+  <div class="blog">
+    {{ page.content|safe }}
+  </div>
+</div>
+{% endblock %}
