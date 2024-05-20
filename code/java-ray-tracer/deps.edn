@@ -1,7 +1,7 @@
 {:paths ["src" "target"]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         com.bhauman/rebel-readline {:mvn/version "0.1.4"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.4"}
+        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}
         com.clojure-goes-fast/virgil {:mvn/version "0.2.0"}
         org.openjdk.jmh/jmh-core {:mvn/version "1.36"}
         org.openjdk.jmh/jmh-generator-annprocess {:mvn/version "1.36"}}

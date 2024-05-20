@@ -1,1 +1,1 @@
-{:deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.4"}}}
+{:deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}}}

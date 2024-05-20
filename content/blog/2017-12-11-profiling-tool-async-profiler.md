@@ -74,7 +74,7 @@ Let's learn it by example. First, add the following dependency to your
 `project.clj` or `deps.edn`:
 
 ```clj
-[com.clojure-goes-fast/clj-async-profiler "1.0.4"]
+[com.clojure-goes-fast/clj-async-profiler "1.2.0"]
 ```
 
 Now we'll conceive a toy profiling example.
