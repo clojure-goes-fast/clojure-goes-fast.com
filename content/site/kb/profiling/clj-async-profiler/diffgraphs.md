@@ -102,30 +102,20 @@ show that the impact of this frame disappearance on the total performance
 distribution is -23.60%. It means that in the first profile, multiplication took
 23.6% of the overall profile, but now it takes none.
 
-Conversely, `clojure.core/+'` is deep-red with +222.94% self increase and
-+15.09% total. That happened because, in the second profile, we ran the
-additions more times (15 vs. 10), but that's not the full story. By default, the
-Normalized option is checked in the diffgraph, which normalizes the number of
-samples between two profiles. So, if something goes away, something else will
-fill its space in the normalized diffgraph. Similarly, `clojure.core//`
-(division) is light-blue and reports only 13% self-decrease, even though it ran
-twice fewer times.
+Conversely, `clojure.core/+'` is deep-red with +87.16% self increase and +5.90%
+total. That happened because, in the second profile, we ran the additions more
+times (15 vs. 10). And the divisions (`clojure.core//`) are light blue (-49.68%
+self) because we ran them half as many times. The overall profile is also light
+blue with -42.07% total which signifies that less work has been done overall in
+the second profile.
 
-Normalizing the profiles before diffing them makes sense because the absolute
-number of samples might fluctuate between two separate runs even when you are
-running the exact same code, but the relation of samples within one run is quite
-consistent. However, you can also disable the normalization by unchecking the
-checkbox and clicking Apply. The diffgraph now probably looks like what you
-expected:
-
-- Divisions dropped by 49.68%.
-- Additions grew by 87.16% (OK, not totally what was expected but still closer
-to the truth).
-- The total execution time shrank.
-
-Just keep in mind that a non-normalized diff is more susceptible to sampling
-frequency variations and non-equal profiling durations, so make sure to not
-compare apples to oranges when disabling normalization.
+Diffgraphs have a unique toggle on the side panel called "Normalized". If you
+check that box and press "Apply", the diffgraph will start looking a lot
+different. When enabled, the normalized view adjusts the total number of samples
+between the two compared profiles to be the same. This can be useful if the two
+profiles you've taken were not taken on the same hardware or for the same
+durations, so you not as much interested in the absolute sample numbers but more
+in the relative differences between flamegrpahs.
 
 Like regular flamegraphs, diffgraphs also support [live
 transforms](/kb/profiling/clj-async-profiler/exploring-flamegraphs/#live-transforms).

@@ -157,21 +157,14 @@ But regardless of what replacement you are doing, the total number of samples
 remains the same. You don't lose any data; you just redistribute it to other
 stacks.
 
-Let's use a Replace to deal with those nasty recursive frames that obscure
-what's really going on in those functions. Select "Replace" in the dropdown and
-click Add. A form appears that prompts you to type the thing you want to replace
-and with what. In the first field, we'll put this:
-`/(;tutorial.binary-trees/bottom-up-tree)+/`. It is a regular expression that
-matches all consecutive frames of `bottom-up-tree`. We put the semicolon at the
-start and not the end because the final frame will not have a closing semicolon,
-but we want to capture that last frame as well.
-
-In the replacement field, we'll just put `$1` since we have a match group (in
-parentheses) that already contains what we need. Alternatively, we could just
-type `;tutorial.binary-trees/bottom-up-tree` here verbatim. Click Apply, and
-voilà! Recursive `bottom-up-tree` has turned into a nice flat frame. We can now
-see much more clearly that it spends most of its time calling
-`Numbers.multiply`, `Numbers.dec`, and `RT.intCast`.
+However, you don't have to write most of the transforms by hand. A menu that
+pops up when you right-click any stackframe on the flamgraph gives easy access
+to many common transforms. Let's deal with those nasty recursive frames that
+obscure what's really going on. Right click any of the recursive
+`bottom-up-tree` frames, select "Collapse recursive", and voilà! Recursive
+`bottom-up-tree` has turned into a nice flat frame. We can now see much more
+clearly that it spends most of its time calling `Numbers.multiply`,
+`Numbers.dec`, and `RT.intCast`.
 
 <center>
 <figure class="figure">
@@ -182,25 +175,28 @@ see much more clearly that it spends most of its time calling
 </figure>
 </center>
 
-You can also do the same with `item-check`. For that, add another Replace with
-`/(;tutorial.binary-trees/item-check)+/` and `$1`.
+You can also do the same with `item-check`. Right-click that stackframe and
+select "Collapse recursive".
 
 Another thing you can do with transforms is filtering out unwanted stacks. Our
 flamegraph captured some garbage collector work that you might not need to look
 at right now. Sure, you can just zoom into your own code, and those GC stacks
 will be hidden, but this way, they are still counted in the total percentage.
-Sometimes we don't want that, so let's add another transform, Remove, and type
-the string `thread_start` as a common entrypoint for that GC code. Click Apply
-and observe that `clojure.main.main`, the second frame from the bottom, now
-accounts for 99.16% of execution time.
+Sometimes we don't want that, let's right-click the frame `thread_start` at the
+bottom (as it's a common entrypoint to that GC code) and select "Remove
+containing stacks". Now, `clojure.main.main` accounts for 99.16% of execution
+time.
 
 One final step that can clear things up for us. We've already seen that the
 execution inside the function `iterate-trees` got split into two code paths
 because that's how Clojure lazy sequences work. Let's try to converge those code
-paths. Add one more Replace transform. By looking at the flamegraph, we have to
-find where the paths diverged and at which frame we want to bring them back
-together. Here, they split at `clojure.core.protocols/seq-reduce`, and we can
-merge them at `iterate-trees/fn--442`. The "what" regex will look like this:
+paths, and this time, we'll have to write a transform manually. First, select
+"Replace" in the dropdown on the right and click "Add". By looking at the
+flamegraph, we have to find where the paths diverged and at which frame we want
+to bring them back together. Here, they split at
+`clojure.core.protocols/seq-reduce`, and we can merge them at
+`iterate-trees/fn--442`. The regex for the first empty field will look like
+this:
 
 ```
 /(seq-reduce;).+;(tutorial.binary-trees\/iterate-trees\/fn--442)/
@@ -221,7 +217,7 @@ type `$1$2` as a replacement to drop all those frames in between.
 </figure>
 </center>
 
-Behold the final result of our work. Try unchecking the checkboxes next to each
+Behold the result of our work. Try unchecking the checkboxes next to each
 transform and clicking Apply. This is what we started with. Check them back
 again. The flamegraph got (subjectively) much more revealing.
 
