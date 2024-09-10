@@ -1,0 +1,2488 @@
+<html>
+  <head>
+    <style>
+      body {margin: 0; padding: 5px; background-color: #ffffff}
+      button {font: 12px sans-serif;}
+      p {margin: 5px 0 5px 0}
+      #hl {position: absolute; display: none; overflow: hidden; white-space: nowrap; pointer-events: none; background-color: #00000000; outline: 0.5px solid #222; height: 15px}
+      #hl span {padding: 0 3px 0 3px}
+      #status {overflow: hidden; white-space: nowrap}
+      #match {overflow: hidden; white-space: nowrap; display: none; float: right; text-align: right}
+      * {box-sizing:border-box,margin:.25em 0}
+      .col{display:table-cell}
+      .col-1{width:5%}
+      .col-2{width:15%}
+      .col-3{width:22%}
+      .col-4{width:30%}
+      .col-5{width:40%}
+      .col-6{width:50%}
+      .row{display:table;border-spacing:0.2em 0;width:100%;display:flex}
+      .w-100{width:100%;display:flex}
+      .graphCol{flex: 80%; padding: 0.25em;}
+      .configCol{flex: 20%; padding: 0.25em;}
+      .configBlock{position:fixed; overflow-y:auto; top: 5px; bottom: 5px; width:19%;}
+      .sidebarToggle{font: 10px; width:10; padding:0;}
+      .margins {margin: 5px 1px}
+      .vmargins {margin: 0px 1px;}
+      .context {display: inline-block; position:fixed; top:0px; left:0px; min-width:200px;
+                color:#fff;  background:#262933; font-size:9pt; border:1px solid #333333;
+                border-radius:6px; box-shadow:2px 2px 2px -1px rgba(0, 0, 0, 0.5);
+                padding:3px 0px; -webkit-touch-callout:none; -webkit-user-select:none;
+                -khtml-user-select:none; -moz-user-select:none; -ms-user-select:none;
+                user-select:none; z-index:200;}
+      .context .item {padding:4px 19px; cursor:default; color:inherit;}
+      .context .item:hover { background:#2777FF;}
+      .context .item:hover .hotkey {color: #fff;}
+      .context .disabled {color:#878B90;}
+      .context .disabled:hover {background:inherit;}
+      .context .disabled:hover .hotkey {color: #878B90;}
+      .context .separator {margin:4px 0px; height:0; padding:0; border-top:1px solid #454545;}
+      .hotkey {color:#878B90; float:right;}
+    </style>
+  </head>
+  <body style='font: 12px Verdana, sans-serif'>
+    <div class="c">
+      <div class="row">
+        <div class="graphCol">
+          <div id='canvasDiv'><canvas id='canvas' style='width: 100%;'></canvas></div>
+          <div id='box'><div id='hl'><span></span></div></div>
+          <p id='match'>Matched: <span id='matchedLabel'></span></p>
+          <p id='status'>&nbsp;</p>
+        </div>
+        <button class="sidebarToggle" onclick="toggleSidebarVisibility()">&lt;</button>
+        <div class="configCol">
+          <div class="configBlock">
+            <div id="titleDiv">
+              <b><center><span id="graphTitleSpan">Flamegraph</span></center></b>
+              <hr>
+            </div>
+            <div class="row">
+              <label for="highlightInput">Highlight:</label>
+              <input placeholder="String or /regex/" name="highlightInput" id="highlightInput"/>
+            </div>
+            <div class="row">
+              <button onclick="highlightApply()">Highlight</button>
+              <button onclick="highlightClear()">Clear</button>
+            </div>
+            <br>
+            <hr>
+            <br>
+
+            <label>Minimal frame width (in pixels):</label><br>
+            <input id="minFrameWidthInPx" value="0.25"/><br>
+            <div>
+              <label><input type="checkbox" id="isReversedInput">Reversed</label>
+              <span id="isNormalizedDiv" style="display:none;">
+                <label><input type="checkbox" id="isNormalized" name="isNormalized">Normalized</label>
+              </span>
+            </div>
+            <div>
+              <label><input type="radio" id="sortByNameRadio" name="sortBy" value="name">Sort by name</label>
+              <label><input type="radio" id="sortByWidthRadio" name="sortBy" value="width" checked>Sort by width</label>
+            </div>
+            <br>
+
+            <div class="row">
+              <div class="col">
+                <label for="newTransformType">Add a transform:</label>
+
+                <select name="newTransformType" id="newTransformType">
+                  <option value="filter">Filter</option>
+                  <option value="remove">Remove</option>
+                  <option value="replace">Replace</option>
+                </select>
+              </div>
+              <div class="col col-2">
+                <button onclick="addNewTransform()">Add</button>
+              </div>
+            </div>
+            <p><i>Right-click any stackframe to add common transforms.</i></p>
+            <br>
+
+            <div id="transformsContainer">
+            </div>
+
+            <div id="transformReplaceTemplate" style="display:none">
+              <div class="row">
+                <div class="col col-3">
+                  <label>Replace:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="what no-vmargins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="col w-100 no-vmargins">
+                  <input class="replacement no-vmargins w-100" placeholder="Replacement"/><br>
+                </div>
+              </div>
+            </div>
+
+            <div id="transformFilterTemplate" style="display:none" class="margins">
+              <div class="row">
+                <div class="col col-3">
+                  <label class="label">Filter:</label><br>
+                </div>
+                <div class="col">
+                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
+                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
+                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
+                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
+                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col w-100 margins">
+                  <input class="what margins w-100" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+            </div>
+
+            <hr>
+            <button onclick="applyConfiguration()">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // This file was derived from flamegraph.html from the project
+// https://github.com/jvm-profiling-tools/async-profiler
+// Licensed under the Apache License, Version 2.0. Copyright 2020 Andrei Pangin
+
+/// Constants
+const canvas = document.getElementById('canvas');
+const c = canvas.getContext('2d');
+const hl = document.getElementById('hl');
+const status = document.getElementById('status');
+const matchContainer = document.getElementById('match');
+const transformFilterTemplate = document.getElementById('transformFilterTemplate');
+const transformReplaceTemplate = document.getElementById('transformReplaceTemplate');
+const sidebarToggleButton = document.getElementsByClassName('sidebarToggle')[0];
+const sidebarWidth = document.getElementsByClassName('configCol')[0].offsetWidth
+const qString = new URLSearchParams(window.location.search)
+
+var sidebarVisible = true;
+var canvasWidth;
+
+if (qString.get('hide-sidebar') == 'true') {
+  sidebarVisible = false;
+}
+
+function updateSidebarState() {
+  let style = oneByClass(document, 'configCol').style
+  if (sidebarVisible) {
+    style.display = 'block';
+    sidebarToggleButton.innerText = ">";
+    canvasWidth = window.innerWidth - sidebarWidth - 36;
+  } else {
+    style.display = 'none';
+    sidebarToggleButton.innerText = "<";
+    canvasWidth = window.innerWidth - 36;
+  }
+}
+
+updateSidebarState();
+
+var graphTitle = "";
+var isDiffgraph = false;
+var normalizeDiff = false, b_scale_factor;
+var reverseGraph = false;
+var idToFrame = ["[unknown_Java]",
+"I2C/C2I adapters",
+"_new_instance_Java",
+"OptoRuntime::new_instance_C",
+"CardTableBarrierSet::on_slowpath_allocation_exit",
+"pthread_jit_write_protect_np",
+"SharedRuntime::on_slowpath_allocation_exit",
+"nrepl.SessionThread.run",
+"nrepl.middleware.session/session-exec/session-loop--1605",
+"nrepl.middleware.interruptible-eval/evaluator/run--1526",
+"nrepl.middleware.interruptible-eval/evaluator/run--1526/fn--1537",
+"clojure.lang.Compiler.eval",
+"tutorial.binary-trees/eval12181",
+"clj-async-profiler.core/start",
+"clj-async-profiler.core/attach-agent",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentPath",
+"sun.tools.attach.HotSpotVirtualMachine.loadAgentLibrary",
+"sun.tools.attach.VirtualMachineImpl.execute",
+"sun.tools.attach.HotSpotVirtualMachine.processCompletionStatus",
+"sun.tools.attach.HotSpotVirtualMachine.readInt",
+"sun.tools.attach.HotSpotVirtualMachine$SocketInputStream.read",
+"tutorial.binary-trees/eval12181/fn--12182",
+"clj-async-profiler.core/stop",
+"clj-async-profiler.core/status",
+"java.io.BufferedReader.readLine",
+"java.io.BufferedReader.implReadLine",
+"java.io.BufferedReader.fill",
+"java.io.InputStreamReader.read",
+"sun.nio.cs.StreamDecoder.read",
+"sun.nio.cs.StreamDecoder.lockedRead",
+"sun.nio.cs.StreamDecoder.implRead",
+"java.nio.CharBuffer.wrap",
+"java.nio.HeapCharBuffer.<init>",
+"java.nio.CharBuffer.<init>",
+"java.nio.Buffer.<init>",
+"java.nio.CharBuffer.position",
+"clj-async-profiler.core/eval11095/tmp-internal-file--11096",
+"java.text.DateFormat.format",
+"java.text.SimpleDateFormat.format",
+"clj-async-profiler.core/tmp-results-file",
+"java.lang.ClassLoader.loadClass",
+"clojure.lang.DynamicClassLoader.loadClass",
+"clojure.lang.DynamicClassLoader.findInMemoryClass",
+"java.util.concurrent.ConcurrentHashMap.get",
+"clojure.lang.RestFn.invoke",
+"clojure.core/format",
+"java.lang.String.format",
+"java.util.Formatter.format",
+"java.util.Formatter.parse",
+"SharedRuntime::resolve_opt_virtual_call_C",
+"SharedRuntime::resolve_helper",
+"SharedRuntime::resolve_sub_helper",
+"SharedRuntime::find_callee_info_helper",
+"Bytecode_invoke::static_target",
+"LinkResolver::resolve_method_statically",
+"LinkResolver::resolve_method",
+"InstanceKlass::uncached_lookup_method",
+"InstanceKlass::find_method_index",
+"tutorial.binary-trees/main",
+"clojure.core/seq--5486",
+"clojure.lang.RT.seq",
+"clojure.lang.LazySeq.seq",
+"clojure.lang.LazySeq.realize",
+"clojure.lang.LazySeq.force",
+"clojure.core/map/fn--5954",
+"SharedRuntime::handle_wrong_method_ic_miss",
+"SharedRuntime::handle_ic_miss_helper",
+"SharedRuntime::handle_ic_miss_helper_internal",
+"CompiledIC::is_megamorphic",
+"VtableStubs::entry_point",
+"tutorial.binary-trees/main/fn--8615",
+"tutorial.binary-trees/iterate-trees",
+"clojure.core/reduce",
+"clojure.core.protocols/fn--8203/G--8198--8216",
+"clojure.core.protocols/fn--8262",
+"clojure.core.protocols/seq-reduce",
+"clojure.core.protocols/fn--8229/G--8224--8238",
+"clojure.core.protocols/fn--8270",
+"clojure.core/chunk-first",
+"clojure.core/chunk-next",
+"clojure.lang.ChunkedCons.chunkedNext",
+"clojure.core/chunk-buffer",
+"clojure.core/chunk-cons",
+"clojure.core/chunk-rest",
+"clojure.lang.LongRange.chunkedMore",
+"clojure.lang.LongRange.create",
+"Runtime1::counter_overflow",
+"CompilationPolicy::event",
+"CompileBroker::compile_method",
+"Method::load_signature_classes",
+"SignatureStream::as_klass",
+"SystemDictionary::resolve_instance_class_or_null",
+"Dictionary::find",
+"clojure.core/map",
+"clojure.lang.LazySeq.<init>",
+"clojure.lang.LongRange$LongChunk.nth",
+"java.lang.Long.valueOf",
+"itable stub",
+"tutorial.binary-trees/iterate-trees/fn--8608",
+"clojure.lang.Numbers.add",
+"clojure.lang.Numbers$LongOps.add",
+"clojure.lang.Numbers.minus",
+"clojure.lang.Numbers$LongOps.negate",
+"clojure.lang.Numbers.num",
+"tutorial.binary-trees/item-check",
+"clojure.lang.Var.getRawRoot",
+"tutorial.binary-trees/bottom-up-tree",
+"clojure.lang.Numbers.dec",
+"clojure.lang.Numbers$LongOps.dec",
+"clojure.lang.Numbers.multiply",
+"clojure.lang.Numbers$LongOps.multiply",
+"clojure.lang.RT.intCast",
+"java.lang.Math.toIntExact",
+"clojure.lang.RT.longCast",
+"InstanceKlass::allocate_instance",
+"MemAllocator::allocate",
+"ObjAllocator::initialize",
+"java.lang.Long.longValue",
+"MemAllocator::mem_allocate_inside_tlab_slow",
+"G1CollectedHeap::attempt_allocation",
+"G1CollectedHeap::attempt_allocation_slow",
+"G1CollectedHeap::new_mutator_alloc_region",
+"ThreadLocalAllocBuffer::fill",
+"_platform_memset",
+"G1CardTable::g1_mark_as_young",
+"tutorial.binary_trees.TreeNode.<init>",
+"clojure.lang.Numbers.ops",
+"java.lang.Integer.valueOf",
+"ThreadLocalAllocBuffer::print_stats",
+"MemAllocator::Allocation::check_out_of_memory",
+"G1AllocRegion::new_alloc_region_and_allocate",
+"G1RemSetTrackingPolicy::update_at_allocate",
+"java.util.concurrent.locks.ReentrantLock.unlock",
+"java.util.concurrent.locks.AbstractQueuedSynchronizer.release",
+"java.util.concurrent.locks.ReentrantLock$Sync.tryRelease",
+"clojure.lang.ArrayChunk.reduce",
+"clojure.core/+",
+"MutatorAllocRegion::retire",
+"G1AllocRegion::retire_internal",
+"G1MonitoringSupport::update_eden_size",
+"Mutex::unlock",
+"G1Policy::should_allocate_mutator_region",
+"java.util.Formatter$FixedString.print",
+"java.lang.StringBuilder.append",
+"java.lang.AbstractStringBuilder.append",
+"clojure.core/println",
+"clojure.core/apply",
+"clojure.lang.RestFn.applyTo",
+"clojure.core/prn",
+"clojure.lang.AFn.applyToHelper",
+"clojure.core/pr",
+"clojure.core/pr-on",
+"clojure.lang.MultiFn.invoke",
+"clojure.core/fn--7428",
+"java.io.PrintWriter.write",
+"java.io.PrintWriter.implWrite",
+"java.io.BufferedWriter.write",
+"java.io.BufferedWriter.implWrite",
+"java.lang.String.getChars",
+"java.lang.StringLatin1.getChars",
+"BarrierSetNMethod::nmethod_stub_entry_barrier",
+"BarrierSetNMethod::guard_value",
+"BarrierSetNMethod::supports_entry_barrier",
+"Method::is_method_handle_intrinsic",
+"clojure.lang.Numbers$LongOps.combine",
+"InlineCacheBuffer",
+"java.lang.Math.multiplyExact",
+"java.lang.Math.abs",
+"HeapRegionRemSet::clear_fcc",
+"thread_start",
+"_pthread_start",
+"thread_native_entry",
+"Thread::call_run",
+"ConcurrentGCThread::run",
+"G1ConcurrentRefineThread::run_service",
+"G1PrimaryConcurrentRefineThread::do_refinement_step",
+"G1ConcurrentRefine::adjust_threads_periodically",
+"G1CollectionSet::iterate",
+"G1ConcurrentRefine::RemSetSamplingClosure::do_heap_region",
+"G1CardSet::occupied",
+"G1PrimaryConcurrentRefineThread::track_usage",
+"G1ConcurrentRefine::threads_do",
+"ThreadTotalCPUTimeClosure::do_thread",
+"os::thread_cpu_time",
+"thread_info",
+"mach_msg2_trap",
+"G1PrimaryConcurrentRefineThread::wait_for_completed_buffers",
+"Monitor::wait_without_safepoint_check",
+"PlatformMonitor::wait",
+"__psynch_cvwait",
+"_pthread_cond_updateval",
+"_pthread_cond_wait",
+"G1ServiceThread::run_service",
+"G1ServiceThread::wait_for_task",
+"SuspendibleThreadSet::join",
+"JavaThread::thread_main_inner",
+"CompileBroker::compiler_thread_loop",
+"CompileBroker::invoke_compiler_on_method",
+"C2Compiler::compile_method",
+"Compile::Compile",
+"Compile::Code_Gen",
+"Matcher::match",
+"Matcher::xform",
+"Matcher::match_tree",
+"Matcher::Label_Root",
+"State::DFA",
+"State::_sub_Op_AddI",
+"State::_sub_Op_If",
+"Matcher::ReduceInst",
+"Matcher::ReduceInst_Interior",
+"State::MachNodeGenerator",
+"Node::add_req",
+"PhaseBlockLayout::PhaseBlockLayout",
+"Block::num_fall_throughs",
+"PhaseCFG::do_global_code_motion",
+"PhaseCFG::global_code_motion",
+"Node_Backward_Iterator::next",
+"PhaseCFG::schedule_pinned_nodes",
+"PhaseChaitin::Register_Allocate",
+"PhaseChaitin::Split",
+"RethrowExceptionNode::is_block_proj",
+"PhaseChaitin::build_ifg_physical",
+"Matcher::int_pressure_limit",
+"RegMask::Size",
+"PhaseChaitin::build_ifg_virtual",
+"MachNode::two_adr",
+"PhaseChaitin::gather_lrg_masks",
+"MachNode::in_RegMask",
+"cmpOpUOper::num_edges",
+"PhaseChaitin::post_allocate_copy_removal",
+"PhaseChaitin::elide_copy",
+"PhaseChaitin::yank_if_dead_recurse",
+"Node::disconnect_inputs",
+"PhaseIFG::init",
+"IndexSet::initialize",
+"PhaseLive::compute",
+"PhaseLive::add_liveout",
+"PhaseOutput::Output",
+"PhaseOutput::fill_buffer",
+"loadConNKlassNode::emit",
+"TypeKlassPtr::get_con",
+"TypeKlassPtr::exact_klass_helper",
+"PhaseOutput::shorten_branches",
+"addP_reg_immNode::emit",
+"Compile::Optimize",
+"Compile::inline_incrementally_cleanup",
+"PhaseIterGVN::optimize",
+"PhaseIterGVN::transform_old",
+"IfNode::Ideal",
+"IfNode::fold_compares",
+"IfNode::fold_compares_helper",
+"PhaseValues::makecon",
+"Dict::Insert",
+"Compile::optimize_loops",
+"PhaseIdealLoop::optimize",
+"PhaseIdealLoop::PhaseIdealLoop",
+"PhaseIdealLoop::build_and_optimize",
+"PhaseIdealLoop::Dominators",
+"NTarjan::DFS",
+"PhaseIdealLoop::split_if_with_blocks",
+"PhaseIdealLoop::split_if_with_blocks_post",
+"IfNode::same_condition",
+"Compile::process_for_post_loop_opts_igvn",
+"PhaseIterGVN::subsume_node",
+"ConLNode::Opcode",
+"ConnectionGraph::do_analysis",
+"ConnectionGraph::compute_escape",
+"ConnectionGraph::add_node_to_connection_graph",
+"ConnectionGraph::add_call_node",
+"ciKlass::is_subclass_of",
+"tlv_get_addr",
+"PhaseCCP::PhaseCCP",
+"PhaseCCP::analyze",
+"PhaseCCP::push_child_nodes_to_worklist",
+"PhaseCCP::push_more_uses",
+"IfNode::Opcode",
+"PhaseIdealLoop::build_loop_early",
+"PhaseIdealLoop::get_early_ctrl",
+"PhaseIdealLoop::split_if_with_blocks_pre",
+"LoadNode::Ideal",
+"LoadNode::split_through_phi",
+"MemNode::all_controls_dominate",
+"RegionNode::hash",
+"PhaseMacroExpand::expand_macro_nodes",
+"AddPNode::Identity",
+"Type::hashcons",
+"Type::cmp",
+"TypeLong::eq",
+"PhaseRenumberLive::PhaseRenumberLive",
+"_platform_memmove",
+"ParseGenerator::generate",
+"Parse::Parse",
+"Parse::do_all_blocks",
+"Parse::do_one_block",
+"Parse::do_call",
+"LibraryIntrinsic::generate",
+"LibraryCallKit::inline_native_Class_query",
+"LibraryCallKit::set_result",
+"PhaseGVN::transform_no_reclaim",
+"PhiNode::Value",
+"Parse::do_new",
+"GraphKit::set_output_for_allocation",
+"TypeInstPtr::cast_to_ptr_type",
+"TypeInstPtr::eq",
+"PredictedCallGenerator::generate",
+"Parse::create_entry_map",
+"GraphKit::null_check_common",
+"TypePtr::xmeet",
+"TypeInstPtr::xmeet_helper",
+"GraphKit::record_profiled_arguments_for_speculation",
+"TypeFunc::make",
+"TypeTuple::make_range",
+"TypeOopPtr::make_from_klass_common",
+"TypeInstPtr::hash",
+"Parse::do_one_bytecode",
+"CmpPNode::sub",
+"bool TypePtr::maybe_java_subtype_of_helper_for_instance<TypeInstKlassPtr, TypeKlassPtr>",
+"Parse::build_exits",
+"Node::Node",
+"Parse::do_field_access",
+"Parse::do_put_xxx",
+"GraphKit::access_store_at",
+"BarrierSetC2::store_at",
+"ModRefBarrierSetC2::store_at_resolved",
+"G1BarrierSetC2::post_barrier",
+"G1BarrierSetC2::g1_mark_card",
+"IdealKit::storeCM",
+"TypeTuple::make_domain",
+"TypePtr::interfaces",
+"ciInstanceKlass::transitive_interfaces",
+"ciInstanceKlass::compute_transitive_interfaces",
+"ciObjectFactory::get_metadata",
+"Compiler::compile_method",
+"Compilation::Compilation",
+"Compilation::compile_method",
+"Compilation::compile_java_method",
+"Compilation::build_hir",
+"IR::IR",
+"IRScope::IRScope",
+"GraphBuilder::GraphBuilder",
+"GraphBuilder::iterate_all_blocks",
+"GraphBuilder::iterate_bytecodes_for_block",
+"GraphBuilder::invoke",
+"GraphBuilder::args_list_for_profiling",
+"ciMethodData::bci_to_data",
+"GraphBuilder::try_inline",
+"GraphBuilder::try_inline_full",
+"ProfileData::is_CallTypeData",
+"CompileBroker::possibly_add_compiler_threads",
+"os::free_memory",
+"host_statistics64",
+"CompileQueue::get",
+"Monitor::wait",
+"_pthread_mutex_firstfit_lock_slow",
+"__psynch_mutexwait",
+"MonitorDeflationThread::monitor_deflation_thread_entry",
+"clock_gettime",
+"gettimeofday",
+"mach_absolute_time",
+"ObjectSynchronizer::is_async_deflation_needed",
+"ServiceThread::service_thread_entry",
+"SymbolTable::do_concurrent_work",
+"SymbolTable::clean_dead_entries",
+"void ConcurrentHashTable<SymbolTableConfig, (MEMFLAGS)11>::do_bulk_delete_locked_for<SymbolTableDeleteCheck, SymbolTableDoDelete>",
+"VMError::is_error_reported",
+"VMThread::run",
+"VMThread::inner_execute",
+"SafepointSynchronize::begin",
+"SafepointSynchronize::arm_safepoint",
+"SafepointSynchronize::synchronize_threads",
+"SafepointSynchronize::thread_not_running",
+"VMThread::evaluate_operation",
+"VM_Operation::evaluate",
+"VM_G1CollectForAllocation::doit",
+"G1CollectedHeap::do_collection_pause_at_safepoint",
+"G1CollectedHeap::do_collection_pause_at_safepoint_helper",
+"G1YoungCollector::collect",
+"G1GCPhaseTimes::print",
+"G1GCPhaseTimes::print_post_evacuate_collection_set",
+"ReferenceProcessorPhaseTimes::print_all_references",
+"ReferenceProcessorPhaseTimes::print_phase",
+"outputStream::print_cr",
+"LogStreamImpl<LogTargetHandle>::write",
+"LogTargetHandle::print",
+"G1HeapPrinterMark::~G1HeapPrinterMark",
+"AgeTable::print_age_table",
+"os::vsnprintf",
+"_vsnprintf",
+"__vfprintf",
+"G1YoungCollector::evacuate_initial_collection_set",
+"G1RemSet::merge_heap_roots",
+"WorkerThreads::run_task",
+"semaphore_signal_trap",
+"G1YoungCollector::post_evacuate_collection_set",
+"G1PostEvacuateCollectionSetCleanupTask2::G1PostEvacuateCollectionSetCleanupTask2",
+"AllocateHeap",
+"os::malloc",
+"G1YoungCollector::pre_evacuate_collection_set",
+"G1CollectionSet::finalize_old_part",
+"void QuickSort::inner_sort<true, unsigned int, int (*)(unsigned int, unsigned int)>",
+"G1RemSetScanState::prepare",
+"szone_malloc_should_clear",
+"small_malloc_should_clear",
+"small_malloc_from_free_list",
+"small_free_list_remove_ptr_no_clear",
+"WatcherThread::run",
+"PeriodicTask::real_time_tick",
+"PerfLongVariant::sample",
+"StatSamplerTask::task",
+"WatcherThread::sleep",
+"pthread_dependency_wait_np.cold.3",
+"pthread_testcancel",
+"os::javaTimeNanos",
+"WorkerThread::run",
+"G1BatchedTask::work",
+"G1GCParPhaseTimesTracker::~G1GCParPhaseTimesTracker",
+"CompositeElapsedCounterSource::now",
+"os::elapsed_counter",
+"G1PostEvacuateCollectionSetCleanupTask2::FreeCollectionSetTask::do_work",
+"G1CollectedHeap::par_iterate_regions_array",
+"FreeCSetClosure::do_heap_region",
+"G1CollectedHeap::free_region",
+"HeapRegion::hr_clear",
+"HeapRegionRemSet::clear",
+"G1FromCardCache::clear",
+"HeapRegionClaimer::claim_region",
+"G1CMConcurrentMarkingTask::work",
+"G1CMTask::do_marking_step",
+"G1CMBitMap::iterate",
+"G1CMTask::drain_local_queue",
+"void G1CMTask::process_grey_task_entry<true>",
+"ClassLoaderData::oops_do",
+"void InstanceRefKlass::oop_oop_iterate<narrowOop, G1CMOopClosure>",
+"void InstanceRefKlass::oop_oop_iterate_discovery<narrowOop, G1CMOopClosure, AlwaysContains>",
+"ReferenceProcessor::discover_reference",
+"void OopOopIterateDispatch<G1CMOopClosure>::Table::oop_oop_iterate<InstanceKlass, narrowOop>",
+"void OopOopIterateDispatch<G1CMOopClosure>::Table::oop_oop_iterate<ObjArrayKlass, narrowOop>",
+"G1CMTask::make_reference_grey",
+"G1ConcurrentMark::mark_in_bitmap",
+"MarkBitMap::check_mark",
+"G1CMRootRegionScanTask::work",
+"G1ConcurrentMark::scan_root_region",
+"void OopOopIterateDispatch<G1RootRegionScanClosure>::Table::oop_oop_iterate<InstanceKlass, narrowOop>",
+"G1ClearBitMapTask::work",
+"HeapRegionManager::par_iterate",
+"G1ClearBitMapTask::G1ClearBitmapHRClosure::do_heap_region",
+"MarkBitMap::do_clear",
+"G1EvacuateRegionsBaseTask::work",
+"G1EvacuateRegionsTask::evacuate_live_objects",
+"G1ParEvacuateFollowersClosure::do_void",
+"G1ParEvacuateFollowersClosure::offer_termination",
+"TaskTerminator::offer_termination",
+"pthread_mutex_lock",
+"Mutex::lock_without_safepoint_check",
+"SpinPause",
+"__psynch_cvbroad",
+"_pthread_mutex_firstfit_unlock_slow",
+"__psynch_mutexdrop",
+"G1ParScanThreadState::steal_and_trim_queue",
+"G1ParScanThreadState::do_copy_to_survivor_space",
+"G1ParScanThreadState::trim_queue_to_threshold",
+"void OopOopIterateBackwardsDispatch<G1ScanEvacuatedObjClosure>::Table::oop_oop_iterate_backwards<InstanceKlass, narrowOop>",
+"G1ParScanThreadState::start_partial_objarray",
+"void G1ScanEvacuatedObjClosure::do_oop_work<narrowOop>",
+"G1EvacuateRegionsTask::scan_roots",
+"G1RemSet::scan_heap_roots",
+"G1ScanHRForRegionClosure::do_heap_region",
+"G1ScanHRForRegionClosure::scan_heap_roots",
+"void G1ScanHRForRegionClosure::ChunkScanner::on_dirty_cards<G1ScanHRForRegionClosure::scan_heap_roots(HeapRegion*)::'lambda'(unsigned char*, unsigned char*)>",
+"G1ScanHRForRegionClosure::scan_memregion",
+"fwd_copy_drain",
+"HeapWordImpl** HeapRegion::oops_on_memregion_iterate<G1ScanCardClosure, true>",
+"void OopOopIterateBoundedDispatch<G1ScanCardClosure>::Table::oop_oop_iterate_bounded<ObjArrayKlass, narrowOop>",
+"void G1ScanCardClosure::do_oop_work<narrowOop>",
+"void OopOopIterateDispatch<G1ScanCardClosure>::Table::oop_oop_iterate<InstanceKlass, narrowOop>",
+"G1RootProcessor::evacuate_roots",
+"G1RootProcessor::process_java_roots",
+"ClassLoaderDataGraph::roots_cld_do",
+"G1CLDScanClosure::do_cld",
+"void G1ParCopyClosure<(G1Barrier)1, false>::do_oop_work<oopDesc*>",
+"Threads::possibly_parallel_oops_do",
+"Threads::possibly_parallel_threads_do",
+"Thread::claim_par_threads_do",
+"Thread::oops_do",
+"JNIHandleBlock::oops_do",
+"JavaThread::oops_do_frames",
+"RegisterMap::RegisterMap",
+"StackFrameStream::StackFrameStream",
+"frame::oops_code_blob_do",
+"G1CodeBlobClosure::do_code_blob",
+"nmethod::oops_do_process_weak",
+"nmethod::fix_oop_relocations",
+"metadata_Relocation::unpack_data",
+"frame::oops_interpreted_do",
+"InterpreterOopMap::iterate_oop",
+"void G1ParCopyClosure<(G1Barrier)0, false>::do_oop_work<oopDesc*>",
+"Method::mask_for",
+"InstanceKlass::mask_for",
+"methodHandle::~methodHandle",
+"frame::sender_for_interpreter_frame",
+"CodeHeap::find_blob",
+"JavaThread::oops_do_no_frames",
+"HandleArea::oops_do",
+"JvmtiThreadState::oops_do",
+"G1EvacuateRegionsTask::start_work",
+"G1ParScanThreadStateSet::state_for_worker",
+"tiny_malloc_should_clear",
+"tiny_malloc_from_free_list",
+"_tiny_check_and_zero_inline_meta_from_freelist",
+"G1ParScanThreadState::G1ParScanThreadState",
+"small_free_list_remove_ptr",
+"G1PLABAllocator::G1PLABAllocator",
+"nanov2_malloc",
+"G1RemSet::scan_collection_set_regions",
+"G1ScanCollectionSetRegionClosure::do_heap_region",
+"G1EvacPhaseWithTrimTimeTracker::G1EvacPhaseWithTrimTimeTracker",
+"G1EvacPhaseWithTrimTimeTracker::~G1EvacPhaseWithTrimTimeTracker",
+"G1MergeHeapRootsTask::work",
+"G1MergeHeapRootsTask::G1ClearBitmapClosure::do_heap_region",
+"ConcurrentGCThread::should_terminate",
+"G1ConcurrentMark::clear_statistics",
+"G1MergeHeapRootsTask::G1CombinedClosure::do_heap_region",
+"G1MergeHeapRootsTask::G1MergeCardSetClosure::do_heap_region",
+"G1ParallelCleaningTask::work",
+"CodeCacheUnloadingTask::work",
+"BarrierSetNMethod::set_guard_value",
+"NativeNMethodBarrier::NativeNMethodBarrier",
+"nmethod::do_unloading",
+"CompiledMethod::unload_nmethod_caches",
+"CompiledMethod::cleanup_inline_caches_impl",
+"CompiledIC::ic_destination",
+"NativeCall::destination",
+"CompiledIC::set_to_clean",
+"CompiledIC::internal_set_ic_destination",
+"NativeCall::set_destination_mt_safe",
+"trampoline_stub_Relocation::get_trampoline_for",
+"RelocIterator::advance_over_prefix",
+"nmethod::compiledStaticCall_at",
+"nmethod::unlink",
+"CompiledMethod::clear_ic_callsites",
+"NativeMovConstReg::set_data",
+"MacroAssembler::pd_patch_instruction_size",
+"Method::unlink_code",
+"nmethod::flush_dependencies",
+"InstanceKlass::clean_dependency_context",
+"DependencyContext::clean_unloading_dependents",
+"nmethodBucket::next_not_unloading",
+"nmethod::is_unloading",
+"IsUnloadingBehaviour::is_unloading",
+"ClosureIsUnloadingBehaviour::has_dead_oop",
+"nmethod::oops_do",
+"G1PrepareEvacuationTask::work",
+"G1RebuildRSAndScrubTask::work",
+"G1RebuildRSAndScrubTask::G1RebuildRSAndScrubRegionClosure::scan_and_scrub_region",
+"G1RebuildRSAndScrubTask::G1RebuildRSAndScrubRegionClosure::scan_and_scrub_to_pb",
+"G1RebuildRSAndScrubTask::G1RebuildRSAndScrubRegionClosure::scan_object",
+"void OopOopIterateDispatch<G1RebuildRemSetClosure>::Table::oop_oop_iterate<InstanceKlass, narrowOop>",
+"G1CardSet::add_card",
+"G1CardSet::add_to_howl",
+"void OopOopIterateDispatch<G1RebuildRemSetClosure>::Table::oop_oop_iterate<ObjArrayKlass, narrowOop>",
+"KlassCleaningTask::work",
+"InstanceKlass::clean_weak_instanceklass_links",
+"MethodData::clean_method_data",
+"DataLayout::data_in",
+"semaphore_wait_trap",
+"void WeakProcessor::Task::work<G1STWIsAliveClosure, G1KeepAliveClosure>",
+"WeakProcessorParTimeTracker::~WeakProcessorParTimeTracker",
+];
+var initialStacks = [];
+var stacks;
+
+var _lastInsertedStack = null;
+
+function a(frameIds, samples) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"), samples: samples});
+}
+
+var totalSamplesA = 0, totalSamplesB = 0;
+
+function d(frameIds, samples_a, samples_b) {
+  var same = frameIds[0];
+  var frames = (same > 0) ? _lastInsertedStack.slice(0,same) : [];
+
+  for (var i = 1, len = frameIds.length; i < len; i++) {
+    frames.push(idToFrame[frameIds[i]]);
+  }
+
+  totalSamplesA += samples_a;
+  totalSamplesB += samples_b;
+
+  _lastInsertedStack = frames;
+  initialStacks.push({stackStr: frames.join(";"),
+                      samples_a: samples_a, samples_b: samples_b});
+}
+
+function _extractRegexPrefix(s) {
+  let parsed = s.match(/^\/\.\+(.+)\/g$/);
+  if (parsed != null) {
+    return new RegExp(parsed[1], 'g');
+  }
+}
+
+function _stringToMaybeRegex(s) {
+  if (s == null) return null;
+  let parsed = s.match(/^\/(.+)\/$/);
+  if (parsed != null)
+    return new RegExp(parsed[1], 'g');
+  else
+    return s;
+}
+
+function _makeTransform(type, enabled, what, replacement) {
+  let what2 = (typeof(what) == 'string') ? _stringToMaybeRegex(what) : what;
+  let what2Str = what2.toString();
+  let prefix = (what2 instanceof RegExp) ?
+      _extractRegexPrefix(what2Str) : null;
+  if (type == 'replace')
+    return { type: type, enabled: enabled, what: what2, replacement: replacement, prefix: prefix}
+  else
+    return { type: type, enabled: enabled, what: what2}
+}
+
+var userTransforms = [_makeTransform('filter', true, "", null),
+_makeTransform('remove', true, "", null),
+_makeTransform('replace', true, "", '')];
+
+function match(string, obj) {
+  if (typeof(obj) == 'string') {
+    return string.includes(obj);
+  } else
+    return string.match(obj);
+}
+
+function applyReplacement(string, what, replacement, prefix) {
+  var s = string;
+  var prevMatch = null;
+  if (prefix != null) {
+    while (true) {
+      let match = prefix.exec(string);
+      if (match == null) {
+        if (prevMatch == null)
+          return s;
+        else {
+          s = string.substring(Math.max(prevMatch.index, 0));
+          return s.replace(prefix, replacement);
+        }
+      } else {
+        prevMatch = match;
+      }
+    }
+  }
+  return s.replaceAll(what, replacement);
+}
+
+function transformStacks() {
+  console.time("transformStacks");
+  let diff = isDiffgraph;
+  var result;
+  if (userTransforms.length > 0) {
+    var xformedMap = {};
+    for (var i = 0; i < initialStacks.length; i++) {
+      var stack = initialStacks[i];
+      var xformedStr = ";" + stack.stackStr + ";";
+      var useIt = true;
+
+      for (var t = 0; t < userTransforms.length; t++) {
+        const transform = userTransforms[t];
+        if (transform.enabled && transform.what != '') {
+          if (transform.type == 'replace') {
+            xformedStr = applyReplacement(xformedStr, transform.what,
+                                          transform.replacement, transform.prefix);
+          } else if (transform.type == 'filter') {
+            if (!match(xformedStr, transform.what))
+              useIt = false;
+          } else if (transform.type == 'remove') {
+            if (match(xformedStr, transform.what))
+              useIt = false;
+          }
+        }
+        if (!useIt) break;
+      }
+
+      xformedStr = xformedStr.substring(1,xformedStr.length-1);
+
+      if (useIt)
+        if (diff) {
+          let newVal = (xformedMap[xformedStr] || {});
+          newVal.samples_a = (newVal.samples_a || 0) + stack.samples_a;
+          newVal.samples_b = (newVal.samples_b || 0) + stack.samples_b;
+          xformedMap[xformedStr] = newVal;
+        } else
+          xformedMap[xformedStr] = stack.samples + (xformedMap[xformedStr] || 0);
+    }
+
+    var xformedStacks = [];
+    for (xformedStr in xformedMap) {
+      if (diff) {
+        let val = xformedMap[xformedStr];
+        xformedStacks.push({stackStr: xformedStr, samples_a: val.samples_a, samples_b: val.samples_b})
+      } else
+        xformedStacks.push({stackStr: xformedStr, samples: xformedMap[xformedStr]});
+    }
+    result = xformedStacks;
+  } else
+    result = initialStacks;
+
+  console.timeEnd("transformStacks");
+  return result;
+}
+
+console.time("data exec time");
+
+  a([0,0,1,],1);
+a([1,2,3,4,],1);
+a([3,5,],3);
+a([2,6,],1);
+a([2,5,],9);
+a([0,7,8,9,10,11,12,13,14,15,16,17,18,19,20,],1);
+a([6,21,22,23,14,15,16,24,24,25,26,27,28,29,30,31,32,33,34,35,35,],1);
+a([9,36,37,38,38,],1);
+a([8,39,40,41,42,43,],1);
+a([8,44,45,46,47,47,48,49,50,51,52,53,54,55,56,57,],1);
+a([7,58,59,60,61,62,63,64,65,66,67,68,69,],1);
+a([14,70,71,72,73,74,75,76,77,],5);
+a([22,78,],1);
+a([22,79,80,61,62,63,64,],5);
+a([28,81,],1);
+a([28,82,],2);
+a([28,83,84,85,86,87,88,88,89,90,91,92,],1);
+a([28,93,94,],1);
+a([28,95,96,],2);
+a([28,97,],2);
+a([28,98,],2);
+a([29,99,100,],1);
+a([29,101,],1);
+a([30,102,],2);
+a([31,103,],10);
+a([32,104,],3);
+a([29,105,],1);
+a([29,106,],6);
+a([30,107,],1);
+a([31,108,103,96,],1);
+a([30,109,],36);
+a([31,109,110,109,],1);
+a([31,106,],2);
+a([30,111,111,112,],1);
+a([31,113,],1);
+a([30,106,],2);
+a([31,107,108,103,96,],2);
+a([31,109,109,110,109,],1);
+a([34,103,96,],1);
+a([31,105,],2);
+a([31,106,],9);
+a([32,107,],1);
+a([33,108,103,96,],5);
+a([36,3,114,115,116,],1);
+a([32,109,],139);
+a([33,109,110,109,],5);
+a([35,103,96,],3);
+a([35,117,],4);
+a([33,106,],4);
+a([32,111,],4);
+a([33,111,112,],3);
+a([33,113,],5);
+a([34,117,],3);
+a([32,105,],5);
+a([32,106,],7);
+a([33,107,108,103,96,],15);
+a([37,3,114,115,118,119,],1);
+a([33,109,109,110,109,],2);
+a([36,103,96,],11);
+a([33,111,111,112,],2);
+a([33,106,],44);
+a([34,3,114,115,118,119,120,121,],1);
+a([34,107,],1);
+a([35,108,],1);
+a([36,103,96,],1);
+a([34,109,],181);
+a([35,109,110,109,],6);
+a([37,103,96,],1);
+a([37,117,],1);
+a([35,106,],7);
+a([34,111,],5);
+a([35,111,112,],7);
+a([35,113,],69);
+a([36,117,],13);
+a([34,106,],2);
+a([35,107,108,103,96,],6);
+a([39,3,114,115,118,122,],1);
+a([35,109,109,110,109,],2);
+a([38,103,96,],1);
+a([35,105,],1);
+a([35,106,],41);
+a([36,107,],1);
+a([37,108,],1);
+a([38,107,],2);
+a([38,103,96,],4);
+a([38,117,],2);
+a([36,109,],188);
+a([37,109,110,109,],8);
+a([39,117,],2);
+a([37,106,],3);
+a([36,111,],9);
+a([37,111,112,],4);
+a([37,113,],62);
+a([38,117,],12);
+a([36,105,],2);
+a([36,106,],5);
+a([37,107,108,103,96,],7);
+a([37,109,109,110,109,],6);
+a([40,103,96,],5);
+a([37,105,],1);
+a([37,106,],38);
+a([38,107,],3);
+a([39,108,],2);
+a([40,107,],1);
+a([40,103,96,],6);
+a([38,109,],196);
+a([39,109,110,109,],9);
+a([41,117,],4);
+a([39,106,],6);
+a([38,111,],14);
+a([39,111,112,],5);
+a([39,113,],53);
+a([40,117,],16);
+a([38,105,],2);
+a([38,106,],1);
+a([39,107,108,103,96,],2);
+a([39,109,109,110,109,],1);
+a([42,103,96,],5);
+a([39,105,],1);
+a([39,106,],28);
+a([40,107,],1);
+a([41,108,107,],2);
+a([42,103,96,],3);
+a([40,109,],187);
+a([41,109,110,109,],5);
+a([43,117,],4);
+a([41,106,],6);
+a([40,111,],7);
+a([41,111,112,],3);
+a([41,113,],56);
+a([42,117,],11);
+a([40,105,],2);
+a([40,106,],9);
+a([41,107,108,107,],1);
+a([43,103,96,],1);
+a([41,109,109,110,109,],3);
+a([44,103,96,],4);
+a([41,105,],1);
+a([41,106,],36);
+a([42,107,108,],3);
+a([44,107,],2);
+a([44,103,96,],8);
+a([46,3,114,115,118,119,120,121,],1);
+a([42,109,],169);
+a([43,109,110,109,],7);
+a([45,117,],3);
+a([43,106,],11);
+a([42,111,],10);
+a([43,111,112,],4);
+a([43,113,],41);
+a([44,117,],19);
+a([42,105,],2);
+a([42,106,],1);
+a([43,3,114,115,118,123,],1);
+a([43,107,108,107,],1);
+a([45,103,96,],5);
+a([43,109,109,110,103,96,],5);
+a([43,111,111,112,],2);
+a([43,105,],2);
+a([43,106,],36);
+a([44,3,114,115,118,119,124,],1);
+a([44,107,],2);
+a([45,108,],1);
+a([46,107,],1);
+a([46,103,96,],4);
+a([44,109,],137);
+a([45,109,110,109,],1);
+a([47,117,],3);
+a([45,106,],4);
+a([44,111,],8);
+a([45,111,112,],5);
+a([45,113,],42);
+a([46,117,],9);
+a([44,105,],1);
+a([44,106,],3);
+a([45,107,108,103,96,],7);
+a([45,109,109,110,109,],3);
+a([48,103,96,],1);
+a([45,111,111,112,],1);
+a([45,105,],2);
+a([45,106,],31);
+a([46,107,108,103,96,],1);
+a([46,109,],96);
+a([47,109,110,109,],2);
+a([49,117,],1);
+a([47,106,],1);
+a([46,111,],11);
+a([47,111,112,],6);
+a([47,113,],30);
+a([48,117,],14);
+a([46,105,],2);
+a([46,106,],1);
+a([47,107,108,103,96,],4);
+a([47,111,111,112,],1);
+a([47,105,],1);
+a([47,106,],18);
+a([48,109,],12);
+a([48,111,],5);
+a([49,113,],19);
+a([50,117,],5);
+a([48,106,125,],3);
+a([47,125,],13);
+a([48,106,],5);
+a([45,125,],26);
+a([46,106,],5);
+a([43,125,],18);
+a([44,106,],6);
+a([41,125,],32);
+a([42,106,],7);
+a([39,125,],30);
+a([40,106,],9);
+a([37,125,],23);
+a([38,106,],3);
+a([35,125,],36);
+a([36,106,],3);
+a([33,125,],26);
+a([34,106,],5);
+a([31,125,],7);
+a([29,104,],39);
+a([30,99,100,103,96,],1);
+a([31,99,100,99,],2);
+a([33,103,96,],1);
+a([32,126,],1);
+a([31,96,],2);
+a([30,101,102,101,],1);
+a([32,117,],1);
+a([31,126,],3);
+a([30,105,],1);
+a([30,104,],4);
+a([31,99,100,103,96,],3);
+a([32,99,],1);
+a([33,100,],2);
+a([34,99,],2);
+a([34,103,96,],1);
+a([32,96,],6);
+a([31,101,102,],3);
+a([31,105,],1);
+a([31,104,],119);
+a([32,99,100,103,96,],4);
+a([33,99,100,99,],1);
+a([35,103,96,],1);
+a([35,117,],1);
+a([34,126,],3);
+a([33,96,],5);
+a([32,101,102,117,],1);
+a([33,126,],7);
+a([32,104,],19);
+a([33,99,100,103,96,],15);
+a([37,3,114,115,118,123,],1);
+a([34,99,],1);
+a([35,100,],2);
+a([36,99,],3);
+a([36,103,96,],9);
+a([36,117,],3);
+a([35,126,],3);
+a([34,96,],11);
+a([33,101,102,],4);
+a([34,126,],3);
+a([33,105,],7);
+a([33,104,],130);
+a([34,99,100,103,96,],1);
+a([35,99,100,99,],2);
+a([37,103,96,],6);
+a([37,117,],1);
+a([36,126,],3);
+a([34,101,102,101,],2);
+a([35,126,],3);
+a([34,127,],17);
+a([34,104,],17);
+a([35,99,100,103,96,],2);
+a([36,99,],4);
+a([37,100,],2);
+a([38,99,],3);
+a([38,103,96,],4);
+a([38,117,],1);
+a([37,126,],4);
+a([36,96,],9);
+a([35,101,],4);
+a([36,102,],3);
+a([37,117,],2);
+a([35,105,],3);
+a([35,104,],147);
+a([36,99,100,103,96,],1);
+a([37,99,100,103,96,],4);
+a([37,96,],4);
+a([36,101,102,101,],1);
+a([38,117,],1);
+a([37,126,],7);
+a([36,105,],2);
+a([36,127,],3);
+a([36,104,],25);
+a([37,99,100,103,96,],5);
+a([38,99,],5);
+a([39,100,],4);
+a([40,99,],1);
+a([40,103,96,],10);
+a([39,126,],4);
+a([38,96,],4);
+a([39,3,114,115,118,128,],1);
+a([37,101,],7);
+a([38,102,],5);
+a([39,117,],1);
+a([38,126,],2);
+a([37,105,],3);
+a([37,104,],140);
+a([38,99,100,103,96,],1);
+a([39,99,100,99,],3);
+a([41,103,96,],3);
+a([41,117,],1);
+a([40,126,],10);
+a([39,96,],3);
+a([38,101,102,101,],4);
+a([39,126,],1);
+a([38,127,],9);
+a([38,104,],17);
+a([39,99,100,103,96,],8);
+a([40,99,],2);
+a([41,100,],3);
+a([42,99,],3);
+a([42,103,96,],10);
+a([44,3,114,115,129,],1);
+a([42,117,],2);
+a([41,126,],3);
+a([40,96,],4);
+a([41,3,114,115,118,119,120,121,],1);
+a([39,101,],1);
+a([40,102,],2);
+a([41,117,],1);
+a([40,126,],5);
+a([39,105,],3);
+a([39,104,],121);
+a([40,99,100,103,96,],6);
+a([44,3,114,115,118,119,120,130,121,131,],1);
+a([41,99,100,99,],5);
+a([43,103,96,],1);
+a([42,126,],3);
+a([41,96,],2);
+a([40,101,102,101,],3);
+a([41,126,],3);
+a([40,105,],1);
+a([40,127,],5);
+a([40,104,],20);
+a([41,99,100,103,96,],5);
+a([42,99,],5);
+a([43,100,],5);
+a([44,99,],6);
+a([44,103,96,],5);
+a([43,126,],4);
+a([42,96,],4);
+a([41,101,],2);
+a([42,102,],3);
+a([41,105,],1);
+a([41,127,3,114,115,118,128,],1);
+a([41,104,],139);
+a([42,99,100,103,96,],4);
+a([43,99,100,99,],2);
+a([45,103,96,],4);
+a([43,96,],1);
+a([42,101,102,101,],1);
+a([44,117,],3);
+a([43,126,],4);
+a([42,105,],3);
+a([42,127,],10);
+a([42,104,],15);
+a([43,99,100,103,96,],2);
+a([44,99,],2);
+a([45,100,],4);
+a([46,99,],1);
+a([46,103,96,],3);
+a([46,117,],1);
+a([45,126,],1);
+a([44,96,],3);
+a([43,101,],1);
+a([44,102,],5);
+a([44,126,],4);
+a([43,105,],3);
+a([43,104,],107);
+a([44,99,99,100,103,96,],3);
+a([47,117,],2);
+a([46,126,],1);
+a([45,96,],3);
+a([44,101,102,101,],3);
+a([45,126,],4);
+a([44,127,],8);
+a([44,104,],14);
+a([45,99,100,103,96,],4);
+a([46,99,],1);
+a([47,100,],2);
+a([48,99,],3);
+a([48,103,96,],2);
+a([47,126,],3);
+a([46,96,],1);
+a([45,101,],3);
+a([46,102,],3);
+a([46,126,],1);
+a([45,105,],3);
+a([45,104,],58);
+a([46,99,100,103,96,],1);
+a([47,99,100,99,],1);
+a([49,117,],1);
+a([48,126,],4);
+a([47,96,],2);
+a([46,101,102,],1);
+a([48,101,],1);
+a([46,127,],9);
+a([46,104,],3);
+a([47,99,100,103,96,],5);
+a([48,99,100,],4);
+a([50,99,],2);
+a([50,103,96,],2);
+a([49,126,],1);
+a([48,96,],3);
+a([47,101,],2);
+a([48,102,],1);
+a([48,126,],2);
+a([47,105,],1);
+a([47,104,],16);
+a([48,127,],2);
+a([26,132,133,134,],1);
+a([22,135,],2);
+a([23,136,99,100,103,],2);
+a([20,59,60,61,62,63,64,98,106,106,106,106,106,106,106,106,106,109,],2);
+a([36,106,106,109,],2);
+a([39,106,],1);
+a([38,106,106,],3);
+a([40,109,],16);
+a([40,111,],1);
+a([41,113,],2);
+a([40,106,106,],6);
+a([42,107,108,103,96,],1);
+a([42,109,],39);
+a([43,109,110,109,],2);
+a([43,106,],2);
+a([42,111,113,],3);
+a([44,117,],1);
+a([42,106,],1);
+a([43,107,108,103,96,],2);
+a([43,109,109,110,109,],1);
+a([46,103,96,],1);
+a([43,111,111,112,],1);
+a([43,105,],1);
+a([43,106,],12);
+a([44,107,],1);
+a([45,108,],4);
+a([46,107,],1);
+a([46,103,96,],7);
+a([48,3,114,115,118,119,120,137,138,139,140,],1);
+a([44,109,],101);
+a([45,109,110,109,],2);
+a([47,117,],1);
+a([45,106,],1);
+a([44,111,],1);
+a([45,111,112,],2);
+a([45,113,],8);
+a([46,117,],1);
+a([44,106,],3);
+a([45,107,108,103,96,],2);
+a([45,109,109,110,109,],4);
+a([48,103,96,],1);
+a([45,105,],1);
+a([45,106,],27);
+a([46,107,],3);
+a([47,108,],5);
+a([48,107,],2);
+a([48,103,96,],1);
+a([50,3,114,115,118,119,120,121,],1);
+a([48,117,],1);
+a([46,109,],130);
+a([47,109,110,109,],3);
+a([49,103,96,],2);
+a([49,117,],2);
+a([47,106,],4);
+a([46,111,],3);
+a([47,111,112,],2);
+a([47,113,],30);
+a([48,117,],7);
+a([46,105,],1);
+a([46,106,],3);
+a([47,107,108,103,96,],8);
+a([47,109,109,110,109,],2);
+a([50,103,96,],4);
+a([47,105,],1);
+a([47,106,],34);
+a([48,109,],27);
+a([48,111,],5);
+a([49,111,112,],1);
+a([49,113,],41);
+a([50,117,],14);
+a([48,106,125,],8);
+a([50,106,],2);
+a([47,125,],17);
+a([48,106,],4);
+a([45,125,],12);
+a([46,106,],4);
+a([43,125,],5);
+a([44,106,],2);
+a([41,125,106,],1);
+a([27,104,],1);
+a([28,104,104,104,104,104,104,104,104,],1);
+a([36,104,99,100,103,96,],1);
+a([41,3,114,115,118,],1);
+a([37,104,],3);
+a([38,104,99,100,103,96,],1);
+a([39,104,],5);
+a([40,127,],1);
+a([40,104,99,100,103,96,3,114,115,118,119,120,130,121,141,],1);
+a([42,99,],1);
+a([43,100,99,],1);
+a([44,117,],1);
+a([41,101,102,],1);
+a([42,126,],1);
+a([41,105,],1);
+a([41,104,],18);
+a([42,99,100,103,96,],1);
+a([43,99,100,103,96,],1);
+a([43,96,],1);
+a([42,101,102,117,],1);
+a([43,126,],2);
+a([42,104,],5);
+a([43,99,99,],2);
+a([45,100,],2);
+a([46,99,],1);
+a([46,103,96,],1);
+a([44,96,],1);
+a([43,101,102,],1);
+a([45,117,],1);
+a([44,126,],1);
+a([43,105,],2);
+a([43,104,],63);
+a([44,99,100,103,96,],2);
+a([45,99,100,99,],3);
+a([47,103,96,],1);
+a([46,126,],1);
+a([45,96,],1);
+a([44,101,102,101,],1);
+a([45,126,],2);
+a([44,127,],3);
+a([44,104,],6);
+a([45,99,100,103,96,],3);
+a([49,3,114,115,118,123,],1);
+a([46,99,],4);
+a([47,100,],1);
+a([48,99,],4);
+a([48,103,96,],3);
+a([47,126,],3);
+a([46,96,],6);
+a([45,101,],2);
+a([46,102,],1);
+a([46,126,],2);
+a([45,105,],1);
+a([45,104,],106);
+a([46,99,100,103,96,],2);
+a([47,99,100,103,96,],3);
+a([49,117,],1);
+a([48,126,],5);
+a([47,96,],3);
+a([46,101,102,101,],1);
+a([48,117,],1);
+a([47,126,],9);
+a([46,105,],1);
+a([46,127,],4);
+a([46,104,],13);
+a([47,99,100,103,96,],4);
+a([48,99,],1);
+a([49,100,],4);
+a([50,99,],2);
+a([50,103,96,],7);
+a([49,126,],5);
+a([48,96,],1);
+a([47,101,102,],1);
+a([48,126,],4);
+a([47,105,],2);
+a([47,104,],26);
+a([48,127,],10);
+a([48,104,],1);
+a([16,44,45,46,47,47,142,143,143,144,],1);
+a([8,44,145,146,147,148,146,147,149,150,151,152,153,154,154,155,156,157,158,159,160,161,162,163,],1);
+a([8,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,106,108,103,106,],1);
+a([25,106,109,96,],1);
+a([26,106,107,],2);
+a([28,108,],1);
+a([29,103,96,],1);
+a([27,109,],7);
+a([27,111,111,112,],1);
+a([27,106,],1);
+a([28,109,],5);
+a([29,109,164,],1);
+a([28,106,],1);
+a([29,107,108,],1);
+a([29,109,],1);
+a([30,109,],2);
+a([31,165,],1);
+a([31,110,],1);
+a([32,109,166,167,],1);
+a([32,103,96,],3);
+a([31,126,],1);
+a([29,111,],4);
+a([30,113,117,],1);
+a([29,106,],8);
+a([30,3,114,115,118,119,120,130,121,131,168,],1);
+a([30,109,],1);
+a([30,111,],2);
+a([31,113,117,],1);
+a([30,106,125,],3);
+a([30,125,],2);
+a([29,125,],1);
+a([27,125,],1);
+a([25,125,],1);
+a([8,104,104,99,99,],1);
+a([10,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,104,],1);
+a([26,104,],5);
+a([27,99,99,100,103,96,],1);
+a([29,126,],1);
+a([28,96,],2);
+a([27,101,102,101,],1);
+a([27,104,],3);
+a([28,99,99,],1);
+a([30,100,99,],1);
+a([30,164,],1);
+a([29,96,],1);
+a([28,104,],3);
+a([29,99,99,100,],1);
+a([32,103,96,],1);
+a([31,126,],1);
+a([29,101,],1);
+a([30,126,],1);
+a([29,105,],1);
+a([29,127,],1);
+a([29,104,],1);
+a([30,127,],2);
+a([0,169,170,171,172,173,174,175,176,177,],1);
+a([9,178,],1);
+a([10,179,],1);
+a([8,178,],2);
+a([6,180,181,182,183,184,185,],1);
+a([6,186,187,188,],1);
+a([9,189,],16);
+a([9,190,],2);
+a([9,191,],1);
+a([5,175,],1);
+a([5,192,193,187,188,189,],1);
+a([9,190,],1);
+a([5,194,],2);
+a([4,195,196,197,198,199,200,201,202,203,],2);
+a([13,204,205,206,],1);
+a([15,207,],1);
+a([13,208,209,],1);
+a([14,210,],1);
+a([13,211,],1);
+a([10,212,213,],1);
+a([10,214,215,216,],1);
+a([12,217,],1);
+a([10,218,219,220,],1);
+a([11,221,],1);
+a([12,222,223,],1);
+a([11,224,225,],1);
+a([11,226,227,228,],1);
+a([11,229,],2);
+a([12,230,],1);
+a([12,231,232,],1);
+a([11,233,234,],1);
+a([11,235,],1);
+a([12,236,],2);
+a([10,237,238,239,240,241,],1);
+a([11,242,243,],1);
+a([9,244,245,246,247,248,249,250,247,251,252,],1);
+a([10,253,254,255,256,257,258,],1);
+a([14,259,260,261,],1);
+a([10,262,246,247,263,264,],1);
+a([10,265,266,267,268,269,270,],1);
+a([10,271,272,273,274,],2);
+a([14,275,],1);
+a([10,254,255,256,276,],1);
+a([14,277,],1);
+a([13,259,278,],1);
+a([10,246,247,279,280,281,123,],1);
+a([11,282,],1);
+a([10,283,246,247,284,285,252,286,287,],1);
+a([10,288,289,],1);
+a([9,290,291,292,293,294,290,291,292,293,294,290,291,292,293,294,295,296,297,298,299,],1);
+a([24,290,291,292,293,300,301,298,302,285,252,286,303,],1);
+a([24,304,290,291,305,306,307,308,270,],1);
+a([27,292,293,294,309,310,311,312,285,313,],1);
+a([23,314,298,315,316,],1);
+a([19,304,290,291,292,293,294,304,290,291,305,306,307,308,285,252,286,303,],1);
+a([20,304,290,291,292,293,294,304,290,291,317,318,],1);
+a([13,319,320,321,322,323,324,325,326,318,],1);
+a([9,310,327,312,328,329,330,331,],1);
+a([7,332,333,334,335,336,337,338,339,340,341,342,343,344,],1);
+a([18,345,346,340,341,342,343,347,],1);
+a([6,348,349,350,185,],1);
+a([6,351,352,188,189,],1);
+a([9,191,353,354,],1);
+a([5,355,187,188,189,],6);
+a([8,191,],1);
+a([8,356,357,358,],1);
+a([6,359,],1);
+a([5,360,361,362,363,],3);
+a([4,364,],1);
+a([4,365,366,367,368,],1);
+a([7,369,370,],2);
+a([6,371,372,373,374,375,376,377,378,379,380,381,382,383,],1);
+a([12,384,385,381,386,387,388,],1);
+a([12,389,390,],2);
+a([14,391,392,],2);
+a([12,393,394,395,396,],1);
+a([12,397,398,399,399,399,399,399,399,],1);
+a([13,400,395,396,401,402,403,404,],1);
+a([12,123,],1);
+a([4,405,406,407,],3);
+a([5,408,],2);
+a([5,409,187,188,189,],7);
+a([8,190,],1);
+a([8,410,],1);
+a([8,411,],1);
+a([7,191,],1);
+a([6,358,],2);
+a([5,412,],1);
+a([4,413,414,415,416,417,412,],1);
+a([6,418,419,420,],1);
+a([9,416,417,412,],3);
+a([9,421,422,423,],1);
+a([12,424,],2);
+a([9,270,],1);
+a([8,425,],2);
+a([6,123,],2);
+a([5,426,427,428,],1);
+a([8,429,],1);
+a([9,430,],1);
+a([10,431,],1);
+a([10,432,433,434,],1);
+a([10,435,],7);
+a([10,436,437,438,],2);
+a([13,439,],1);
+a([8,430,],1);
+a([9,435,],5);
+a([10,431,437,],1);
+a([12,438,],1);
+a([9,436,437,438,],2);
+a([7,429,],2);
+a([8,430,435,],2);
+a([9,436,437,438,],1);
+a([7,430,],1);
+a([5,440,441,],1);
+a([7,431,],1);
+a([7,442,],10);
+a([6,442,],3);
+a([5,443,444,445,446,123,],2);
+a([5,447,448,449,450,451,187,188,189,],21);
+a([12,191,],1);
+a([13,353,354,],4);
+a([13,452,],1);
+a([13,411,],1);
+a([10,453,353,354,],22);
+a([10,454,],5);
+a([10,455,],3);
+a([10,456,457,],4);
+a([8,458,459,],7);
+a([9,460,],25);
+a([10,459,],70);
+a([11,461,],55);
+a([8,460,],3);
+a([9,459,],3);
+a([10,462,463,],1);
+a([10,461,],7);
+a([9,461,],1);
+a([6,464,465,466,467,468,469,],1);
+a([12,460,],1);
+a([13,459,],8);
+a([14,462,463,],2);
+a([14,461,],1);
+a([13,470,],1);
+a([12,471,472,473,],2);
+a([13,474,],3);
+a([7,475,476,477,],2);
+a([10,478,431,479,460,459,],2);
+a([11,479,],1);
+a([9,480,481,482,],1);
+a([11,483,484,],1);
+a([12,485,486,],1);
+a([13,487,],1);
+a([13,488,489,490,491,],1);
+a([17,492,],1);
+a([13,493,],1);
+a([14,494,],1);
+a([15,495,],1);
+a([14,496,497,],2);
+a([14,498,],1);
+a([13,499,],1);
+a([14,500,],1);
+a([12,501,502,],1);
+a([12,503,],1);
+a([6,504,416,417,358,],1);
+a([6,505,],1);
+a([7,395,396,401,506,507,],1);
+a([12,508,],1);
+a([7,509,395,396,401,402,403,510,],1);
+a([8,511,395,512,],1);
+a([6,513,419,514,515,416,417,358,],1);
+a([12,412,],9);
+a([9,516,416,417,358,],2);
+a([12,412,],10);
+a([11,412,],1);
+a([5,517,416,],1);
+a([6,419,518,519,],1);
+a([8,520,],2);
+a([7,521,522,],10);
+a([7,522,],2);
+a([6,521,],1);
+a([5,523,524,525,526,],1);
+a([7,527,],1);
+a([8,528,529,],2);
+a([10,500,],1);
+a([10,530,531,],1);
+a([10,532,533,534,535,],1);
+a([10,536,],1);
+a([10,537,270,],1);
+a([7,538,539,532,533,534,535,],1);
+a([10,540,541,],1);
+a([9,536,],1);
+a([8,542,453,353,],1);
+a([8,543,544,545,546,547,548,549,550,],2);
+a([6,527,],1);
+a([5,551,],1);
+a([6,444,],3);
+a([5,552,444,553,],1);
+a([8,554,],2);
+a([9,555,],4);
+a([10,556,],5);
+a([11,557,558,],1);
+a([10,559,],2);
+a([11,557,558,],1);
+a([8,555,],5);
+a([9,556,],17);
+a([8,556,],1);
+a([7,555,],1);
+a([5,560,561,],6);
+a([7,562,563,],1);
+a([9,270,],1);
+a([5,392,],1);
+a([5,564,],53);
+a([5,565,],4);
+a([6,566,416,417,412,],1);
+
+
+console.timeEnd("data exec time");
+
+
+function makeTreeNode() {
+  if (isDiffgraph)
+    return {self_samples_a: 0, self_samples_b: 0, self_delta: 0,
+            total_samples_a: 0, total_samples_b: 0, total_delta: 0,
+            delta_abs: 0, children: {}};
+  else
+    return {self: 0, total: 0, children: {}};
+}
+
+function getChildNode(node, childTitle) {
+  var children = node.children;
+  var child = children[childTitle];
+  if (child == undefined) {
+    child = makeTreeNode();
+    children[childTitle] = child;
+  }
+  return child;
+}
+
+function parseStacksToTreeSimple(stacks, treeRoot) {
+  console.time("parseStacksToTreeSimple");
+  var depth = 0;
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total += stack.samples;
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.total += stack.samples;
+    node.self += stack.samples;
+  }
+  console.timeEnd("parseStacksToTreeSimple");
+  return depth;
+}
+
+function parseStacksToTreeDiffgraph(stacks, treeRoot) {
+  console.time("parseStacksToTreeDiffgraph");
+  var depth = 0;
+
+  for (var i = 0, len = stacks.length; i < len; i++) {
+    var stack = stacks[i];
+    var stackframes = stack.stackStr.split(";");
+    var stackLen = stackframes.length;
+    depth = Math.max(depth, stackLen);
+    var node = treeRoot;
+
+    var samplesA = stack.samples_a;
+    var samplesB = stack.samples_b;
+    if (normalizeDiff) samplesB = Math.round(samplesB * b_scale_factor);
+    var delta = samplesB - samplesA;
+
+
+    if (reverseGraph) {
+      for (var j = stackLen-1; j >= 0; j--) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    } else {
+      for (var j = 0; j < stackLen; j++) {
+        var stackframe = stackframes[j];
+        node.total_samples_a += samplesA;
+        node.total_samples_b += samplesB;
+        node.total_delta += delta;
+        node.delta_abs += Math.abs(delta);
+        node = getChildNode(node, stackframe);
+      }
+    }
+    node.self_samples_a += samplesA;
+    node.self_samples_b += samplesB;
+    node.self_delta += delta;
+    node.total_samples_a += samplesA;
+    node.total_samples_b += samplesB;
+    node.total_delta += delta;
+    node.delta_abs += Math.abs(delta);
+  }
+  console.timeEnd("parseStacksToTreeDiffgraph");
+  return depth;
+}
+
+function parseStacksToTree(stacks, treeRoot) {
+  if (isDiffgraph)
+    return parseStacksToTreeDiffgraph(stacks, treeRoot);
+  else
+    return parseStacksToTreeSimple(stacks, treeRoot);
+}
+
+const palette = {
+  green: "#50e150",
+  aqua: "#50bebe",
+  orange: "#e17d00",
+  yellow: "#c8c83c",
+  red: "#e15a5a",
+  clojure_green: "#91dc51",
+  clojure_blue: "#8fb5fe",
+};
+
+function getColor(title) {
+  if (title.endsWith("_[j]")) {
+    return palette.green;
+  } else if (title.endsWith("_[i]")) {
+    return palette.aqua;
+  } else if (title.endsWith("_[k]")) {
+    return palette.orange;
+  } else if (title.includes("::") || title.startsWith("-[") || title.startsWith("+[")) {
+    return palette.yellow;
+  } else if (title.includes("/")) { // Clojure (will only work after unmunging)
+    return palette.clojure_blue;
+  } else if (title.includes(".")) { // Java (if it has a dot and is not Clojure)
+    return palette.clojure_green;
+  } else return palette.red;
+}
+
+function decToHex(n) {
+  var hex = n.toString(16);
+  return hex.length == 1 ? "0" + hex : hex;
+}
+
+function getDiffColor(isRed, intensity) {
+  return "hsl(" + ((isRed) ? 0 : 220) + ",100%," + Math.round(90 - intensity * 30) + "%)";
+  // return "hsl(" + ((isRed) ? 0 : 220) + "," + Math.round(100 * intensity) + "%, 60%)";
+}
+
+function scaleColorMap(colorMap, intensity) {
+  return '#' + decToHex(intensity * colorMap.red) +
+    decToHex(intensity * colorMap.green) + decToHex(intensity * colorMap.blue);
+}
+
+var stacks, tree, levels, depth;
+
+var smallestPixelsPerSample, minPixelsPerFrame = 0.25, minSamplesToShow;
+
+function generateLevelsSimple(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.total >= minSamplesToShow) {
+    levels[level].push({left: left, width: node.total, color: getColor(title),
+                        title: title});
+
+    left += node.self;
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].total - a[1].total);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsSimple(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.total;
+    }
+  }
+}
+
+function generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  if (node.delta_abs >= minSamplesToShow) {
+    var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
+    var color = getDiffColor((node.total_delta > 0), Math.min(Math.abs(change), 1.0));
+    levels[level].push({left: left, width: node.delta_abs,
+                        self_samples_a: node.self_samples_a,
+                        self_samples_b: node.self_samples_b,
+                        self_delta: node.self_delta,
+                        total_samples_a: node.total_samples_a,
+                        total_samples_b: node.total_samples_b,
+                        total_delta: node.total_delta,
+                        color: color,
+                        title: title});
+
+    left += Math.abs(node.self_delta);
+
+    let children = Object.entries(node.children);
+    if (sortByNameRadio.checked)
+      children.sort((a, b) => a[0].localeCompare(b[0]));
+    else
+      children.sort((a, b) => b[1].delta_abs - a[1].delta_abs);
+
+    for (let i in children) {
+      let title = children[i][0];
+      let child = children[i][1];
+      generateLevelsDiffgraph(levels, child, title, level+1, left, minSamplesToShow);
+      left += child.delta_abs;
+    }
+  }
+}
+
+function generateLevels(levels, node, title, level, x, minSamplesToShow) {
+  if (isDiffgraph)
+    generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow);
+  else
+    generateLevelsSimple(levels, node, title, level, x, minSamplesToShow);
+}
+
+function refreshData() {
+  if (isDiffgraph && normalizeDiff)
+    b_scale_factor = totalSamplesA / totalSamplesB;
+
+  stacks = transformStacks();
+
+  tree = makeTreeNode();
+
+  depth = parseStacksToTree(stacks, tree);
+  smallestPixelsPerSample = canvasWidth / (tree.total || tree.delta_abs);
+  minSamplesToShow = minPixelsPerFrame / smallestPixelsPerSample;
+
+  levels = [];
+  generateLevels(levels, tree, "all", 0, 0, minSamplesToShow);
+  depth = levels.length;
+}
+
+refreshData();
+
+var canvasHeight;
+
+function initCanvas() {
+  canvasHeight = (depth + 1) * 16;
+  canvas.style.width = canvasWidth + 'px';
+  canvas.width = canvasWidth * (devicePixelRatio || 1);
+  canvas.height = canvasHeight * (devicePixelRatio || 1);
+  if (devicePixelRatio) c.scale(devicePixelRatio, devicePixelRatio);
+  c.font = document.body.style.font;
+}
+
+initCanvas();
+isNormalizedDiv.style.display = isDiffgraph ? 'inherit' : 'none';
+if (graphTitle == "")
+  titleDiv.style.display = 'none';
+else
+  graphTitleSpan.innerText = graphTitle;
+
+
+var highlightPattern = null, currentRootFrame, currentRootLevel, currentFrameUnderCursor, currentLevelUnderCursor, px;
+
+function render(newRootFrame, newLevel) {
+  console.time("render");
+  // Background
+  var gradient = c.createLinearGradient(0, 0, 0, canvasHeight);
+  gradient.addColorStop(0.05, "#eeeeee");
+  gradient.addColorStop(0.95, "#eeeeb0");
+  c.fillStyle = gradient;
+  c.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  currentRootFrame = newRootFrame || levels[0][0];
+  currentRootLevel = newLevel || 0;
+  px = canvasWidth / currentRootFrame.width;
+
+  const marked = [];
+
+  function mark(f) {
+    return marked[f.left] >= f.width || (marked[f.left] = f.width);
+  }
+
+  function totalMarked() {
+    let total = 0;
+    let left = 0;
+    for (let x in marked) {
+      if (+x >= left) {
+        total += marked[x];
+        left = +x + marked[x];
+      }
+    }
+    return total;
+  }
+
+  const x0 = currentRootFrame.left;
+  const x1 = x0 + currentRootFrame.width;
+
+  function drawFrame(f, y, alpha) {
+    if (f.left < x1 && f.left + f.width > x0) {
+      c.fillStyle = highlightPattern && f.title.match(highlightPattern) && mark(f) ? '#ee00ee' : f.color;
+      c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+
+      if (f.width * px >= 21) {
+        const chars = Math.floor(f.width * px / 7);
+        const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 2) + '..';
+        c.fillStyle = '#000000';
+        c.fillText(title, Math.max(f.left - x0, 0) * px + 3, y + 12, f.width * px - 6);
+      }
+
+      if (alpha) {
+        c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+      }
+    }
+  }
+
+  for (let h = 0; h < levels.length; h++) {
+    const y = reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16;
+    const frames = levels[h];
+    for (let i = 0; i < frames.length; i++) {
+      if (frames[i].width >= minSamplesToShow)
+        drawFrame(frames[i], y, h < currentRootLevel);
+    }
+  }
+
+  if (highlightPattern != null) {
+    matchContainer.style.display = 'inherit';
+    matchedLabel.textContent = pct(totalMarked(), currentRootFrame.width) + '%';
+  } else
+    matchContainer.style.display = 'none';
+  console.timeEnd("render");
+}
+
+render();
+
+function round2dig(n) {
+  return Math.round(n * 100) / 100;
+}
+
+function ratioToPct(n) {
+  return ((n > 0) ? "+" : "") + (n * 100).toFixed(2) + "%";
+}
+
+function findFrame(frames, x) {
+  let left = 0;
+  let right = frames.length - 1;
+
+  while (left <= right) {
+    const mid = (left + right) >>> 1;
+    const f = frames[mid];
+
+    if (f.left > x) {
+      right = mid - 1;
+    } else if (f.left + f.width <= x) {
+      left = mid + 1;
+    } else {
+      return f;
+    }
+  }
+
+  if (frames[left] && (frames[left].left - x) * px < 0.5) return frames[left];
+  if (frames[right] && (x - (frames[right].left + frames[right].width)) * px < 0.5) return frames[right];
+
+  return null;
+}
+
+canvas.onmousemove = function() {
+  const h = Math.floor((reverseGraph ? event.offsetY : (canvasHeight - event.offsetY)) / 16);
+  currentLevelUnderCursor = h;
+  if (h >= 0 && h < levels.length) {
+    const f = findFrame(levels[h], event.offsetX / px + currentRootFrame.left);
+    currentFrameUnderCursor = f;
+    if (f && f.width >= minSamplesToShow) {
+      hl.style.left = (Math.max(f.left - currentRootFrame.left, 0) * px + canvas.offsetLeft) + 'px';
+      hl.style.width = (Math.min(f.width, currentRootFrame.width) * px) + 'px';
+      hl.style.top = ((reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16) + canvas.offsetTop) + 'px';
+      // hl.firstChild.textContent = f.title;
+      hl.style.display = 'block';
+      if (isDiffgraph) {
+        var rel_change = (f.total_samples_a == 0) ? 1.0 : f.total_delta / f.total_samples_a;
+        var total_change = f.total_delta / tree.total_samples_a;
+        canvas.title = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
+        // , self_samples_a: ${f.self_samples_a}, self_samples_b: ${f.self_samples_b},  self_delta: ${f.self_delta},  total_samples_a: ${f.total_samples_a},  total_samples_b: ${f.total_samples_b}, total_delta: ${f.total_delta})`;
+      } else
+        canvas.title = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + '%)';
+      canvas.style.cursor = 'pointer';
+      status.textContent = 'Function: ' + canvas.title;
+      status.style['max-width'] = (canvas.offsetWidth - 150) + 'px';
+      return;
+    }
+  }
+  canvas.onmouseout();
+}
+
+canvas.onclick = function () {
+  if (currentFrameUnderCursor && currentFrameUnderCursor != currentRootFrame) {
+    render(currentFrameUnderCursor, currentLevelUnderCursor);
+    canvas.onmousemove();
+  }
+}
+
+canvas.onmouseout = function() {
+  hl.style.display = 'none';
+  status.textContent = '\xa0';
+  canvas.title = '';
+  canvas.style.cursor = '';
+  currentLevelUnderCursor = -1;
+  currentFrameUnderCursor = null;
+}
+
+function samples(n, add_plus) {
+  return (add_plus && n > 0 ? "+" : "") + (n === 1 ? '1 sample' : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + ' samples';
+}
+
+function pct(a, b) {
+  return a >= b ? '100' : (100 * a / b).toFixed(2);
+}
+
+//// Configuration panel
+
+function highlightApply() {
+  const pattern = highlightInput.value;
+  highlightPattern = (pattern == "") ? null : _stringToMaybeRegex(pattern);
+  render(currentRootFrame, currentRootLevel);
+}
+
+function highlightClear() {
+  highlightPattern = null;
+  render(currentRootFrame, currentRootLevel);
+}
+
+function userTransformsSwap(idx1, idx2) {
+  const swap = userTransforms[idx1];
+  userTransforms[idx1] = userTransforms[idx2];
+  userTransforms[idx2] = swap;
+}
+
+function addNewTransformParameterized(type, what, replacement) {
+  syncTransformsModelWithUI();
+  userTransforms.push(_makeTransform(type, true, what, replacement));
+  redrawTransformsSection();
+}
+
+function addNewTransform() {
+  addNewTransformParameterized(newTransformType.value, "", "");
+}
+
+function deleteTransform(originator) {
+  syncTransformsModelWithUI();
+  userTransforms.splice(originator.internalId, 1);
+  redrawTransformsSection();
+}
+
+function cloneTransform(originator) {
+  syncTransformsModelWithUI();
+  const idx = originator.internalId;
+  userTransforms.splice(idx+1, 0, Object.assign({}, userTransforms[idx]));
+  redrawTransformsSection();
+}
+
+function moveTransformUp(originator) {
+  const idx = originator.internalId;
+  if (idx == 0) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx-1, idx);
+  redrawTransformsSection();
+}
+
+function moveTransformDown(originator) {
+  const idx = originator.internalId;
+  if (idx == userTransforms.length-1) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx, idx+1);
+  redrawTransformsSection();
+}
+
+function refreshAfterEnabledToggle() {
+  syncTransformsModelWithUI();
+  redrawTransformsSection();
+}
+
+function oneByClass(container, classname) {
+  return container.getElementsByClassName(classname)[0];
+}
+
+function syncTransformsModelWithUI() {
+  for (var i = 0; i < transformsContainer.children.length; i++) {
+    const el = transformsContainer.children[i];
+    const model = userTransforms[i];
+    userTransforms[i] =
+      _makeTransform(model.type, oneByClass(el, 'chkEnabled').checked,
+                     oneByClass(el, 'what').value,
+                     model.type == 'replace' ? oneByClass(el, 'replacement').value : null);
+  }
+}
+
+function redrawTransformsSection() {
+  transformsContainer.innerHTML = "";
+  for (var i = 0; i < userTransforms.length; i++) {
+    const transform = userTransforms[i];
+    var newEl = (transform.type == 'replace') ?
+        transformReplaceTemplate.cloneNode(true) :
+        transformFilterTemplate.cloneNode(true);
+    newEl.style = '';
+    newEl.internalId = i;
+
+    const what = transform.what;
+    if (typeof(what) == 'string')
+      oneByClass(newEl, 'what').value = what;
+    else
+      oneByClass(newEl, 'what').value = what.toString().match(/^(\/.+\/)g?$/)[1];
+
+    if (transform.type == 'replace')
+      oneByClass(newEl, 'replacement').value = transform.replacement;
+    else if (transform.type == 'remove')
+      oneByClass(newEl, 'label').textContent = "Remove:";
+    oneByClass(newEl, 'chkEnabled').checked = transform.enabled;
+
+    oneByClass(newEl, 'chkEnabled').internalId = i;
+    oneByClass(newEl, 'btnMoveUp').internalId = i;
+    oneByClass(newEl, 'btnMoveDown').internalId = i;
+    oneByClass(newEl, 'btnClone').internalId = i;
+    oneByClass(newEl, 'btnDelete').internalId = i;
+    transformsContainer.appendChild(newEl);
+  }
+}
+
+redrawTransformsSection();
+
+function scrollToTopOrBottom() {
+  window.scrollTo(0, reverseGraph ? 0 : document.body.scrollHeight);
+}
+
+scrollToTopOrBottom();
+
+function applyConfiguration() {
+  console.time("apply config");
+  minPixelsPerFrame = minFrameWidthInPx.value || 0.25;
+  normalizeDiff = isNormalized.checked;
+  let reverseChanged = (reverseGraph != isReversedInput.checked);
+  reverseGraph = isReversedInput.checked;
+  syncTransformsModelWithUI();
+  refreshData();
+  initCanvas();
+  render();
+  if (reverseChanged)
+    scrollToTopOrBottom();
+  console.timeEnd("apply config");
+}
+
+function toggleSidebarVisibility() {
+  sidebarVisible = !sidebarVisible;
+  updateSidebarState();
+  applyConfiguration();
+}
+
+
+// Context menu implementation was taken from https://github.com/heapoverride/context-js
+// and modified to suit our needs. Licensed Under MIT License, author: @UnrealSec
+class ContextMenu {
+  constructor(container, items) {
+    this.container = container;
+    this.dom = null;
+    this.shown = false;
+    this.root = true;
+    this.items = items;
+    this._onclick = e => {
+      if (this.dom && e.target != this.dom &&
+          e.target.parentElement != this.dom &&
+          !e.target.classList.contains('item') &&
+          !e.target.parentElement.classList.contains('item')) {
+        this.hide();
+      }
+    };
+    this._oncontextmenu = e => {
+      if (e.target != this.dom &&
+          e.target.parentElement != this.dom &&
+          !e.target.classList.contains('item') &&
+          !e.target.parentElement.classList.contains('item') &&
+          currentFrameUnderCursor) {
+        e.preventDefault();
+        this.hide();
+        this.frame = currentFrameUnderCursor;
+        this.show(e.clientX, e.clientY);
+      }
+    };
+    this._onblur = e => { this.hide(); };
+  }
+  getMenuDom() {
+    const menu = document.createElement('div');
+    menu.classList.add('context');
+    for (const item of this.items)
+      menu.appendChild(this.itemToDomEl(item));
+    return menu;
+  }
+  itemToDomEl(data) {
+    const item = document.createElement('div');
+    if (data === null) {
+      item.classList = 'separator';
+      return item;
+    }
+    if (data.hasOwnProperty('color') && /^#([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(data.color.toString())) {
+      item.style.cssText = `color: ${data.color}`;
+    }
+    item.classList.add('item');
+
+    const label = document.createElement('span');
+    label.classList = 'label';
+    label.innerText = data.hasOwnProperty('text') ? data['text'].toString() : '';
+    item.appendChild(label);
+
+    if (data.hasOwnProperty('disabled') && data['disabled'])
+      item.classList.add('disabled');
+    else
+      item.classList.add('enabled');
+
+    item.addEventListener('click', e => {
+      if (item.classList.contains('disabled')) return;
+      if (data.hasOwnProperty('onclick') && typeof data['onclick'] === 'function') {
+        const event = {handled: false, item: item, label: label, items: this.items, data: data};
+        data['onclick'](event, this.frame);
+        if (!event.handled)
+          this.hide();
+      } else {
+        this.hide();
+      }
+    });
+    return item;
+  }
+  hide() {
+    if (this.dom && this.shown) {
+      this.shown = false;
+      this.container.removeChild(this.dom);
+    }
+  }
+  show(x, y) {
+    this.dom = this.getMenuDom();
+    this.dom.style.visibility = 'hidden';
+    this.dom.style.left = `${x}px`;
+    this.dom.style.top = `${y}px`;
+    this.shown = true;
+    this.container.appendChild(this.dom);
+
+    if (this.dom.offsetWidth + x > document.body.clientWidth)
+      this.dom.style.left = `${x-this.dom.offsetWidth}px`;
+    if (this.dom.offsetHeight + y > document.body.clientHeight)
+      this.dom.style.top = `${y-this.dom.offsetHeight}px`;
+    this.dom.style.visibility = 'visible';
+  }
+
+  install() {
+    this.container.addEventListener('contextmenu', this._oncontextmenu, false);
+    this.container.addEventListener('keydown', this._oncontextmenu_keydown);
+    this.container.addEventListener('click', this._onclick);
+    window.addEventListener('blur', this._onblur);
+  }
+}
+
+function escapeRegex(regexString) {
+  return regexString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function menuHighlight(e, frame) {
+  let rx = escapeRegex(frame.title);
+  highlightInput.value = "/^" + rx + "$/";
+  highlightApply();
+}
+
+function menuCopyAsText(e, frame) {
+  navigator.clipboard.writeText(frame.title);
+}
+
+function menuCopyAsRegex(e, frame) {
+  let rx = escapeRegex(frame.title);
+  navigator.clipboard.writeText(rx);
+}
+
+function menuFilterContaining(e, frame) {
+  addNewTransformParameterized('filter', ";" + frame.title + ";", "");
+  applyConfiguration();
+}
+
+function menuRemoveContaining(e, frame) {
+  addNewTransformParameterized('remove', ";" + frame.title + ";", "");
+  applyConfiguration();
+}
+
+function menuHideFramesAbove(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/(;" + rx + ";).*/", "$1");
+  applyConfiguration();
+}
+
+function menuHideFramesBelow(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/.+(" + rx + ";)/", ";$1");
+  applyConfiguration();
+}
+
+function menuCollapseRecursive(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/;(" + rx + ";)+/", ";$1");
+  applyConfiguration();
+}
+
+function menuCollapseRecursiveWithGaps(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/;(" + rx + ";).*\\1/", ";$1");
+  applyConfiguration();
+}
+
+const ctxMenuData = [
+  {text: 'Highlight', onclick: menuHighlight },
+  {text: 'Copy as text', onclick: menuCopyAsText },
+  {text: 'Copy as regex', onclick: menuCopyAsRegex },
+  null,
+  {text: 'Filter containing stacks', onclick: menuFilterContaining },
+  {text: 'Remove containing stacks', onclick: menuRemoveContaining },
+  {text: 'Hide frames above', onclick: menuHideFramesAbove },
+  {text: 'Hide frames below', onclick: menuHideFramesBelow },
+  null,
+  {text: 'Collapse recursive', onclick: menuCollapseRecursive },
+  {text: 'Collapse recursive (with gaps)', onclick: menuCollapseRecursiveWithGaps},
+];
+
+const ctxMenu = new ContextMenu(document.getElementById('canvasDiv'), ctxMenuData);
+ctxMenu.install();
+
+    </script>
+  </body>
+</html>

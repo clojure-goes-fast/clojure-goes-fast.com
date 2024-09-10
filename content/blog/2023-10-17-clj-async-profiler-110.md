@@ -103,7 +103,7 @@ target="_blank">Click</a> to open.
 
 That's all the quick transforms available for now. Some more may be added in the
 future, but these should cover a lot of usecases already. Quick transforms can
-also be a stepping stone to more complex behavior Start by adding one from the
+also be a stepping stone to more complex behavior. Start by adding one from the
 menu and then experiment with expression in the sidebar to reach the most
 informative view.
 

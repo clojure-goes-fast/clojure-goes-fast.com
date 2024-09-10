@@ -33,7 +33,7 @@ Let's begin by creating a file `~/.clojure/src/user.clj`. For now, its content
 will be the following:
 
 ```clj
-(in-ns 'user)
+(ns user)
 
 (defn heap []
   (let [u (.getHeapMemoryUsage (java.lang.management.ManagementFactory/getMemoryMXBean))
@@ -132,7 +132,7 @@ on the classpath and explicitly load them. The snippet would look like this:
 (when *file*
   (->> (.getResources (.getContextClassLoader (Thread/currentThread)) "user.clj")
        enumeration-seq
-       ;; Assume the first userfile is the currently loaded one. Load others if
+       ;; Assume the first user.clj is the currently loaded one. Load others if
        ;; there are more to load.
        rest
        (run! #(clojure.lang.Compiler/load (clojure.java.io/reader %)))))
@@ -159,7 +159,7 @@ user=> (hello)
 
 The snippet above can be copied and committed into any project that already has
 a `user.clj`. The snippet has a property of actually loading all `user.clj`s on
-the classpath, including those that come with JAR dependencies. Whether it's
+the classpath, including those that come from JAR dependencies. Whether it's
 desirable is up to you; if not, you can tune the snippet to skip the
 JAR-residing files.
 
@@ -250,7 +250,7 @@ for you.
 
 1. <a name="fn1"></a><span> I have found [this
 library](https://github.com/gfredericks/user.clj) that allows not specifying
-absolute file path. I however don't mind changing the absolute path once and
+absolute file path. I however don't mind specifying the absolute path once to
 avoid an extra dependency.</span>[↑](#bfn1)
 2. <a name="fn2"></a><span> Note that it better be
 `cider-clojure-cli-global-aliases`, not `cider-clojure-cli-aliases`. The
