@@ -327,3 +327,9 @@ div.downscale-iframe-66 {
     -webkit-transform: scale(0.666);
     -webkit-transform-origin: 0 0;
 }
+
+.image-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
