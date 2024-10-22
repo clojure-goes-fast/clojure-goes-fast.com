@@ -33,11 +33,11 @@ user=> (prof/profile
 
 <center>
 <figure class="figure">
-<div class="downscale-iframe-66" style="height:560px">
-<iframe src="/img/kb/cljap-alloc1.html?hide-sidebar=true" style="height:840px"></iframe>
+<div class="downscale-iframe-66" style="height:400px">
+<iframe src="/img/kb/cljap-alloc1.html?hide-sidebar=true" style="height:600px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
-    Initial allocation flamegraph. <a href="/img/kb/cljap-alloc1.html?hide-sidebar=true" target="_blank">Click to open.</a>
+    Initial allocation flamegraph. <a href="/img/kb/cljap-alloc1.html" target="_blank">Click to open.</a>
 </figcaption>
 </figure>
 </center>
@@ -46,8 +46,8 @@ Visually, an allocation flamegraph is almost identical to a regular CPU
 flamegraph. What is different is that at the top of every stack, there is a
 special frame (or multiple frames) that denotes class of objects that were
 allocated there[[1]](#fn1)<a name="bfn1"></a>. You can see in the flamegraph
-above that Cheshire is responsible for 52% of the allocation volume; meanwhile,
-`slurp` makes 48% of the allocations. Let's hoist `slurp` outside the loop and
+above that Cheshire is responsible for 54% of the allocation volume; meanwhile,
+`slurp` makes 46% of the allocations. Let's hoist `slurp` outside the loop and
 profile just the parsing.
 
 ```clj
@@ -66,11 +66,11 @@ Let's add one of those to this flamegraph:
 
 <center>
 <figure class="figure">
-<div class="downscale-iframe-66" style="height:420px">
-<iframe src="/img/kb/cljap-alloc2.html" style="height:630px"></iframe>
+<div class="downscale-iframe-66" style="height:300px">
+<iframe src="/img/kb/cljap-alloc2.html?sidebar=expanded" style="height:450px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
-    Cheshire allocations flamegraph. <a href="/img/kb/cljap-alloc2.html" target="_blank">Click to open.</a>
+    Cheshire allocations flamegraph. <a href="/img/kb/cljap-alloc2.html?sidebar=expanded" target="_blank">Click to open.</a>
 </figcaption>
 </figure>
 </center>

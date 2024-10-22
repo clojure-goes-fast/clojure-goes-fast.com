@@ -23,7 +23,9 @@ Create a file `deps.edn` with the following content:
 
 ```clj
 {:paths ["src"]
- :deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}}}
+ :deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.4.0"}}
+ :aliases
+ {:attach {:jvm-opts ["-Djdk.attach.allowAttachSelf"]}}}
 ```
 
 If you follow this tutorial on Linux, you should also execute this to let the
@@ -87,13 +89,15 @@ Now we are ready to launch the REPL. Here, we'll run a simple terminal REPL like
 this:
 
 ```shell
-$ clj -J-Djdk.attach.allowAttachSelf
+$ clj -A:attach
 ```
 
-If you start REPL from the editor of your choice, make sure to supply the JVM
-option `-Djdk.attach.allowAttachSelf`. Starting from Java 11, it is required so
-that clj-async-profiler is able to dynamically attach to the running process.
-Once the REPL starts, let's do the following:
+The `:attach` alias is needed to add `-Djdk.attach.allowAttachSelf` to the JVM
+launch options. If you start REPL from the editor of your choice, make sure to
+also include this alias, or add `-J-Djdk.attach.allowAttachSelf` directly to the
+command string. Starting from Java 11, this is required so that
+clj-async-profiler is able to dynamically attach to the running process. Once
+the REPL starts, let's do the following:
 
 ```clj
 user=> (require 'tutorial.binary-trees)
@@ -122,15 +126,15 @@ Open `localhost:8080` in your browser to see this:
 </figure>
 </center>
 
-For now, just click the link to open the generated flamegraph.
+For now, just click the link that says "flamegraph" to open the generated flamegraph.
 
 <center>
 <figure class="figure">
 <div class="downscale-iframe-66" style="height:500px">
-<iframe src="/img/kb/cljap-basic-usage-flamegraph.html?hide-sidebar=true" style="height:750px"></iframe>
+<iframe src="/img/kb/cljap-basic-usage-flamegraph.html" style="height:750px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
-    Resulting flamegraph. <a href="/img/kb/cljap-basic-usage-flamegraph.html?hide-sidebar=true"
+    Resulting flamegraph. <a href="/img/kb/cljap-basic-usage-flamegraph.html"
 target="_blank">Click</a> to open in a dedicated tab.
 </figcaption>
 </figure>
@@ -164,8 +168,9 @@ of options:
 - `:threads` — if true, the profiling data will be presented for each thread
   separately. Note that this does not improve the resolution of the profile; it
   only separates the results by-thread.
-- `:features` — a list of additional features to enable. Currently supported
-  features:
+- `:features` — a list of additional features to enable. Instead of a list, you
+  can pass a keyword `:all` that means enabling all features. Currently
+  supported features:
   + `:vtable` — show targets of vtable/itable calls. Helps to understand which
     specific polymorphic dispatch is causing the slowdown.
   + `:comptask` — show JIT compilation task. Useful when trimming down

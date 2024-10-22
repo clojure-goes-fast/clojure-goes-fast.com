@@ -1,382 +1,333 @@
 <html>
   <head>
+    <meta charset="utf-8"/>
+    <link rel='icon' href='favicon.png' type='image/x-icon'/>
     <style>
-      body {margin: 0; padding: 5px; background-color: #ffffff}
-      button {font: 12px sans-serif;}
+      body {margin:0; padding:0; background:linear-gradient(70deg, #ffffd0 0%, #fff 100%)}
       p {margin: 5px 0 5px 0}
       #hl {position: absolute; display: none; overflow: hidden; white-space: nowrap; pointer-events: none; background-color: #00000000; outline: 0.5px solid #222; height: 15px}
       #hl span {padding: 0 3px 0 3px}
-      #status {overflow: hidden; white-space: nowrap}
-      #match {overflow: hidden; white-space: nowrap; display: none; float: right; text-align: right}
-      * {box-sizing:border-box,margin:.25em 0}
-      .col{display:table-cell}
-      .col-1{width:5%}
-      .col-2{width:15%}
-      .col-3{width:22%}
-      .col-4{width:30%}
-      .col-5{width:40%}
-      .col-6{width:50%}
-      .row{display:table;border-spacing:0.2em 0;width:100%;display:flex}
+      #tooltip {position: absolute; display: none; overflow: hidden; white-space: normal;
+                pointer-events: none; background: #DCE3E5; box-shadow:#00000019 0px 2px 6px;
+                max-width: 250px; animation: .2s fadeIn; animation-fill-mode: forwards;
+                visibility: hidden; font-size: 11px; border-radius:4px;}
+      #tooltip span {overflow-wrap: anywhere; color: #4C4E4F; display: inline-block; margin: 4px 6px;}
+      #tooltip span.sep {margin: 4px 0; color:#fff;}
+      #tooltip .framediv {padding:0 0; border-bottom: 1px solid #fff;}
+      #tooltip .statdiv {display:flex; justify-content:space-around;}
+      #tooltipRightClickHint {font-size:9px; width:100%; display:flex; justify-content:center;}
+      @keyframes fadeIn { 99% { visibility:hidden; } 100% { visibility:visible; }}
+      #statusBox {background-color:#ffffe6; position:fixed; left:0; bottom:0; width:100%;
+                  box-sizing: border-box; padding:5px 1em; display:inline-flex;
+                  justify-content:space-between;}
+      #hoverTip {overflow: hidden; white-space: nowrap}
+      #matchContainer {/* overflow: hidden; white-space: nowrap; */ display: none; /* float: right; text-align: right */}
+      .wrapper {position:relative;}
+      .row{border-spacing:0.2em 0; width:100%; display:flex;}
+      .sidebar-row{display:table; border-spacing:0.2em 0; width:100%; display:inline-flex;
+                   margin:5px 0; align-items: center;}
+      .vpadding5{padding:5px 0;}
       .w-100{width:100%;display:flex}
-      .graphCol{flex: 80%; padding: 0.25em;}
-      .configCol{flex: 20%; padding: 0.25em;}
-      .configBlock{position:fixed; overflow-y:auto; top: 5px; bottom: 5px; width:19%;}
-      .sidebarToggle{font: 10px; width:10; padding:0;}
-      .margins {margin: 5px 1px}
+      .graphCol{flex: 80%; padding:5 10; box-sizing:border-box;}
+      #sidebar{flex:20%;}
+      .configBlock{position:fixed; overflow-y:auto; top:1em; bottom:2.5em; padding:10px 6px;
+                   background: #fff; box-sizing: border-box; margin-right:1em;
+                   border-radius:10px; box-shadow:#00000061 0px 3px 8px;}
+      #titleDiv {justify-content:center;}
+      .text-field {border:none; border-bottom:1.5px solid #b0b0b0; outline:none;
+                   padding:5px 0; transition:border-color 0.3s ease-in-out; background:transparent;}
+      .text-field:focus {border-bottom-color:#006d5b;}
+      #graphTitleSpan{display:inline-block; max-height:28px; font-size:9px;
+                      overflow:hidden; white-space:normal;}
+      .radio-input {display:none;}
+      .radio-label {display:inline-block; padding:5px 10px; position:relative;
+                    transition: color 0.3s ease; cursor:pointer;}
+      .radio-input:checked + .radio-label::after {
+          content:''; display:block; width:100%; height:2px; position:absolute;
+          background-color: #006d5b; bottom:0; left:0;}
+      .radio-input:checked + .radio-label {color:#006d5b;}
+      .btn:active {transform:scale(0.90);}
+      .toggle {background:none; border:none; padding:6px; transition: all 0.3s ease;}
+      .toggle svg {width:16px; height:16px; fill:#006d5b; stroke:#006d5b;
+                   transition: all 0.3s ease;}
+      .toggle.arcs svg {fill:white;}
+      .toggle:hover {background-color: #e6f2ff; border-radius: 5px;}
+      .toggle.arcs:hover svg {fill:#e6f2ff;}
+      .toggle:active {transform:scale(0.90);}
+      .toggle.toggled {background-color: #006d5b; border-radius: 5px;}
+      .toggle.toggled svg {stroke:#fff; fill:#fff;}
+      .toggle.toggled.arcs svg {fill:#006d5b;}
+      input {accent-color:#006d5b;}
+      input#isNormalized {weight:16; height:16; margin:6;}
+      .chip {background:none; border: 1.5px solid #a5a5a5; border-radius:4px;
+             font-size:10px; width:70px; color:#575757; padding: 2px 0;}
+      .chip-row {justify-content:space-evenly; margin-top: 1.5em;}
+      .xform-odd-block {background:#f4f4f4; margin-left:-3px; margin-right:-3px;
+                        padding-left:3px; padding-right:3px}
+      .xform-action-row {display:flex; justify-content:space-between; width:100%;
+                         align-items:center;}
+      .flx {display:flex; gap:5px; align-items:center;}
+      .minibtn {background:none; border:none;}
+      .minibtn svg {width:12px; height:12px;}
+      
+      #smallbar{box-sizing:border-box; padding:10px 6px; right:1em; top:1em;
+                position:fixed; z-index:100; background:#fff; border-radius:10px;
+                box-shadow:#00000061 0px 3px 8px;}
+      .margins {margin-top:5px; margin-bottom:5px;}
       .vmargins {margin: 0px 1px;}
+
       .context {display: inline-block; position:fixed; top:0px; left:0px; min-width:200px;
                 color:#fff;  background:#262933; font-size:9pt; border:1px solid #333333;
-                border-radius:6px; box-shadow:2px 2px 2px -1px rgba(0, 0, 0, 0.5);
+                border-radius:6px; box-shadow:2px 2px 2px -1px #00000088;
                 padding:3px 0px; -webkit-touch-callout:none; -webkit-user-select:none;
                 -khtml-user-select:none; -moz-user-select:none; -ms-user-select:none;
                 user-select:none; z-index:200;}
       .context .item {padding:4px 19px; cursor:default; color:inherit;}
-      .context .item:hover { background:#2777FF;}
-      .context .item:hover .hotkey {color: #fff;}
-      .context .disabled {color:#878B90;}
+      .context .item:hover {background:#006d5b;}
+      .context .disabled {color:#878b90;}
       .context .disabled:hover {background:inherit;}
-      .context .disabled:hover .hotkey {color: #878B90;}
+      .context .disabled:hover .hotkey {color: #878b90;}
       .context .separator {margin:4px 0px; height:0; padding:0; border-top:1px solid #454545;}
-      .hotkey {color:#878B90; float:right;}
+      span.status {overflow:hidden;}
+
+      #spinner {color:#006d5b;}
+      #spinner, #spinner:after {box-sizing: border-box;}
+      #spinner {display:inline-block; width:12px; height:12px; margin-right: 5px;}
+      #spinner:after {content:" "; display:block; width:12px; height:12px;
+                      border-radius:50%; border:3px solid currentColor;
+                      border-color:currentColor transparent currentColor transparent;
+                      animation:spinner 1.2s cubic-bezier(.75,-0.55,.28,1.71) infinite;}
+      @keyframes spinner {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}
     </style>
   </head>
   <body style='font: 12px Verdana, sans-serif'>
-    <div class="c">
+    <div class="wrapper">
       <div class="row">
         <div class="graphCol">
-          <div id='canvasDiv'><canvas id='canvas' style='width: 100%;'></canvas></div>
-          <div id='box'><div id='hl'><span></span></div></div>
-          <p id='match'>Matched: <span id='matchedLabel'></span></p>
-          <p id='status'>&nbsp;</p>
+          <div id='canvasDiv'><canvas id='canvas' style='width:100%; margin-bottom:20px;'></canvas></div>
+          <div id='hl'><span></span></div>
+          <div id='tooltip'>
+            <div class="framediv"><span id='tooltipFrameSpan'></span></div>
+            <div class="statdiv">
+              <span id='tooltipSamplesSpan'><b>123,456</b> samples</span>
+              <span class="sep">|</span>
+              <span id='tooltipPctSelfSpan'><b>-41.67%</b> self</span>
+              <span class="sep" id="tooltipSep2">|</span>
+              <span id='tooltipPctTotalSpan'><b>+41.67%</b> total</span>
+            </div>
+            <div id="tooltipRightClickHint"><span><i>Right click for options</i></span></div>
+          </div>
+          <div id='statusBox'>
+            <span id="spinner"></span>
+            <span id='hoverTip'></span>
+            <span id='matchContainer'>Matched: <span id='matchedLabel'></span></span>
+          </div>
         </div>
-        <button class="sidebarToggle" onclick="toggleSidebarVisibility()">&lt;</button>
-        <div class="configCol">
+        <!-- Collapsed sidebar (smallbar) -->
+        <div id="smallbar" style="visibility:hidden;">
+          <div class="vpadding5"><button class="toggle" onclick="setSidebarVisibility(true)" title="Expand sidebar">
+              <svg><use href="#expand-icon"/></svg>
+          </button></div>
+          <div class="vpadding5"><button id="highlightButton1" class="toggle arcs" onclick="smallbarHighlightButtonOnClick()">
+              <svg><use href="#search-icon"/></svg>
+          </button></div>
+          <div class="vpadding5"><button id="inverseButton1" class="toggle" onclick="inverseOnClick()">
+              <svg><use href="#reverse-icon"/></svg>
+          </button> </div>
+        </div>
+        <!-- Full sidebar -->
+        <div id="sidebar" style="visibility:hidden;">
           <div class="configBlock">
-            <div id="titleDiv">
-              <b><center><span id="graphTitleSpan">Flamegraph</span></center></b>
-              <hr>
-            </div>
-            <div class="row">
-              <label for="highlightInput">Highlight:</label>
-              <input placeholder="String or /regex/" name="highlightInput" id="highlightInput"/>
-            </div>
-            <div class="row">
-              <button onclick="highlightApply()">Highlight</button>
-              <button onclick="highlightClear()">Clear</button>
-            </div>
-            <br>
-            <hr>
-            <br>
-
-            <label>Minimal frame width (in pixels):</label><br>
-            <input id="minFrameWidthInPx" value="0.25"/><br>
-            <div>
-              <label><input type="checkbox" id="isReversedInput">Reversed</label>
-              <span id="isNormalizedDiv" style="display:none;">
-                <label><input type="checkbox" id="isNormalized" name="isNormalized">Normalized</label>
-              </span>
-            </div>
-            <div>
-              <label><input type="radio" id="sortByNameRadio" name="sortBy" value="name">Sort by name</label>
-              <label><input type="radio" id="sortByWidthRadio" name="sortBy" value="width" checked>Sort by width</label>
-            </div>
-            <br>
-
-            <div class="row">
-              <div class="col">
-                <label for="newTransformType">Add a transform:</label>
-
-                <select name="newTransformType" id="newTransformType">
-                  <option value="filter">Filter</option>
-                  <option value="remove">Remove</option>
-                  <option value="replace">Replace</option>
-                </select>
+            <div class="sidebar-row">
+              <div id="titleDiv" class="w-100">
+                <b><span id="graphTitleSpan">Flamegraph</span></b>
               </div>
-              <div class="col col-2">
-                <button onclick="addNewTransform()">Add</button>
-              </div>
+              <button class="toggle" onclick="setSidebarVisibility(false)" title="Collapse sidebar">
+                <svg><use href="#collapse-icon"/></svg>
+              </button>
             </div>
-            <p><i>Right-click any stackframe to add common transforms.</i></p>
-            <br>
-
+            <div class="sidebar-row">
+              <input class="w-100 text-field" placeholder="Search string or /regex/" id="highlightInput"/>
+              &nbsp;
+              <button id="highlightButton2" class="toggle arcs" onclick="highlightButtonOnClick()">
+                <svg><use href="#search-icon"/></svg>
+              </button>
+            </div>
+            <div class="sidebar-row">
+              <div class="w-100"><strong>Reversed</strong></div>
+              <button id="inverseButton2" class="toggle" onclick="inverseOnClick()">
+                <svg><use href="#reverse-icon"/></svg>
+              </button>
+            </div>
+            <div class="sidebar-row" id="isNormalizedDiv">
+              <div class="w-100"><strong>Normalized</strong></div>
+              <input type="checkbox" id="isNormalized" name="isNormalized" onchange="onTransformsChangedDontRecreate()">
+            </div>
+            <div class="sidebar-row">
+              <div class="w-100"><strong>Sort by</strong></div>
+              <input type="radio" id="sortByNameRadio" name="sortBy" value="name" class="radio-input" onchange="sortRadioChange(this)">
+              <label for="sortByNameRadio" class="radio-label">Name</label>
+              <input type="radio" id="sortByWidthRadio" name="sortBy" value="width" class="radio-input" onchange="sortRadioChange(this)" checked>
+              <label for="sortByWidthRadio" class="radio-label">Width</label>
+            </div>
+            <div class="sidebar-row chip-row">
+              <button class="chip btn" onclick="addNewTransform('filter')" >+ Filter</button>
+              <button class="chip btn" onclick="addNewTransform('remove')" >+ Remove</button>
+              <button class="chip btn" onclick="addNewTransform('replace')">+ Replace</button>
+            </div>
             <div id="transformsContainer">
             </div>
 
-            <div id="transformReplaceTemplate" style="display:none">
-              <div class="row">
-                <div class="col col-3">
-                  <label>Replace:</label><br>
+            <div id="transformReplaceTemplate" style="display:none" class="margins vpadding5">
+              <div class="xform-action-row">
+                <div class="flx">
+                  <input type="checkbox" class="chkEnabled" onchange="onTransformsChangedDontRecreate()" checked>
+                  <label>Replace</label>
                 </div>
-                <div class="col">
-                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
-                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
-                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
-                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
-                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                <div class="flx">
+                  <button class="minibtn btn btnMoveUp" title="Move up" onclick="moveTransformUp(this)"><svg><use href="#arrow-up-icon"/></svg></button>
+                  <button class="minibtn btn btnDelete" title="Delete" onclick="deleteTransform(this)"><svg><use href="#delete-icon"/></svg></button>
                 </div>
               </div>
               <div class="row" style="margin-top:1px;margin-bottom:1px">
-                <div class="col w-100 no-vmargins">
-                  <input class="what no-vmargins w-100" placeholder="String or /regex/"/><br>
+                <div class="w-100 no-vmargins">
+                  <input class="what no-vmargins w-100 text-field" placeholder="String or /regex/"/><br>
                 </div>
               </div>
               <div class="row" style="margin-top:1px;margin-bottom:1px">
-                <div class="col w-100 no-vmargins">
-                  <input class="replacement no-vmargins w-100" placeholder="Replacement"/><br>
+                <div class="w-100 no-vmargins">
+                  <input class="replacement no-vmargins w-100 text-field" placeholder="Replacement"/><br>
                 </div>
               </div>
             </div>
 
-            <div id="transformFilterTemplate" style="display:none" class="margins">
-              <div class="row">
-                <div class="col col-3">
-                  <label class="label">Filter:</label><br>
+            <div id="transformFilterTemplate" style="display:none" class="margins vpadding5">
+              <div class="xform-action-row">
+                <div class="flx">
+                  <input type="checkbox" class="chkEnabled" onchange="onTransformsChangedDontRecreate()" checked>
+                  <label class="label">Filter</label>
                 </div>
-                <div class="col">
-                  <input type="checkbox" class="chkEnabled" onclick="refreshAfterEnabledToggle()" checked>
-                  <button class="minibtn btnMoveUp" title="Move up" onclick="moveTransformUp(this)">↑</button>
-                  <button class="minibtn btnMoveDown" title="Move down" onclick="moveTransformDown(this)">↓</button>
-                  <button class="minibtn btnClone" title="Clone" onclick="cloneTransform(this)">☍</button>
-                  <button class="minibtn btnDelete" title="Delete" onclick="deleteTransform(this)">✖</button>
+                <div class="flx">
+                  <button class="minibtn btn btnMoveUp" title="Move up" onclick="moveTransformUp(this)"><svg><use href="#arrow-up-icon"/></svg></button>
+                  <button class="minibtn btn btnDelete" title="Delete" onclick="deleteTransform(this)"><svg><use href="#delete-icon"/></svg></button>
                 </div>
               </div>
               <div class="row">
-                <div class="col w-100 margins">
-                  <input class="what margins w-100" placeholder="String or /regex/"/><br>
+                <div class="w-100">
+                  <input class="what w-100 text-field" placeholder="String or /regex/"/><br>
                 </div>
               </div>
             </div>
-
-            <hr>
-            <button onclick="applyConfiguration()">Apply</button>
           </div>
         </div>
       </div>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="reverse-icon" viewBox="0 0 112.62 120.72">
+            <path d="M11.64,100.12l-.4-.47-1.06,8.63a5.08,5.08,0,0,1-1.92,3.41A5.11,5.11,0,0,1,0,107L2.79,84.65v-.07a3.28,3.28,0,0,1,.08-.41h0A5.09,5.09,0,0,1,9,80.39q11.22,2.53,22.42,5.15a5,5,0,0,1,3.17,2.25,5.14,5.14,0,0,1,.64,3.84v0a5,5,0,0,1-2.25,3.16,5.08,5.08,0,0,1-3.83.65c-3.31-.75-6.62-1.52-9.92-2.28a40.71,40.71,0,0,0,2.84,3,50.09,50.09,0,0,0,26.23,13.49,48.67,48.67,0,0,0,14.71.34A47.35,47.35,0,0,0,77,106h0q2.52-1.19,4.83-2.54c1.56-.93,3.07-1.92,4.51-3a50.8,50.8,0,0,0,8.56-7.88,48.92,48.92,0,0,0,6.39-9.45l.56-1.1,10,2.69-.8,1.66a58.64,58.64,0,0,1-7.9,12.24,61.28,61.28,0,0,1-10.81,10.1c-1.68,1.23-3.46,2.4-5.32,3.5s-3.73,2.07-5.74,3a58,58,0,0,1-17,5,58.56,58.56,0,0,1-17.79-.39,60.21,60.21,0,0,1-31.58-16.26c-1.2-1.16-2.26-2.31-3.24-3.45ZM101,20.6l.4.47,1-8.63a5.11,5.11,0,1,1,10.14,1.26l-2.74,22.37,0,.07c0,.13,0,.27-.07.41h0a5.09,5.09,0,0,1-6.08,3.78c-7.47-1.69-15-3.4-22.42-5.15a5,5,0,0,1-3.16-2.25,5.1,5.1,0,0,1-.65-3.84v0a5,5,0,0,1,2.25-3.16,5.1,5.1,0,0,1,3.84-.65c3.31.75,6.61,1.52,9.92,2.28-.84-1-1.77-2-2.84-3.05a50.09,50.09,0,0,0-12.13-8.73A49.49,49.49,0,0,0,64.37,11a48.6,48.6,0,0,0-14.7-.34,47.26,47.26,0,0,0-14,4.1h0q-2.53,1.18-4.83,2.54c-1.57.93-3.07,1.92-4.52,3a50.34,50.34,0,0,0-8.55,7.88,48,48,0,0,0-6.39,9.45l-.57,1.1L.76,36l.8-1.66A58.9,58.9,0,0,1,9.46,22.1,61.63,61.63,0,0,1,20.27,12q2.54-1.85,5.32-3.5c1.81-1.06,3.73-2.07,5.74-3a58,58,0,0,1,17-5A58.56,58.56,0,0,1,66.16.89a59.77,59.77,0,0,1,17,5.74A60.4,60.4,0,0,1,97.75,17.15c1.19,1.16,2.26,2.31,3.24,3.45Z"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="search-icon" viewBox="0 0 12 12">
+            <path d="M11 11L8.58333 8.58333M9.88889 5.44444C9.88889 7.89906 7.89906 9.88889 5.44444 9.88889C2.98984 9.88889 1 7.89906 1 5.44444C1 2.98984 2.98984 1 5.44444 1C7.89906 1 9.88889 2.98984 9.88889 5.44444Z" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="expand-icon" viewBox="0 0 12 12">
+            <path d="M7.11111 4.88889L11 1M11 1H7.66667M11 1V4.33333M4.88889 7.11111L1 11M1 11H4.33333M1 11V7.66667" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="collapse-icon" viewBox="0 0 12 12">
+            <path d="M1.55556 7.11111H4.88889M4.88889 7.11111V10.4444M4.88889 7.11111L1 11M10.4444 4.88889H7.11111M7.11111 4.88889V1.55556M7.11111 4.88889L11 1" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="info-icon" viewBox="0 0 16 16" fill="none">
+            <path d="M8 10.8V8V10.8ZM8 5.2H8.007H8ZM15 8C15 11.866 11.866 15 8 15C4.13401 15 1 11.866 1 8C1 4.13401 4.13401 1 8 1C11.866 1 15 4.13401 15 8Z" fill="#EEEEEE"/>
+            <path d="M8 10.8V8M8 5.2H8.007M15 8C15 11.866 11.866 15 8 15C4.13401 15 1 11.866 1 8C1 4.13401 4.13401 1 8 1C11.866 1 15 4.13401 15 8Z" stroke="#5B5B5B" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="arrow-up-icon" viewBox="0 0 6 12" fill="none">
+            <path d="M3 4.76837e-07L0.113249 5H5.88675L3 4.76837e-07ZM3.5 12L3.5 4.5H2.5L2.5 12H3.5Z" fill="black"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="delete-icon" viewBox="0 0 16 16" fill="none">
+            <line x1="3.8892" y1="3.88912" x2="11.6674" y2="11.6673" stroke="black"/><line x1="3.88912" y1="11.6674" x2="11.6673" y2="3.88927" stroke="black"/>
+          </symbol>
+        </defs>
+      </svg>
     </div>
     <script>
-      // This file was derived from flamegraph.html from the project
-// https://github.com/jvm-profiling-tools/async-profiler
-// Licensed under the Apache License, Version 2.0. Copyright 2020 Andrei Pangin
+      // SPDX-License-Identifier: EPL-1.0
+// Copyright 2021-2024 Oleksandr Yakushev
+// Contains code from https://github.com/async-profiler/async-profiler, licensed
+// under Apache License, Version 2.0.
 
 /// Constants
-const canvas = document.getElementById('canvas');
 const c = canvas.getContext('2d');
-const hl = document.getElementById('hl');
-const status = document.getElementById('status');
-const matchContainer = document.getElementById('match');
+const sidebarWidth = sidebar.offsetWidth; // Remember while sidebar is visible.
+const qString = new URLSearchParams(window.location.search)
 const transformFilterTemplate = document.getElementById('transformFilterTemplate');
 const transformReplaceTemplate = document.getElementById('transformReplaceTemplate');
-const sidebarToggleButton = document.getElementsByClassName('sidebarToggle')[0];
-const sidebarWidth = document.getElementsByClassName('configCol')[0].offsetWidth
-const qString = new URLSearchParams(window.location.search)
 
-var sidebarVisible = true;
-var canvasWidth;
+var sidebarVisible = false;
+var canvasWidth, canvasHeight;
 
-if (qString.get('hide-sidebar') == 'true') {
-  sidebarVisible = false;
+if (qString.get('sidebar') == 'expanded') {
+  sidebarVisible = true;
 }
 
 function updateSidebarState() {
-  let style = oneByClass(document, 'configCol').style
+  let availableWidth = Math.min(window.innerWidth, document.documentElement.clientWidth);
   if (sidebarVisible) {
-    style.display = 'block';
-    sidebarToggleButton.innerText = ">";
-    canvasWidth = window.innerWidth - sidebarWidth - 36;
+    sidebar.style.display = 'block';
+    smallbar.style.display = 'none';
+    canvasWidth = availableWidth - sidebarWidth;
   } else {
-    style.display = 'none';
-    sidebarToggleButton.innerText = "<";
-    canvasWidth = window.innerWidth - 36;
+    sidebar.style.display = 'none';
+    smallbar.style.display = 'block';
+    canvasWidth = availableWidth;
   }
+  canvasWidth -= 20; // Reduce by the padding of .graphCol
 }
 
 updateSidebarState();
 
-var graphTitle = "";
+var graphTitle = "20241022_211905-05-alloc-flamegraph.html" || "Flamegraph";
 var isDiffgraph = false;
-var normalizeDiff = false, b_scale_factor;
+var b_scale_factor;
 var reverseGraph = false;
-var idToFrame = ["clojure.main.main",
-"clojure.lang.Var.applyTo",
-"clojure.lang.RestFn.applyTo",
-"clojure.lang.AFn.applyToHelper",
-"clojure.lang.RestFn.invoke",
-"clojure.main/main",
-"clojure.main/repl-opt",
-"clojure.main/repl",
-"clojure.main/repl/fn--9215",
-"clojure.main/repl/read-eval-print--9206",
-"clojure.main/repl/read-eval-print--9206/fn--9209",
-"clojure.core/eval",
-"clojure.lang.Compiler.eval",
-"user$eval1031.invoke",
-"user$eval1031.invokeStatic",
-"user$eval1031$fn__1032.invoke",
-"cheshire.core/parse-string",
-"cheshire.parse/parse",
-"cheshire.parse/parse*",
-"clojure.core/assoc!",
-"clojure.lang.ATransientMap.assoc",
-"clojure.lang.PersistentArrayMap$TransientArrayMap.doAssoc",
-"clojure.lang.PersistentHashMap.asTransient",
-"clojure.lang.PersistentHashMap$TransientHashMap.<init>",
-"byte[]_[i]",
-"clojure.core/transient",
-"clojure.lang.PersistentVector.asTransient",
-"clojure.lang.PersistentVector$TransientVector_[i]",
-"java.util.concurrent.atomic.AtomicReference_[i]",
-"clojure.core/persistent!",
-"clojure.lang.ATransientMap.persistent",
-"clojure.lang.PersistentArrayMap$TransientArrayMap.doPersistent",
-"clojure.lang.PersistentArrayMap.<init>",
-"clojure.lang.PersistentArrayMap_[i]",
-"java.lang.Object[]_[i]",
-"clojure.lang.PersistentVector$TransientVector.<init>",
-"clojure.lang.PersistentVector$TransientVector.editableRoot",
-"clojure.lang.PersistentVector$Node_[i]",
-"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.getText",
-"com.fasterxml.jackson.core.util.TextBuffer.contentsAsString",
-"java.lang.String_[i]",
-"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.nextToken",
-"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._nextAfterName",
-"clojure.lang.PersistentVector$TransientVector.persistent",
-"clojure.lang.PersistentVector$TransientVector.ensureEditable",
-"clojure.lang.PersistentVector_[i]",
-"clojure.lang.PersistentVector.<init>",
-"java.lang.Object.clone",
-"clojure.lang.PersistentVector$TransientVector.editableTail",
-"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._finishString",
-"java.lang.String.<init>",
-"java.lang.String.rangeCheck",
-"java.lang.String.checkBoundsOffCount",
-"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._parseName",
-"com.fasterxml.jackson.core.sym.CharsToNameCanonicalizer.findSymbol",
-"java.lang.StringUTF16.compress",
-"clojure.lang.PersistentHashMap$TransientHashMap.doAssoc",
-"clojure.lang.PersistentHashMap$ArrayNode.assoc",
-"clojure.lang.PersistentHashMap$TransientHashMap.doPersistent",
-"com.fasterxml.jackson.core.base.ParserBase.getNumberValue",
-"com.fasterxml.jackson.core.base.ParserBase._parseNumericValue",
-"com.fasterxml.jackson.core.util.TextBuffer.contentsAsInt",
-"com.fasterxml.jackson.core.io.NumberInput.parseInt",
-"java.lang.Long_[i]",
-"clojure.lang.PersistentArrayMap.asTransient",
-"clojure.lang.PersistentArrayMap$TransientArrayMap.<init>",
-"java.lang.StringUTF16.toBytes",
-"java.lang.StringUTF16.newBytesFor",
-"clojure.lang.Box_[i]",
-"clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc",
-"clojure.lang.PersistentHashMap.create",
-"clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable",
-"clojure.lang.PersistentHashMap.hash",
-"clojure.lang.Util.hasheq",
-"clojure.lang.PersistentHashMap_[i]",
-"clojure.lang.PersistentHashMap$BitmapIndexedNode_[i]",
-"clojure.lang.PersistentHashMap.access$700",
-"clojure.lang.PersistentHashMap.createNode",
-"clojure.lang.PersistentHashMap$INode[]_[i]",
-"clojure.lang.PersistentArrayMap$TransientArrayMap_[i]",
-"clojure.lang.PersistentHashMap$TransientHashMap_[i]",
-"clojure.lang.PersistentHashMap.<init>",
-"clojure.lang.Box.<init>",
-"clojure.lang.PersistentHashMap$ArrayNode_[i]",
-"java.lang.Integer_[i]",
-"java.lang.Integer.valueOf",
-"java.lang.Integer.<init>",
-"clojure.lang.PersistentHashMap$BitmapIndexedNode.editAndSet",
-"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._parseName2",
-"com.fasterxml.jackson.core.JsonFactory.createParser",
-"com.fasterxml.jackson.core.JsonFactory._createParser",
-"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.<init>",
-"com.fasterxml.jackson.core.base.ParserBase.<init>",
-"com.fasterxml.jackson.core.io.IOContext.constructTextBuffer",
-"java.lang.ClassLoader.loadClass",
-"jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass",
-"jdk.internal.loader.BuiltinClassLoader.loadClass",
-"jdk.internal.loader.BuiltinClassLoader.loadClassOrNull",
-"jdk.internal.loader.BuiltinClassLoader.findClassOnClassPathOrNull",
-"jdk.internal.loader.BuiltinClassLoader.defineClass",
-"jdk.internal.loader.URLClassPath$JarLoader$2.getBytes",
-"jdk.internal.loader.Resource.getBytes",
-"java.util.Arrays.copyOf",
-"clojure.core/slurp",
-"clojure.core/apply",
-"clojure.java.io/reader",
-"clojure.java.io/fn--11530/G--11519--11537",
-"clojure.java.io/fn--11591",
-"clojure.java.io/inputstream->reader",
-"clojure.core/-cache-protocol-fn",
-"clojure.core/expand-method-impl-cache",
-"clojure.core/maybe-min-hash",
-"clojure.core/first--5449",
-"clojure.lang.RT.first",
-"clojure.lang.LazySeq.first",
-"clojure.lang.LazySeq.seq",
-"clojure.lang.LazySeq.sval",
-"clojure.core/filter/fn--5962",
-"clojure.core/maybe-min-hash/fn--6980",
-"clojure.core/seq--5467",
-"clojure.lang.RT.seq",
-"clojure.core/map/fn--5935",
-"clojure.lang.ArrayChunk.nth",
-"clojure.core$map$fn__5935_[i]",
-"clojure.core/distinct?",
-"clojure.lang.RT.set",
-"clojure.lang.PersistentHashSet.createWithCheck",
-"clojure.lang.PersistentHashSet$TransientHashSet.persistent",
-"clojure.java.io/fn--11605",
-"java.io.BufferedReader.<init>",
-"char[]_[i]",
-"clojure.java.io/copy",
-"clojure.lang.MultiFn.invoke",
-"clojure.java.io/fn--11659",
-"java.io.Reader.read",
-"java.io.BufferedReader.read",
-"java.io.BufferedReader.implRead",
-"java.io.BufferedReader.read1",
-"java.io.BufferedReader.fill",
-"java.io.InputStreamReader.read",
-"sun.nio.cs.StreamDecoder.read",
-"sun.nio.cs.StreamDecoder.lockedRead",
-"sun.nio.cs.StreamDecoder.implRead",
-"java.nio.CharBuffer.wrap",
-"java.nio.HeapCharBuffer.<init>",
-"java.nio.CharBuffer.<init>",
-"java.nio.Buffer.<init>",
-"java.nio.CharBuffer.limit",
-"java.nio.Buffer.limit",
-"java.nio.HeapCharBuffer_[i]",
-"java.io.StringWriter.write",
-"byte[]_[k]",
-"java.lang.StringBuffer.append",
-"java.lang.AbstractStringBuilder.append",
-"java.lang.AbstractStringBuilder.ensureCapacityInternal",
-"java.io.BufferedReader.close",
-"java.io.BufferedReader.implClose",
-"java.io.InputStreamReader.close",
-"sun.nio.cs.StreamDecoder.close",
-"sun.nio.cs.StreamDecoder.lockedClose",
-"sun.nio.cs.StreamDecoder.implClose",
-"java.io.BufferedInputStream.close",
-"java.io.FileInputStream.close",
-"java.io.FileInputStream$1.<init>",
-"java.io.FileInputStream$1_[i]",
-"java.io.StringWriter.toString",
-"java.lang.StringBuffer.toString",
-"java.util.Arrays.copyOfRange",
-"jdk.internal.misc.InnocuousThread.run",
-"java.lang.Thread.run",
-"jdk.internal.ref.CleanerImpl.run",
-"java.lang.ref.ReferenceQueue.remove",
-"java.lang.ref.ReferenceQueue.remove0",
-"java.lang.ref.ReferenceQueue.await",
-"java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await",
-"java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode_[i]",
-];
 var initialStacks = [];
 var stacks;
-
+// idToFrame gets defined at the end of the file
 var _lastInsertedStack = null;
+
+var maxTooltipWidth = 250;
+if (isDiffgraph) {
+  maxTooltipWidth = 350;
+} else {
+  isNormalizedDiv.remove();
+  tooltipSep2.remove();
+  tooltipPctTotalSpan.remove();
+}
+tooltip.style['max-width'] = maxTooltipWidth + 'px';
+graphTitleSpan.innerText = graphTitle;
+graphTitleSpan.title = graphTitle;
 
 function a(frameIds, samples) {
   var same = frameIds[0];
@@ -466,7 +417,7 @@ function applyReplacement(string, what, replacement, prefix) {
 }
 
 function transformStacks() {
-  console.time("transformStacks");
+  console.time("[clj-async-profiler] Transform stacks");
   let diff = isDiffgraph;
   var result;
   if (userTransforms.length > 0) {
@@ -517,183 +468,9 @@ function transformStacks() {
   } else
     result = initialStacks;
 
-  console.timeEnd("transformStacks");
+  console.timeEnd("[clj-async-profiler] Transform stacks");
   return result;
 }
-
-console.time("data exec time");
-
-  a([0,0,1,2,3,4,5,6,7,8,9,10,11,12,12,13,14,15,16,16,17,18,18,18,18,18,18,18,18,18,18,19,20,20,21,22,23,23,24,],12);
-a([30,25,26,26,27,],1);
-a([33,28,],5);
-a([29,19,20,20,21,22,23,23,24,],20);
-a([29,29,30,30,31,32,33,],1);
-a([33,34,],1);
-a([29,25,26,26,35,36,37,],1);
-a([29,38,39,40,],1);
-a([29,41,42,24,],1);
-a([28,19,20,20,21,22,23,23,24,],7);
-a([28,29,43,43,44,45,],4);
-a([31,46,45,],2);
-a([28,25,26,26,35,36,47,34,],1);
-a([32,48,34,],15);
-a([28,38,49,34,],18);
-a([29,39,50,51,52,34,],21);
-a([28,41,53,24,],1);
-a([30,54,50,50,55,40,],21);
-a([27,19,20,20,56,57,24,],5);
-a([27,29,30,30,58,33,],20);
-a([28,43,43,46,45,],1);
-a([27,25,26,26,35,36,27,],37);
-a([32,47,34,],1);
-a([31,48,34,],13);
-a([30,28,],19);
-a([27,59,60,61,62,63,],1);
-a([27,38,49,34,],1);
-a([28,39,50,50,40,],1);
-a([30,51,52,34,],24);
-a([27,41,42,24,],15);
-a([28,53,54,50,50,55,40,],14);
-a([26,19,20,20,21,22,23,23,24,],7);
-a([29,56,57,24,],1);
-a([26,29,30,30,31,32,33,],2);
-a([30,34,],2);
-a([27,43,43,44,45,],1);
-a([29,34,],6);
-a([26,25,64,64,65,34,],1);
-a([27,26,26,35,36,37,],3);
-a([31,27,],18);
-a([31,47,34,],1);
-a([30,48,34,],1);
-a([29,27,],1);
-a([29,28,],3);
-a([26,38,49,24,],35);
-a([28,34,],2);
-a([27,39,50,50,55,24,],1);
-a([30,66,67,24,],1);
-a([30,40,],23);
-a([29,51,52,34,],46);
-a([28,40,],2);
-a([26,41,42,24,],18);
-a([27,53,54,50,50,55,40,],20);
-a([25,19,20,20,68,],20);
-a([28,21,20,56,69,34,],1);
-a([29,22,23,23,24,],4);
-a([29,70,20,56,69,71,34,],2);
-a([32,72,73,74,],5);
-a([30,30,58,68,],15);
-a([28,56,57,24,],38);
-a([30,69,71,34,],27);
-a([31,34,],1);
-a([29,69,69,71,75,],23);
-a([32,34,],4);
-a([31,76,77,69,71,34,],2);
-a([31,34,],22);
-a([30,71,34,],2);
-a([30,78,],1);
-a([30,76,77,69,71,34,],1);
-a([33,34,],35);
-a([32,72,73,68,],20);
-a([25,29,30,30,31,32,33,],1);
-a([29,34,],5);
-a([28,58,33,],4);
-a([26,43,43,44,45,],20);
-a([28,46,45,],1);
-a([25,25,64,64,65,34,],1);
-a([28,79,],1);
-a([26,26,26,35,36,27,],40);
-a([30,47,34,],3);
-a([29,48,34,],54);
-a([25,38,49,24,],2);
-a([27,34,],59);
-a([26,39,24,],33);
-a([27,50,50,80,],1);
-a([29,55,24,],2);
-a([29,66,67,24,],1);
-a([29,40,],72);
-a([28,51,52,34,],47);
-a([25,41,42,24,],140);
-a([26,53,24,],7);
-a([27,54,50,50,55,40,],65);
-a([24,19,20,20,21,20,56,69,71,34,],4);
-a([31,34,],28);
-a([28,22,23,23,24,],44);
-a([28,70,20,56,69,71,75,],1);
-a([33,34,],39);
-a([29,30,58,81,74,],2);
-a([29,80,],1);
-a([27,56,57,24,],1);
-a([29,69,71,75,],19);
-a([31,34,],15);
-a([30,76,77,69,71,75,],1);
-a([30,34,],4);
-a([28,69,69,71,75,],28);
-a([31,34,],87);
-a([30,76,77,69,71,75,],18);
-a([34,34,],2);
-a([33,34,],2);
-a([32,72,73,68,],1);
-a([30,34,],60);
-a([29,71,34,],44);
-a([29,78,],15);
-a([29,76,77,82,68,],1);
-a([31,69,71,75,],7);
-a([33,34,],22);
-a([32,34,],1);
-a([29,72,73,83,],3);
-a([24,29,30,30,31,74,],1);
-a([28,34,],13);
-a([27,58,81,74,],1);
-a([24,25,64,64,65,34,],1);
-a([24,59,60,61,62,84,],4);
-a([25,85,86,84,],1);
-a([24,38,49,24,],7);
-a([26,34,],46);
-a([25,39,24,],12);
-a([26,50,50,55,24,],1);
-a([28,66,67,24,],2);
-a([28,40,],1);
-a([24,41,42,24,],308);
-a([25,53,24,],6);
-a([26,54,50,50,55,24,],2);
-a([30,40,],127);
-a([23,19,20,20,21,20,56,69,87,71,34,],1);
-a([27,70,20,56,69,71,34,],18);
-a([26,56,57,69,71,34,],1);
-a([27,69,69,71,75,],3);
-a([30,34,],111);
-a([29,34,],38);
-a([28,71,34,],13);
-a([28,78,],6);
-a([28,76,77,69,71,34,],6);
-a([23,25,26,26,35,35,79,],1);
-a([23,38,49,34,],35);
-a([24,39,50,28,],12);
-a([23,41,42,24,],51);
-a([24,53,24,],3);
-a([25,88,54,50,50,55,40,],20);
-a([25,54,50,50,55,40,],47);
-a([26,40,],1);
-a([19,89,90,91,92,93,94,95,96,97,98,99,100,101,102,24,],1);
-a([17,4,103,104,2,3,4,105,106,107,106,108,106,109,110,111,112,113,114,115,116,117,118,104,119,120,115,116,121,122,123,],2);
-a([40,2,124,125,126,127,30,58,81,74,],1);
-a([29,128,129,129,130,],1);
-a([19,4,131,132,133,134,135,136,137,138,139,140,141,142,143,144,145,146,147,147,148,149,],1);
-a([33,149,],18);
-a([32,149,],33);
-a([23,150,24,],18);
-a([24,151,],1617);
-a([24,152,153,154,102,24,],3);
-a([28,151,],208);
-a([19,155,156,157,158,159,160,161,162,163,164,],10);
-a([27,164,],5);
-a([19,165,166,50,167,151,],500);
-a([0,40,],5);
-a([0,168,169,170,171,172,173,174,175,],1);
-
-
-console.timeEnd("data exec time");
-
 
 function makeTreeNode() {
   if (isDiffgraph)
@@ -715,68 +492,56 @@ function getChildNode(node, childTitle) {
 }
 
 function parseStacksToTreeSimple(stacks, treeRoot) {
-  console.time("parseStacksToTreeSimple");
-  var depth = 0;
-  for (var i = 0, len = stacks.length; i < len; i++) {
-    var stack = stacks[i];
-    var stackframes = stack.stackStr.split(";");
-    var stackLen = stackframes.length;
-    depth = Math.max(depth, stackLen);
-    var node = treeRoot;
+  for (let i = 0, len = stacks.length; i < len; i++) {
+    let stack = stacks[i];
+    let stackframes = stack.stackStr.split(";");
+    let stackLen = stackframes.length;
+    let node = treeRoot;
+    let samples = stack.samples;
     if (reverseGraph) {
-      for (var j = stackLen-1; j >= 0; j--) {
-        var stackframe = stackframes[j];
-        node.total += stack.samples;
-        node = getChildNode(node, stackframe);
+      for (let j = stackLen-1; j >= 0; j--) {
+        node.total += samples;
+        node = getChildNode(node, stackframes[j]);
       }
     } else {
-      for (var j = 0; j < stackLen; j++) {
-        var stackframe = stackframes[j];
-        node.total += stack.samples;
-        node = getChildNode(node, stackframe);
+      for (let j = 0; j < stackLen; j++) {
+        node.total += samples;
+        node = getChildNode(node, stackframes[j]);
       }
     }
-    node.total += stack.samples;
-    node.self += stack.samples;
+    node.total += samples;
+    node.self += samples;
   }
-  console.timeEnd("parseStacksToTreeSimple");
-  return depth;
 }
 
 function parseStacksToTreeDiffgraph(stacks, treeRoot) {
-  console.time("parseStacksToTreeDiffgraph");
-  var depth = 0;
-
-  for (var i = 0, len = stacks.length; i < len; i++) {
-    var stack = stacks[i];
-    var stackframes = stack.stackStr.split(";");
-    var stackLen = stackframes.length;
-    depth = Math.max(depth, stackLen);
+  let normalizeDiff = isNormalized.checked;
+  for (let i = 0, len = stacks.length; i < len; i++) {
+    let stack = stacks[i];
+    let stackframes = stack.stackStr.split(";");
+    let stackLen = stackframes.length;
     var node = treeRoot;
 
-    var samplesA = stack.samples_a;
-    var samplesB = stack.samples_b;
+    let samplesA = stack.samples_a;
+    let samplesB = stack.samples_b;
     if (normalizeDiff) samplesB = Math.round(samplesB * b_scale_factor);
-    var delta = samplesB - samplesA;
-
+    let delta = samplesB - samplesA;
 
     if (reverseGraph) {
-      for (var j = stackLen-1; j >= 0; j--) {
-        var stackframe = stackframes[j];
+      for (let j = stackLen-1; j >= 0; j--) {
         node.total_samples_a += samplesA;
         node.total_samples_b += samplesB;
         node.total_delta += delta;
         node.delta_abs += Math.abs(delta);
-        node = getChildNode(node, stackframe);
+        node = getChildNode(node, stackframes[j]);
       }
     } else {
-      for (var j = 0; j < stackLen; j++) {
-        var stackframe = stackframes[j];
+      for (let j = 0; j < stackLen; j++) {
         node.total_samples_a += samplesA;
         node.total_samples_b += samplesB;
         node.total_delta += delta;
         node.delta_abs += Math.abs(delta);
-        node = getChildNode(node, stackframe);
+        node = getChildNode(node, stackframes[j]);
       }
     }
     node.self_samples_a += samplesA;
@@ -787,41 +552,47 @@ function parseStacksToTreeDiffgraph(stacks, treeRoot) {
     node.total_delta += delta;
     node.delta_abs += Math.abs(delta);
   }
-  console.timeEnd("parseStacksToTreeDiffgraph");
-  return depth;
 }
 
 function parseStacksToTree(stacks, treeRoot) {
+  console.time("[clj-async-profiler] Generate tree");
   if (isDiffgraph)
-    return parseStacksToTreeDiffgraph(stacks, treeRoot);
+    parseStacksToTreeDiffgraph(stacks, treeRoot);
   else
-    return parseStacksToTreeSimple(stacks, treeRoot);
+    parseStacksToTreeSimple(stacks, treeRoot);
+  console.timeEnd("[clj-async-profiler] Generate tree");
 }
 
 const palette = {
-  green: "#50e150",
-  aqua: "#50bebe",
-  orange: "#e17d00",
-  yellow: "#c8c83c",
-  red: "#e15a5a",
-  clojure_green: "#91dc51",
-  clojure_blue: "#8fb5fe",
-};
+  green     : "#50e150",
+  inlined   : "#46c4bf",
+  unknown   : "#f7a65b",
+  cpp       : "#d9d800",
+  kernel    : "#f15964",
+  java      : "#91dc51",
+  clojure   : "#8fb5fe",
+  highlight : "#ee00ee",
+  total     : "#999999",
+  diff      : { blue    : [51, 119, 255],    // #3377FF
+                neutral : [245, 245, 245],   // #F5F5F5
+                red     : [253, 59, 73] } }; // #FD3B49
 
-function getColor(title) {
+function frameColor(title) {
   if (title.endsWith("_[j]")) {
     return palette.green;
   } else if (title.endsWith("_[i]")) {
-    return palette.aqua;
+    return palette.inlined;
   } else if (title.endsWith("_[k]")) {
-    return palette.orange;
+    return palette.kernel;
   } else if (title.includes("::") || title.startsWith("-[") || title.startsWith("+[")) {
-    return palette.yellow;
+    return palette.cpp;
   } else if (title.includes("/")) { // Clojure (will only work after unmunging)
-    return palette.clojure_blue;
+    return palette.clojure;
   } else if (title.includes(".")) { // Java (if it has a dot and is not Clojure)
-    return palette.clojure_green;
-  } else return palette.red;
+    return palette.java;
+  } else if (title == "Total") {
+    return palette.total;
+  } else return palette.unknown;
 }
 
 function decToHex(n) {
@@ -829,152 +600,178 @@ function decToHex(n) {
   return hex.length == 1 ? "0" + hex : hex;
 }
 
-function getDiffColor(isRed, intensity) {
-  return "hsl(" + ((isRed) ? 0 : 220) + ",100%," + Math.round(90 - intensity * 30) + "%)";
-  // return "hsl(" + ((isRed) ? 0 : 220) + "," + Math.round(100 * intensity) + "%, 60%)";
+function getDiffColor(value) {
+  // Clamp the value between -1 and 1
+  value = Math.max(-1.0, Math.min(1.0, value));
+
+  // Find the correct color range
+  let start, end;
+  if (value <= 0) {
+    start = palette.diff.blue;
+    end = palette.diff.neutral;
+    value = value + 1.0; // Normalize to 0.0-1.0
+  } else {
+    start = palette.diff.neutral;
+    end = palette.diff.red;
+  }
+
+  // Interpolate between colors
+  const r = Math.round(start[0] + (end[0] - start[0]) * value);
+  const g = Math.round(start[1] + (end[1] - start[1]) * value);
+  const b = Math.round(start[2] + (end[2] - start[2]) * value);
+
+  // Convert to hex
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-function scaleColorMap(colorMap, intensity) {
-  return '#' + decToHex(intensity * colorMap.red) +
-    decToHex(intensity * colorMap.green) + decToHex(intensity * colorMap.blue);
-}
+var stacks, tree, levels, depth, minSamplesToShow = 0;
 
-var stacks, tree, levels, depth;
-
-var smallestPixelsPerSample, minPixelsPerFrame = 0.25, minSamplesToShow;
-
-function generateLevelsSimple(levels, node, title, level, x, minSamplesToShow) {
+function generateLevelsSimple(levels, node, title, level, x) {
   var left = x;
 
   levels[level] = levels[level] || [];
-  if (node.total >= minSamplesToShow) {
-    levels[level].push({left: left, width: node.total, color: getColor(title),
-                        title: title});
+  levels[level].push({left: left, width: node.total, color: frameColor(title),
+                      title: title});
 
-    left += node.self;
+  left += node.self;
 
-    let children = Object.entries(node.children);
-    if (sortByNameRadio.checked)
-      children.sort((a, b) => a[0].localeCompare(b[0]));
-    else
-      children.sort((a, b) => b[1].total - a[1].total);
-
-    for (let i in children) {
-      let title = children[i][0];
-      let child = children[i][1];
-      generateLevelsSimple(levels, child, title, level+1, left, minSamplesToShow);
-      left += child.total;
-    }
-  }
-}
-
-function generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow) {
-  var left = x;
-
-  levels[level] = levels[level] || [];
-  if (node.delta_abs >= minSamplesToShow) {
-    var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
-    var color = getDiffColor((node.total_delta > 0), Math.min(Math.abs(change), 1.0));
-    levels[level].push({left: left, width: node.delta_abs,
-                        self_samples_a: node.self_samples_a,
-                        self_samples_b: node.self_samples_b,
-                        self_delta: node.self_delta,
-                        total_samples_a: node.total_samples_a,
-                        total_samples_b: node.total_samples_b,
-                        total_delta: node.total_delta,
-                        color: color,
-                        title: title});
-
-    left += Math.abs(node.self_delta);
-
-    let children = Object.entries(node.children);
-    if (sortByNameRadio.checked)
-      children.sort((a, b) => a[0].localeCompare(b[0]));
-    else
-      children.sort((a, b) => b[1].delta_abs - a[1].delta_abs);
-
-    for (let i in children) {
-      let title = children[i][0];
-      let child = children[i][1];
-      generateLevelsDiffgraph(levels, child, title, level+1, left, minSamplesToShow);
-      left += child.delta_abs;
-    }
-  }
-}
-
-function generateLevels(levels, node, title, level, x, minSamplesToShow) {
-  if (isDiffgraph)
-    generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow);
+  let children = Object.entries(node.children);
+  if (sortByNameRadio.checked)
+    children.sort((a, b) => a[0].localeCompare(b[0]));
   else
-    generateLevelsSimple(levels, node, title, level, x, minSamplesToShow);
+    children.sort((a, b) => b[1].total - a[1].total);
+
+  for (let i in children) {
+    let title = children[i][0];
+    let child = children[i][1];
+    generateLevelsSimple(levels, child, title, level+1, left);
+    left += child.total;
+  }
 }
 
-function refreshData() {
-  if (isDiffgraph && normalizeDiff)
+function generateLevelsDiffgraph(levels, node, title, level, x) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
+  var color = getDiffColor(change);
+  levels[level].push({left: left, width: node.delta_abs,
+                      self_samples_a: node.self_samples_a,
+                      self_samples_b: node.self_samples_b,
+                      self_delta: node.self_delta,
+                      total_samples_a: node.total_samples_a,
+                      total_samples_b: node.total_samples_b,
+                      total_delta: node.total_delta,
+                      color: color,
+                      title: title});
+
+  left += Math.abs(node.self_delta);
+
+  let children = Object.entries(node.children);
+  if (sortByNameRadio.checked)
+    children.sort((a, b) => a[0].localeCompare(b[0]));
+  else
+    children.sort((a, b) => b[1].delta_abs - a[1].delta_abs);
+
+  for (let i in children) {
+    let title = children[i][0];
+    let child = children[i][1];
+    generateLevelsDiffgraph(levels, child, title, level+1, left);
+    left += child.delta_abs;
+  }
+}
+
+function generateLevels(node, title) {
+  console.time("[clj-async-profiler] Generate flat levels");
+  levels = [];
+  if (isDiffgraph)
+    generateLevelsDiffgraph(levels, node, title, 0, 0);
+  else
+    generateLevelsSimple(levels, node, title, 0, 0);
+  console.timeEnd("[clj-async-profiler] Generate flat levels");
+}
+
+function recomputeDataModel() {
+  console.time("[clj-async-profiler] recomputeDataModel");
+  if (isDiffgraph && isNormalized.checked)
     b_scale_factor = totalSamplesA / totalSamplesB;
 
   stacks = transformStacks();
-
   tree = makeTreeNode();
+  parseStacksToTree(stacks, tree);
 
-  depth = parseStacksToTree(stacks, tree);
-  smallestPixelsPerSample = canvasWidth / (tree.total || tree.delta_abs);
-  minSamplesToShow = minPixelsPerFrame / smallestPixelsPerSample;
-
-  levels = [];
-  generateLevels(levels, tree, "all", 0, 0, minSamplesToShow);
+  generateLevels(tree, "Total");
   depth = levels.length;
+  if (depth > 511) depth = 511;
+  console.timeEnd("[clj-async-profiler] recomputeDataModel");
 }
 
-refreshData();
-
-var canvasHeight;
-
-function initCanvas() {
+function reinitCanvas() {
   canvasHeight = (depth + 1) * 16;
   canvas.style.width = canvasWidth + 'px';
-  canvas.width = canvasWidth * (devicePixelRatio || 1);
-  canvas.height = canvasHeight * (devicePixelRatio || 1);
-  if (devicePixelRatio) c.scale(devicePixelRatio, devicePixelRatio);
+  if (devicePixelRatio) {
+    canvas.width = canvasWidth * devicePixelRatio;
+    canvas.height = canvasHeight * devicePixelRatio;
+    c.scale(devicePixelRatio, devicePixelRatio);
+  } else {
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+  }
+  canvas.onclick = canvasOnClick;
+  canvas.onmousemove = canvasOnMouseMove;
+  canvas.onmouseout = canvasOnMouseOut;
   c.font = document.body.style.font;
+  if (window.innerWidth < canvasWidth) {
+    // This is probably caused by vertical scrollbar appearing when it wasn't
+    // there before. Force a recompute of canvasWidth and reinit canvas again.
+    updateSidebarState(); // This recomputes canvasWidth
+    reinitCanvas();
+  }
 }
 
-initCanvas();
-isNormalizedDiv.style.display = isDiffgraph ? 'inherit' : 'none';
-if (graphTitle == "")
-  titleDiv.style.display = 'none';
-else
-  graphTitleSpan.innerText = graphTitle;
-
+var highlightState = {
+  pattern: null, lastPatternAsText: null
+}
 
 var highlightPattern = null, currentRootFrame, currentRootLevel, currentFrameUnderCursor, currentLevelUnderCursor, px;
+var totalRenderedFrames = 0;
+
+function applyHighlight(stringOrRegex) {
+  let newPattern = _stringToMaybeRegex(stringOrRegex);
+  highlightState.pattern = newPattern;
+  highlightState.lastPatternAsText = stringOrRegex;
+  highlightButton1.classList.add("toggled");
+  highlightButton2.classList.add("toggled");
+  performSlowAction(function() { render(currentRootFrame, currentRootLevel); });
+}
+
+function clearHighlight() {
+  highlightState.pattern = null;
+  highlightButton1.classList.remove("toggled");
+  highlightButton2.classList.remove("toggled");
+  render(currentRootFrame, currentRootLevel);
+}
 
 function render(newRootFrame, newLevel) {
-  console.time("render");
+  var totalRenderedFrames = 0;
+  console.time("[clj-async-profiler] Render");
   // Background
-  var gradient = c.createLinearGradient(0, 0, 0, canvasHeight);
-  gradient.addColorStop(0.05, "#eeeeee");
-  gradient.addColorStop(0.95, "#eeeeb0");
-  c.fillStyle = gradient;
-  c.fillRect(0, 0, canvasWidth, canvasHeight);
+  c.clearRect(0, 0, canvas.width, canvas.height);
 
   currentRootFrame = newRootFrame || levels[0][0];
   currentRootLevel = newLevel || 0;
   px = canvasWidth / currentRootFrame.width;
 
-  const marked = [];
+  const matchedSpans = [];
 
-  function mark(f) {
-    return marked[f.left] >= f.width || (marked[f.left] = f.width);
-  }
-
-  function totalMarked() {
+  function totalMatched() {
     let total = 0;
     let left = 0;
-    for (let x in marked) {
+    for (let x in matchedSpans) {
       if (+x >= left) {
-        total += marked[x];
-        left = +x + marked[x];
+        let width = matchedSpans[x];
+        total += width;
+        left = +x + width;
       }
     }
     return total;
@@ -983,21 +780,43 @@ function render(newRootFrame, newLevel) {
   const x0 = currentRootFrame.left;
   const x1 = x0 + currentRootFrame.width;
 
-  function drawFrame(f, y, alpha) {
-    if (f.left < x1 && f.left + f.width > x0) {
-      c.fillStyle = highlightPattern && f.title.match(highlightPattern) && mark(f) ? '#ee00ee' : f.color;
-      c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+  let highlightPattern = highlightState.pattern;
 
-      if (f.width * px >= 21) {
-        const chars = Math.floor(f.width * px / 7);
-        const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 2) + '..';
-        c.fillStyle = '#000000';
-        c.fillText(title, Math.max(f.left - x0, 0) * px + 3, y + 12, f.width * px - 6);
+  let lastL = -1;
+
+  function drawFrame(f, y, alpha, h) {
+    totalRenderedFrames += 1;
+    // if (h == 78) return;
+    if (f.left < x1 && f.left + f.width > x0) {
+      let color = f.color;
+      if (highlightPattern && f.title.match(highlightPattern)) {
+        if (!(matchedSpans[f.left] >= f.width))
+          matchedSpans[f.left] = f.width;
+        color = palette.highlight;
       }
 
-      if (alpha) {
-        c.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+      if (f.width >= minSamplesToShow && y >= 0 && y <= canvasHeight) {
+        c.fillStyle = color;
+        let w = f.width * px;
+        let l = (f.left - x0) * px;
+        let newL = Math.floor(l * 8);
+        // Optimization to sample the rendering of thin frames.
+        if (w < 0.125 && newL <= lastL) return;
+
+        c.fillRect(l, y, w, 15);
+        lastL = newL;
+
+        if (w >= 21) {
+          const chars = Math.floor((w - 6) / 7);
+          const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 1) + "…";
+          c.fillStyle = '#000000';
+          c.fillText(title, Math.max(l, 0) + 3, y + 12, w - 6);
+        }
+
+        if (alpha) {
+          c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+          c.fillRect(l, y, w, 15);
+        }
       }
     }
   }
@@ -1005,21 +824,44 @@ function render(newRootFrame, newLevel) {
   for (let h = 0; h < levels.length; h++) {
     const y = reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16;
     const frames = levels[h];
-    for (let i = 0; i < frames.length; i++) {
-      if (frames[i].width >= minSamplesToShow)
-        drawFrame(frames[i], y, h < currentRootLevel);
+    lastL = -1;
+    if (totalRenderedFrames > 10000000) break;
+
+    // Binary search left bound
+    let lo = 0, hi = frames.length;
+    let fromIdx = lo, toIdx = hi;
+    if (currentRootLevel > 0) {
+      while (lo < hi) {
+        let mid = Math.floor((lo + hi) / 2);
+        let frame = frames[mid];
+        if (frame.left + frame.width < x0) lo = mid + 1;
+        else hi = mid;
+      }
+      fromIdx = lo;
+
+      // Binary search right bound
+      hi = frames.length;
+      while (lo < hi) {
+        let mid = Math.floor((lo + hi) / 2);
+        if (frames[mid].left < x1) lo = mid + 1;
+        else hi = mid;
+      }
+      toIdx = lo;
+    }
+
+    for (let i = fromIdx; i < toIdx; i++) {
+      drawFrame(frames[i], y, h < currentRootLevel, h);
     }
   }
 
   if (highlightPattern != null) {
     matchContainer.style.display = 'inherit';
-    matchedLabel.textContent = pct(totalMarked(), currentRootFrame.width) + '%';
+    matchedLabel.textContent = pct(totalMatched(), currentRootFrame.width);
   } else
     matchContainer.style.display = 'none';
-  console.timeEnd("render");
+  console.log("[clj-async-profiler] Total frames rendered:", totalRenderedFrames);
+  console.timeEnd("[clj-async-profiler] Render");
 }
-
-render();
 
 function round2dig(n) {
   return Math.round(n * 100) / 100;
@@ -1052,69 +894,112 @@ function findFrame(frames, x) {
   return null;
 }
 
-canvas.onmousemove = function() {
+function samples(n, add_plus, bold) {
+  let num = (add_plus && n > 0 ? "+" : "") + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (bold) num = '<b>' + num + '</b>';
+  return num + (n === 1 ? ' sample' : ' samples');
+}
+
+function pct(a, b) {
+  let val = a >= b ? '100' : (100 * a / b).toFixed(2);
+  return val + '%';
+}
+
+function bold(t) {
+  return '<b>' + t + '</b>';
+}
+
+function canvasOnMouseMove(e) {
   const h = Math.floor((reverseGraph ? event.offsetY : (canvasHeight - event.offsetY)) / 16);
-  currentLevelUnderCursor = h;
-  if (h >= 0 && h < levels.length) {
+  if (!ctxMenu.shown && h >= 0 && h < levels.length) {
     const f = findFrame(levels[h], event.offsetX / px + currentRootFrame.left);
+    var earlyReturn = h === currentLevelUnderCursor && f === currentFrameUnderCursor;
+    currentLevelUnderCursor = h;
     currentFrameUnderCursor = f;
     if (f && f.width >= minSamplesToShow) {
       hl.style.left = (Math.max(f.left - currentRootFrame.left, 0) * px + canvas.offsetLeft) + 'px';
       hl.style.width = (Math.min(f.width, currentRootFrame.width) * px) + 'px';
       hl.style.top = ((reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16) + canvas.offsetTop) + 'px';
-      // hl.firstChild.textContent = f.title;
       hl.style.display = 'block';
+
+      if (earlyReturn) return;
+
+      tooltipFrameSpan.textContent = f.title;
+
+      tooltip.style.display = 'block';
+      tooltip.style.animation = 'none';
+      tooltip.offsetHeight; /* trigger reflow */
+      tooltip.style.animation = null;
+
+      var hoverTipText;
       if (isDiffgraph) {
         var rel_change = (f.total_samples_a == 0) ? 1.0 : f.total_delta / f.total_samples_a;
         var total_change = f.total_delta / tree.total_samples_a;
-        canvas.title = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
+        tooltipSamplesSpan.innerHTML = samples(f.total_delta, true, true);
+        tooltipPctSelfSpan.innerHTML = bold(ratioToPct(rel_change)) + ' self';
+        tooltipPctTotalSpan.innerHTML = bold(ratioToPct(total_change)) + ' total';
+        hoverTipText = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
         // , self_samples_a: ${f.self_samples_a}, self_samples_b: ${f.self_samples_b},  self_delta: ${f.self_delta},  total_samples_a: ${f.total_samples_a},  total_samples_b: ${f.total_samples_b}, total_delta: ${f.total_delta})`;
-      } else
-        canvas.title = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + '%)';
+      } else {
+        tooltipSamplesSpan.innerHTML = samples(f.width, false, true);
+        tooltipPctSelfSpan.innerHTML = bold(pct(f.width, levels[0][0].width));
+        hoverTipText = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + ')';
+      }
+
+      let cursor_x  = e.clientX + window.pageXOffset;
+      let cursor_y  = e.clientY + window.pageYOffset;
+      let tooltip_w = tooltip.clientWidth;
+      let tooltip_h = tooltip.clientHeight;
+      var tooltip_x = cursor_x;
+      var tooltip_y = cursor_y + 20; // Below cursor
+
+      if (cursor_x + tooltip_w + 20 > canvas.clientWidth) {
+        tooltip_x = cursor_x - tooltip_w;
+      }
+
+      if (e.clientY + tooltip_h + 20 > window.innerHeight - statusBox.clientHeight) {
+        tooltip_y = cursor_y - tooltip_h;
+      }
+
+      // console.log("e.clientY", e.clientY, "cursor_y", cursor_y, "window.innerHeight", window.innerHeight, "tooltip_h", tooltip_h, "tooltip_y", tooltip_y);
+
+      tooltip.style.left = tooltip_x;
+      tooltip.style.top = tooltip_y;
+
       canvas.style.cursor = 'pointer';
-      status.textContent = 'Function: ' + canvas.title;
-      status.style['max-width'] = (canvas.offsetWidth - 150) + 'px';
+      hoverTip.textContent = 'Function: ' + hoverTipText;
       return;
     }
   }
   canvas.onmouseout();
 }
 
-canvas.onclick = function () {
+function canvasOnClick() {
   if (currentFrameUnderCursor && currentFrameUnderCursor != currentRootFrame) {
     render(currentFrameUnderCursor, currentLevelUnderCursor);
+    hl.style.display = 'none';
     canvas.onmousemove();
   }
 }
 
-canvas.onmouseout = function() {
+function canvasOnMouseOut() {
   hl.style.display = 'none';
-  status.textContent = '\xa0';
+  tooltip.style.display = 'none';
+  hoverTip.textContent = '\xa0';
   canvas.title = '';
   canvas.style.cursor = '';
   currentLevelUnderCursor = -1;
   currentFrameUnderCursor = null;
 }
 
-function samples(n, add_plus) {
-  return (add_plus && n > 0 ? "+" : "") + (n === 1 ? '1 sample' : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + ' samples';
-}
-
-function pct(a, b) {
-  return a >= b ? '100' : (100 * a / b).toFixed(2);
-}
-
 //// Configuration panel
 
-function highlightApply() {
-  const pattern = highlightInput.value;
-  highlightPattern = (pattern == "") ? null : _stringToMaybeRegex(pattern);
-  render(currentRootFrame, currentRootLevel);
-}
-
-function highlightClear() {
-  highlightPattern = null;
-  render(currentRootFrame, currentRootLevel);
+function performSlowAction(action) {
+  spinner.style.display = 'inline-block';
+  setTimeout(function() {
+    action();
+    spinner.style.display = 'none';
+  }, 20);
 }
 
 function userTransformsSwap(idx1, idx2) {
@@ -1129,21 +1014,24 @@ function addNewTransformParameterized(type, what, replacement) {
   redrawTransformsSection();
 }
 
-function addNewTransform() {
-  addNewTransformParameterized(newTransformType.value, "", "");
+function addNewTransform(type) {
+  addNewTransformParameterized(type, "", "");
+}
+
+function onTransformsChanged() {
+  redrawTransformsSection();
+  performSlowAction(fullRedraw);
+}
+
+function onTransformsChangedDontRecreate() {
+  syncTransformsModelWithUI();
+  performSlowAction(fullRedraw);
 }
 
 function deleteTransform(originator) {
   syncTransformsModelWithUI();
   userTransforms.splice(originator.internalId, 1);
-  redrawTransformsSection();
-}
-
-function cloneTransform(originator) {
-  syncTransformsModelWithUI();
-  const idx = originator.internalId;
-  userTransforms.splice(idx+1, 0, Object.assign({}, userTransforms[idx]));
-  redrawTransformsSection();
+  onTransformsChanged();
 }
 
 function moveTransformUp(originator) {
@@ -1151,20 +1039,7 @@ function moveTransformUp(originator) {
   if (idx == 0) return;
   syncTransformsModelWithUI();
   userTransformsSwap(idx-1, idx);
-  redrawTransformsSection();
-}
-
-function moveTransformDown(originator) {
-  const idx = originator.internalId;
-  if (idx == userTransforms.length-1) return;
-  syncTransformsModelWithUI();
-  userTransformsSwap(idx, idx+1);
-  redrawTransformsSection();
-}
-
-function refreshAfterEnabledToggle() {
-  syncTransformsModelWithUI();
-  redrawTransformsSection();
+  onTransformsChanged();
 }
 
 function oneByClass(container, classname) {
@@ -1172,13 +1047,14 @@ function oneByClass(container, classname) {
 }
 
 function syncTransformsModelWithUI() {
+  userTransforms = [];
   for (var i = 0; i < transformsContainer.children.length; i++) {
-    const el = transformsContainer.children[i];
-    const model = userTransforms[i];
-    userTransforms[i] =
-      _makeTransform(model.type, oneByClass(el, 'chkEnabled').checked,
+    let el = transformsContainer.children[i];
+    let transformType = el.transformType;
+    userTransforms.push(
+      _makeTransform(transformType, oneByClass(el, 'chkEnabled').checked,
                      oneByClass(el, 'what').value,
-                     model.type == 'replace' ? oneByClass(el, 'replacement').value : null);
+                     transformType == 'replace' ? oneByClass(el, 'replacement').value : null));
   }
 }
 
@@ -1189,59 +1065,111 @@ function redrawTransformsSection() {
     var newEl = (transform.type == 'replace') ?
         transformReplaceTemplate.cloneNode(true) :
         transformFilterTemplate.cloneNode(true);
+    newEl.transformType = transform.type;
     newEl.style = '';
     newEl.internalId = i;
+    if (i % 2 == 1)
+      newEl.classList.add("xform-odd-block");
 
     const what = transform.what;
+    const whatInput = oneByClass(newEl, 'what');
     if (typeof(what) == 'string')
-      oneByClass(newEl, 'what').value = what;
+      whatInput.value = what;
     else
-      oneByClass(newEl, 'what').value = what.toString().match(/^(\/.+\/)g?$/)[1];
+      whatInput.value = what.toString().match(/^(\/.+\/)g?$/)[1];
+    addOnEnter(whatInput, onTransformsChangedDontRecreate);
 
-    if (transform.type == 'replace')
+    if (transform.type == 'replace') {
       oneByClass(newEl, 'replacement').value = transform.replacement;
-    else if (transform.type == 'remove')
-      oneByClass(newEl, 'label').textContent = "Remove:";
+      addOnEnter(oneByClass(newEl, 'replacement'), onTransformsChangedDontRecreate);
+    } else if (transform.type == 'remove')
+      oneByClass(newEl, 'label').textContent = "Remove";
     oneByClass(newEl, 'chkEnabled').checked = transform.enabled;
 
     oneByClass(newEl, 'chkEnabled').internalId = i;
     oneByClass(newEl, 'btnMoveUp').internalId = i;
-    oneByClass(newEl, 'btnMoveDown').internalId = i;
-    oneByClass(newEl, 'btnClone').internalId = i;
     oneByClass(newEl, 'btnDelete').internalId = i;
     transformsContainer.appendChild(newEl);
   }
 }
 
-redrawTransformsSection();
+function smallbarHighlightButtonOnClick() {
+  if (highlightState.pattern == null) {
+    let userInput = window.prompt("Search string or /regex/", highlightState.lastPatternAsText || "");
+    if (userInput != null && userInput != "") {
+      highlightInput.value = userInput;
+      applyHighlight(userInput);
+    }
+  } else {
+    clearHighlight();
+  }
+}
+
+function highlightButtonOnClick() {
+  let pattern = highlightState.pattern;
+  let inputVal = highlightInput.value;
+  if (pattern == null) {
+    if (inputVal == "") {
+      highlightInput.focus();
+    } else {
+      applyHighlight(inputVal);
+    }
+  } else {
+    if (inputVal == "" || inputVal == highlightState.lastPatternAsText) {
+      clearHighlight();
+    } else {
+      applyHighlight(inputVal);
+    }
+  }
+}
+
+function addOnEnter(obj, f) {
+  obj.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      f();
+    }
+  });
+}
+
+addOnEnter(highlightInput, highlightButtonOnClick);
 
 function scrollToTopOrBottom() {
   window.scrollTo(0, reverseGraph ? 0 : document.body.scrollHeight);
 }
 
-scrollToTopOrBottom();
+function inverseOnClick() {
+  reverseGraph = !reverseGraph;
+  if (reverseGraph) {
+    inverseButton1.classList.add("toggled");
+    inverseButton2.classList.add("toggled");
+  } else {
+    inverseButton1.classList.remove("toggled");
+    inverseButton2.classList.remove("toggled");
+  }
+  performSlowAction(function() { fullRedraw(true); });
+}
 
-function applyConfiguration() {
-  console.time("apply config");
-  minPixelsPerFrame = minFrameWidthInPx.value || 0.25;
-  normalizeDiff = isNormalized.checked;
-  let reverseChanged = (reverseGraph != isReversedInput.checked);
-  reverseGraph = isReversedInput.checked;
+function sortRadioChange() {
+  performSlowAction(fullRedraw);
+}
+
+function fullRedraw(doScroll) {
+  console.time("[clj-async-profiler] Full redraw");
   syncTransformsModelWithUI();
-  refreshData();
-  initCanvas();
+  recomputeDataModel();
+  reinitCanvas();
   render();
-  if (reverseChanged)
-    scrollToTopOrBottom();
-  console.timeEnd("apply config");
+  if (doScroll) scrollToTopOrBottom();
+  console.timeEnd("[clj-async-profiler] Full redraw");
 }
 
-function toggleSidebarVisibility() {
-  sidebarVisible = !sidebarVisible;
+function setSidebarVisibility(isVisible) {
+  sidebarVisible = isVisible;
   updateSidebarState();
-  applyConfiguration();
+  reinitCanvas();
+  render(currentRootFrame, currentRootLevel);
 }
-
 
 // Context menu implementation was taken from https://github.com/heapoverride/context-js
 // and modified to suit our needs. Licensed Under MIT License, author: @UnrealSec
@@ -1267,11 +1195,25 @@ class ContextMenu {
           !e.target.parentElement.classList.contains('item') &&
           currentFrameUnderCursor) {
         e.preventDefault();
+        tooltipRightClickHint.style.display = 'none';
         this.hide();
         this.frame = currentFrameUnderCursor;
         this.show(e.clientX, e.clientY);
       }
     };
+    this._oncontextmenu_keydown = e => {
+      if (e.keyCode == 27) {
+        this.hideAll();
+        return;
+      }
+      if (e.keyCode != 93) return;
+      e.preventDefault();
+
+      this.hideAll();
+      this.show(e.clientX, e.clientY);
+    };
+
+
     this._onblur = e => { this.hide(); };
   }
   getMenuDom() {
@@ -1340,6 +1282,9 @@ class ContextMenu {
     this.container.addEventListener('contextmenu', this._oncontextmenu, false);
     this.container.addEventListener('keydown', this._oncontextmenu_keydown);
     this.container.addEventListener('click', this._onclick);
+    document.addEventListener('keydown', (event) => {
+      if (event.keyCode == 27) this.hide();
+    });
     window.addEventListener('blur', this._onblur);
   }
 }
@@ -1351,7 +1296,7 @@ function escapeRegex(regexString) {
 function menuHighlight(e, frame) {
   let rx = escapeRegex(frame.title);
   highlightInput.value = "/^" + rx + "$/";
-  highlightApply();
+  applyHighlight(highlightInput.value);
 }
 
 function menuCopyAsText(e, frame) {
@@ -1365,36 +1310,36 @@ function menuCopyAsRegex(e, frame) {
 
 function menuFilterContaining(e, frame) {
   addNewTransformParameterized('filter', ";" + frame.title + ";", "");
-  applyConfiguration();
+  onTransformsChanged();
 }
 
 function menuRemoveContaining(e, frame) {
   addNewTransformParameterized('remove', ";" + frame.title + ";", "");
-  applyConfiguration();
+  onTransformsChanged();
 }
 
 function menuHideFramesAbove(e, frame) {
   let rx = escapeRegex(frame.title);
   addNewTransformParameterized('replace', "/(;" + rx + ";).*/", "$1");
-  applyConfiguration();
+  onTransformsChanged();
 }
 
 function menuHideFramesBelow(e, frame) {
   let rx = escapeRegex(frame.title);
   addNewTransformParameterized('replace', "/.+(" + rx + ";)/", ";$1");
-  applyConfiguration();
+  onTransformsChanged();
 }
 
 function menuCollapseRecursive(e, frame) {
   let rx = escapeRegex(frame.title);
   addNewTransformParameterized('replace', "/;(" + rx + ";)+/", ";$1");
-  applyConfiguration();
+  onTransformsChanged();
 }
 
 function menuCollapseRecursiveWithGaps(e, frame) {
   let rx = escapeRegex(frame.title);
   addNewTransformParameterized('replace', "/;(" + rx + ";).*\\1/", ";$1");
-  applyConfiguration();
+  onTransformsChanged();
 }
 
 const ctxMenuData = [
@@ -1413,6 +1358,372 @@ const ctxMenuData = [
 
 const ctxMenu = new ContextMenu(document.getElementById('canvasDiv'), ctxMenuData);
 ctxMenu.install();
+
+//// "Data" is inserted here
+
+console.time("[clj-async-profiler] Data load/eval");
+
+var idToFrame = ["nrepl.SessionThread.run",
+"nrepl.middleware.session/session-exec/session-loop--1607",
+"nrepl.middleware.interruptible-eval/evaluator/run--1528",
+"nrepl.middleware.interruptible-eval/evaluator/run--1528/fn--1539",
+"clojure.lang.Compiler.eval",
+"user/eval13360",
+"user/eval13360/fn--13361",
+"cheshire.core/parse-string",
+"cheshire.parse/parse",
+"cheshire.parse/parse*",
+"clojure.core/persistent!",
+"clojure.lang.PersistentVector$TransientVector.persistent",
+"clojure.lang.PersistentVector_[i]",
+"clojure.core/transient",
+"clojure.lang.PersistentVector.asTransient",
+"clojure.lang.PersistentVector$TransientVector.<init>",
+"clojure.lang.PersistentVector$TransientVector.editableTail",
+"java.lang.Object[]_[i]",
+"com.fasterxml.jackson.core.base.ParserBase.getNumberValue",
+"java.lang.Integer.valueOf",
+"java.lang.Integer_[i]",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.getText",
+"com.fasterxml.jackson.core.util.TextBuffer.contentsAsString",
+"java.lang.String.<init>",
+"java.lang.StringUTF16.compress",
+"byte[]_[i]",
+"java.lang.String_[i]",
+"clojure.lang.ATransientMap.persistent",
+"clojure.lang.PersistentArrayMap$TransientArrayMap.doPersistent",
+"clojure.lang.PersistentArrayMap_[i]",
+"clojure.lang.PersistentArrayMap.asTransient",
+"clojure.lang.PersistentArrayMap$TransientArrayMap.<init>",
+"clojure.lang.PersistentVector$TransientVector.editableRoot",
+"clojure.lang.PersistentArrayMap$TransientArrayMap_[i]",
+"clojure.lang.PersistentVector$Node_[i]",
+"java.util.concurrent.atomic.AtomicReference_[i]",
+"clojure.lang.PersistentVector$TransientVector_[i]",
+"clojure.core/assoc!",
+"clojure.lang.ATransientMap.assoc",
+"clojure.lang.PersistentArrayMap$TransientArrayMap.doAssoc",
+"clojure.lang.PersistentHashMap.asTransient",
+"clojure.lang.PersistentHashMap$TransientHashMap.<init>",
+"clojure.lang.PersistentHashMap.create",
+"clojure.lang.PersistentHashMap$TransientHashMap.doAssoc",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode.assoc",
+"clojure.lang.PersistentHashMap$TransientHashMap_[i]",
+"java.lang.Long.valueOf",
+"java.lang.Long_[i]",
+"clojure.lang.PersistentHashMap$TransientHashMap.doPersistent",
+"clojure.lang.PersistentHashMap_[i]",
+"clojure.lang.Box_[i]",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.nextToken",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser._parseName",
+"com.fasterxml.jackson.core.sym.CharsToNameCanonicalizer.findSymbol",
+"com.fasterxml.jackson.core.sym.CharsToNameCanonicalizer._addSymbol",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode.ensureEditable",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode_[i]",
+"clojure.lang.PersistentHashMap$ArrayNode.assoc",
+"clojure.lang.PersistentHashMap.access$700",
+"clojure.lang.PersistentHashMap.createNode",
+"clojure.lang.PersistentHashMap$ArrayNode_[i]",
+"clojure.lang.PersistentHashMap$INode[]_[i]",
+"clojure.lang.PersistentHashMap$BitmapIndexedNode.editAndSet",
+"com.fasterxml.jackson.core.sym.CharsToNameCanonicalizer.rehash",
+"java.lang.String[]_[i]",
+"com.fasterxml.jackson.core.JsonFactory.createParser",
+"com.fasterxml.jackson.core.JsonFactory._createParser",
+"com.fasterxml.jackson.core.json.ReaderBasedJsonParser.<init>",
+"com.fasterxml.jackson.core.io.IOContext.allocTokenBuffer",
+"com.fasterxml.jackson.core.util.BufferRecycler.allocCharBuffer",
+"com.fasterxml.jackson.core.util.BufferRecycler.calloc",
+"char[]_[i]",
+"clojure.lang.RestFn.invoke",
+"clojure.core/slurp",
+"clojure.core/apply",
+"clojure.lang.RestFn.applyTo",
+"clojure.lang.AFn.applyToHelper",
+"clojure.java.io/reader",
+"clojure.java.io/fn--11568/G--11557--11575",
+"clojure.java.io/fn--11629",
+"clojure.java.io/inputstream->reader",
+"clojure.java.io/fn--11643",
+"java.io.BufferedReader.<init>",
+"java.io.InputStreamReader.<init>",
+"sun.nio.cs.StreamDecoder.forInputStreamReader",
+"sun.nio.cs.StreamDecoder.<init>",
+"java.nio.ByteBuffer.allocate",
+"java.nio.HeapByteBuffer.<init>",
+"java.nio.HeapByteBuffer_[i]",
+"clojure.java.io/fn--11607/G--11561--11614",
+"clojure.java.io/fn--11667",
+"clojure.lang.RT.toUrl",
+"java.net.MalformedURLException.<init>",
+"java.io.IOException.<init>",
+"java.lang.Exception.<init>",
+"java.lang.Throwable.<init>",
+"java.lang.Throwable.fillInStackTrace",
+"Java_java_lang_Throwable_fillInStackTrace",
+"JVM_FillInStackTrace",
+"java_lang_Throwable::fill_in_stack_trace",
+"BacktraceBuilder::expand",
+"CollectedHeap::array_allocate",
+"long[]_[i]",
+"short[]_[i]",
+"clojure.java.io/copy",
+"clojure.lang.MultiFn.invoke",
+"clojure.java.io/fn--11683/fn--11684",
+"clojure.lang.Tuple.create",
+"clojure.lang.RT.vector",
+"clojure.lang.LazilyPersistentVector.createOwning",
+"clojure.java.io/fn--11697",
+"clojure.core/make-array",
+"java.lang.reflect.Array.newInstance",
+"java.lang.reflect.Array.newArray",
+"JVM_NewArray",
+"java.io.Reader.read",
+"java.io.BufferedReader.read",
+"java.io.BufferedReader.implRead",
+"java.io.BufferedReader.read1",
+"java.io.BufferedReader.fill",
+"java.io.InputStreamReader.read",
+"sun.nio.cs.StreamDecoder.read",
+"sun.nio.cs.StreamDecoder.lockedRead",
+"sun.nio.cs.StreamDecoder.implRead",
+"java.nio.CharBuffer.wrap",
+"java.nio.HeapCharBuffer_[i]",
+"sun.nio.cs.StreamDecoder.readBytes",
+"java.io.BufferedInputStream.read",
+"java.io.BufferedInputStream.implRead",
+"java.io.BufferedInputStream.read1",
+"java.io.BufferedInputStream.fill",
+"java.io.BufferedInputStream.getBufIfOpen",
+"java.io.StringWriter.write",
+"java.lang.StringBuffer.append",
+"java.lang.AbstractStringBuilder.append",
+"java.lang.AbstractStringBuilder.appendChars",
+"java.lang.AbstractStringBuilder.inflate",
+"java.lang.StringUTF16.newBytesFor",
+"java.lang.AbstractStringBuilder.ensureCapacityInternal",
+"java.util.Arrays.copyOf",
+"java.io.StringWriter.toString",
+"java.lang.StringBuffer.toString",
+"java.util.Arrays.copyOfRange",
+];
+
+a([0,0,1,2,3,4,5,6,7,7,8,9,9,9,9,9,9,9,9,9,9,10,11,11,12,],1);
+a([20,13,14,14,15,16,17,],1);
+a([20,18,19,20,],5);
+a([20,21,22,23,23,24,25,],5);
+a([22,26,],1);
+a([19,10,27,27,28,29,],1);
+a([23,17,],7);
+a([19,13,30,30,31,17,],4);
+a([20,14,14,15,32,17,],3);
+a([23,16,17,],2);
+a([19,18,19,20,],8);
+a([19,21,22,23,23,24,25,],6);
+a([21,26,],2);
+a([18,10,27,27,28,29,],1);
+a([22,17,],3);
+a([19,11,11,12,],4);
+a([21,17,],5);
+a([18,13,30,30,31,17,],5);
+a([21,33,],2);
+a([19,14,14,15,32,34,],5);
+a([23,17,],10);
+a([23,35,],2);
+a([22,16,17,],12);
+a([21,36,],2);
+a([18,21,22,23,23,24,25,],3);
+a([20,26,],1);
+a([17,37,38,38,39,40,41,35,],1);
+a([21,42,38,43,44,17,],5);
+a([22,40,45,],4);
+a([17,10,27,27,28,29,],3);
+a([21,17,],5);
+a([18,11,11,12,],14);
+a([20,17,],5);
+a([17,13,30,30,31,17,],3);
+a([20,33,],2);
+a([18,14,14,15,32,34,],1);
+a([22,17,],33);
+a([22,35,],4);
+a([21,16,17,],35);
+a([20,36,],6);
+a([17,18,19,20,],1);
+a([18,46,47,],2);
+a([17,21,22,23,23,24,25,],14);
+a([19,26,],6);
+a([16,37,38,38,39,40,45,],1);
+a([20,42,38,43,44,17,],1);
+a([21,27,48,49,],1);
+a([21,40,41,41,50,],1);
+a([22,45,],1);
+a([19,43,44,17,],3);
+a([16,10,27,27,28,29,],8);
+a([20,17,],7);
+a([17,11,11,12,],14);
+a([19,17,],5);
+a([16,13,30,30,31,17,],19);
+a([19,33,],8);
+a([17,14,14,15,32,34,],7);
+a([21,17,],45);
+a([21,35,],9);
+a([20,16,17,],44);
+a([19,36,],16);
+a([16,18,19,20,],10);
+a([17,46,47,],1);
+a([16,21,22,23,23,24,25,],77);
+a([18,26,],35);
+a([16,51,52,53,54,23,23,24,25,],1);
+a([15,37,38,38,39,38,43,44,55,56,],3);
+a([23,17,],6);
+a([22,17,],10);
+a([19,40,41,41,50,],1);
+a([20,45,],1);
+a([19,42,38,43,44,55,56,],1);
+a([24,17,],2);
+a([23,17,],8);
+a([20,27,48,49,],5);
+a([20,40,41,35,],3);
+a([21,45,],6);
+a([18,43,57,44,55,56,],13);
+a([22,17,],13);
+a([21,58,59,50,],2);
+a([23,44,55,56,],2);
+a([24,17,],7);
+a([21,17,],28);
+a([19,44,60,],1);
+a([20,44,55,56,],16);
+a([22,17,],33);
+a([21,58,59,50,],3);
+a([23,44,55,17,],2);
+a([24,17,],3);
+a([21,17,],55);
+a([20,61,],13);
+a([20,58,59,50,],5);
+a([22,44,55,56,],2);
+a([24,17,],6);
+a([23,17,],9);
+a([20,17,],17);
+a([15,10,27,27,28,29,],8);
+a([19,17,],2);
+a([16,11,11,12,],12);
+a([18,17,],6);
+a([15,13,30,30,31,17,],24);
+a([18,33,],7);
+a([16,14,14,15,32,34,],9);
+a([20,17,],75);
+a([20,35,],8);
+a([19,16,17,],51);
+a([18,36,],14);
+a([15,18,19,20,],5);
+a([16,46,47,],6);
+a([15,21,22,23,23,24,25,],171);
+a([17,26,],62);
+a([14,37,38,38,39,38,43,44,62,55,56,],1);
+a([23,17,],5);
+a([21,55,56,],2);
+a([22,17,],8);
+a([21,58,59,44,55,56,],1);
+a([24,17,],2);
+a([21,17,],11);
+a([18,40,41,41,50,],4);
+a([20,35,],4);
+a([19,45,],9);
+a([18,42,38,43,44,55,56,],4);
+a([23,17,],1);
+a([22,17,],20);
+a([19,27,48,49,],2);
+a([19,40,41,41,50,],2);
+a([21,35,],1);
+a([20,45,],11);
+a([17,43,57,44,55,56,],13);
+a([21,17,],24);
+a([20,58,59,44,55,56,],3);
+a([24,17,],3);
+a([23,17,],7);
+a([20,17,],36);
+a([18,44,60,],4);
+a([19,44,55,56,],85);
+a([21,17,],68);
+a([20,58,59,44,55,56,],1);
+a([24,17,],1);
+a([23,17,],4);
+a([20,17,],138);
+a([19,61,],23);
+a([19,58,59,50,],10);
+a([21,44,55,56,],9);
+a([23,17,],13);
+a([22,17,],18);
+a([19,17,],39);
+a([14,10,27,27,28,29,],7);
+a([18,17,],9);
+a([17,48,49,],10);
+a([14,13,30,30,31,17,],35);
+a([17,33,],10);
+a([14,18,46,47,],3);
+a([14,21,22,23,23,24,25,],81);
+a([16,26,],7);
+a([14,51,52,53,54,63,64,],3);
+a([18,23,23,24,25,],3);
+a([18,26,],2);
+a([13,37,38,38,39,38,43,44,62,55,56,],1);
+a([22,17,],14);
+a([20,58,59,50,],1);
+a([22,44,55,56,],2);
+a([24,17,],1);
+a([23,17,],3);
+a([17,40,41,41,50,],1);
+a([19,35,],2);
+a([18,45,],4);
+a([17,42,38,43,44,55,56,],2);
+a([22,17,],2);
+a([21,17,],9);
+a([18,27,48,49,],1);
+a([18,40,41,41,50,],1);
+a([20,35,],4);
+a([19,45,],1);
+a([16,43,57,44,17,],2);
+a([17,44,60,],3);
+a([18,44,55,56,],31);
+a([20,17,],33);
+a([19,17,],75);
+a([18,61,],17);
+a([18,58,59,50,],4);
+a([20,44,55,56,],3);
+a([22,17,],5);
+a([21,17,],7);
+a([18,17,],40);
+a([13,10,27,27,48,49,],4);
+a([13,13,30,30,31,17,],8);
+a([16,33,],2);
+a([13,21,22,23,23,24,25,],1);
+a([13,51,52,53,54,26,],1);
+a([12,13,14,14,36,],1);
+a([9,65,66,67,68,69,69,70,71,],6);
+a([7,72,73,74,75,76,72,77,78,79,78,80,78,81,82,82,71,],11);
+a([18,83,84,85,85,86,87,25,],11);
+a([23,88,],1);
+a([16,89,90,91,92,93,94,95,96,96,97,98,99,99,100,101,17,],1);
+a([31,102,],1);
+a([31,103,],1);
+a([9,72,104,105,106,107,108,109,12,],1);
+a([12,110,111,112,71,],3);
+a([15,113,114,101,71,],2);
+a([13,115,116,117,118,119,120,121,122,123,124,125,],21);
+a([22,126,127,128,129,130,131,131,25,],8);
+a([13,132,133,134,135,136,137,25,],3);
+a([16,138,139,25,],1488);
+a([9,140,141,23,142,25,],444);
+
+
+console.timeEnd("[clj-async-profiler] Data load/eval");
+
+performSlowAction(function() {
+  redrawTransformsSection();
+  fullRedraw(true);
+  sidebar.style.visibility = 'visible';
+  smallbar.style.visibility = 'visible';
+});
 
     </script>
   </body>

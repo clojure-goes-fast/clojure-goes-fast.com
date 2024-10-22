@@ -34,11 +34,11 @@ default, which are pretty slow.
 
 <center>
 <figure class="figure">
-<div class="downscale-iframe-66" style="height:360px">
-<iframe src="/img/kb/cljap-diffgraphs-fg1.html?hide-sidebar=true" style="height:540px"></iframe>
+<div class="downscale-iframe-66" style="height:310px">
+<iframe src="/img/kb/cljap-diffgraphs-fg1.html?hide-sidebar=true" style="height:465px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
-    "Before" flamegraph. <a href="/img/kb/cljap-diffgraphs-fg1.html?hide-sidebar=true" target="_blank">Click to open.</a>
+    "Before" flamegraph. <a href="/img/kb/cljap-diffgraphs-fg1.html" target="_blank">Click to open.</a>
 </figcaption>
 </figure>
 </center>
@@ -47,17 +47,17 @@ Now, let's say we've "optimized" the program to do this instead:
 
 ```clj
 user=> (prof/profile
-        (dotimes [_ 15] (reduce +' (range 1 10000000)))
+        (dotimes [_ 20] (reduce +' (range 1 10000000)))
         (dotimes [_ 5] (reduce / (range 1 10000))))
 ```
 
 <center>
 <figure class="figure">
-<div class="downscale-iframe-66" style="height:360px">
-<iframe src="/img/kb/cljap-diffgraphs-fg2.html?hide-sidebar=true" style="height:540px"></iframe>
+<div class="downscale-iframe-66" style="height:310px">
+<iframe src="/img/kb/cljap-diffgraphs-fg2.html?hide-sidebar=true" style="height:465px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
-    "After" flamegraph. <a href="/img/kb/cljap-diffgraphs-fg2.html?hide-sidebar=true" target="_blank">Click to open.</a>
+    "After" flamegraph. <a href="/img/kb/cljap-diffgraphs-fg2.html" target="_blank">Click to open.</a>
 </figcaption>
 </figure>
 </center>
@@ -74,10 +74,25 @@ of flamegraphs' filenames, like `01`.
 user=> (prof/generate-diffgraph 1 2 {})
 ```
 
+Alternatively, you can go to web UI and click the button that says "Diff to..."
+in the row of the first flamegraph. The button will change to "Cancel" (which
+cancels the operation), but the button in the second flamegraph's row will
+change name to "...to this". Clicking it will create a diffgraph between those
+two profiles.
+
 <center>
 <figure class="figure">
-<div class="downscale-iframe-66" style="height:360px">
-<iframe src="/img/kb/cljap-diffgraphs-dg1.html" style="height:540px"></iframe>
+<img class="img-responsive" src="/img/kb/cljap-diffgraphs-ui.png" style="max-width: 800px;">
+<figcaption class="figure-caption text-center">
+    Creating a diffgraph from web UI.
+</figcaption>
+</figure>
+</center>
+
+<center>
+<figure class="figure">
+<div class="downscale-iframe-66" style="height:310px">
+<iframe src="/img/kb/cljap-diffgraphs-dg1.html" style="height:465px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
     Diffgraph. <a href="/img/kb/cljap-diffgraphs-dg1.html" target="_blank">Click to open.</a>
@@ -99,23 +114,23 @@ For example, if you hover above `clojure.core/*'`, it will tell you that the
 time spent in this function has changed by -100%, which means it has disappeared
 completely. This is consistent with the solid blue color. The tooltip will also
 show that the impact of this frame disappearance on the total performance
-distribution is -23.60%. It means that in the first profile, multiplication took
-23.6% of the overall profile, but now it takes none.
+distribution is -28.47%. It means that in the first profile, multiplication took
+28.47% of the overall profile, but now it takes none.
 
-Conversely, `clojure.core/+'` is deep-red with +87.16% self increase and +5.90%
+Conversely, `clojure.core/+'` is red with +68.03% self increase and +2.95%
 total. That happened because, in the second profile, we ran the additions more
-times (15 vs. 10). And the divisions (`clojure.core//`) are light blue (-49.68%
+times (20 vs. 10). And the divisions (`clojure.core//`) are light blue (-47.20%
 self) because we ran them half as many times. The overall profile is also light
-blue with -42.07% total which signifies that less work has been done overall in
+blue with -50.18% total which signifies that less work has been done overall in
 the second profile.
 
 Diffgraphs have a unique toggle on the side panel called "Normalized". If you
-check that box and press "Apply", the diffgraph will start looking a lot
-different. When enabled, the normalized view adjusts the total number of samples
-between the two compared profiles to be the same. This can be useful if the two
-profiles you've taken were not taken on the same hardware or for the same
-durations, so you not as much interested in the absolute sample numbers but more
-in the relative differences between flamegrpahs.
+check that box, the diffgraph will start looking a lot different. When enabled,
+the normalized view adjusts the total number of samples between the two compared
+profiles to be the same. This can be useful if the two profiles you've taken
+were not taken on the same hardware or for the same durations, so you not as
+much interested in the absolute sample numbers but more in the relative
+differences between flamegrpahs.
 
 Like regular flamegraphs, diffgraphs also support [live
 transforms](/kb/profiling/clj-async-profiler/exploring-flamegraphs/#live-transforms).

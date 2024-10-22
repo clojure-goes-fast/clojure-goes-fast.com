@@ -33,8 +33,8 @@ Next, you will need a spare open port to bind clj-async-profiler's web UI to.
 The web UI **doesn't** offer any authorization capability, so make sure to
 either:
 
-- Restrict the open port to your internal network with, e.g., AWS EC2 Security
-Groups;
+- Restrict the open port to your internal network with a firewall, e.g., AWS EC2
+Security Groups or Cloudflare WAF;
 - Only bind the server to `localhost` and then use SSH port forwarding to
 access the UI only after you establish a secure shell;
 - Hide the port behind a load balancer that supports authorization, e.g., AWS
@@ -58,7 +58,7 @@ usual and then run this at some point during your app's initialization:
 ```
 
 You should choose hostname depending on your strategy of protecting the UI from
-the outer world. It is advised to avoid the catch-all `0.0.0.0` if possible.
+the outer world. It is advised to avoid the catch-all `0.0.0.0`.
 
 #### Docker
 
@@ -69,9 +69,9 @@ allow this syscall. The container would also need the `--cap-add SYS_ADMIN`
 capability. If you have a dedicated operations team, such configuration is
 usually handled by them.
 
-Alternatively, you can use `:itimer` event type as a fallback for `:cpu`. It
-would work without the perf events, but you would lose the data about native
-code stacks.
+Alternatively, you can use `:ctimer` or `:itimer` event type as a fallback for
+`:cpu`. It would work without the perf events, but you would lose the data about
+native code stacks.
 
 ### Using Web UI
 
@@ -88,37 +88,37 @@ see a page like this:
 </figure>
 </center>
 
-In production scenarios, the Web UI enables two operations:
+In production scenarios, the Web UI enables the following operations:
 
 - Ability to start and stop the profiler with the selected event type.
 - Ability to open and view the resulting flamegraph.
+- Ability to generate diffs between two flamegraphs.
 
-For the former, a dropdown menu that says "cpu" can be used to select a
+For the first one, a dropdown menu that says "cpu" can be used to select a
 different event type. Then, you can click "Start profiler", and the profiling
 will commence. The button will change its caption to "Stop profiling." Once that
 is clicked, the profiler will stop and generate a flamegraph. It is assumed that
 your service already does something in the background, be it serve traffic or do
 batch processing, so you don't have to supply code to profile like you usually
-do in dev time.
+do at dev time.
 
 Below the profiler controls is the list of all generated profiles. Clicking on
 the link will open the flamegraph. The scheme used to name the flamegraph files
 is the following:
 
 ```
-<profile_id>-<event_type>-flamegraph-<timestamp>.html
+<timestamp>-<profile_id>-<event_type>-flamegraph.html
 ```
 
 `profile_id` can be used to refer to a profile run in functions like
 `generate-flamegraph` and `generate-diffgraph`.
 
-Each filename has a text showing the number of samples the profiler collected
-during this run and the file size. Use this to quickly check if you've collected
-enough samples during profiling — for `cpu` event type, aim to get at least 1000
+Each flamegraph row has a column showing the number of samples the profiler
+collected during this run. Use this to quickly check if you've collected enough
+samples during profiling — for `cpu` event type, aim to get at least 1000
 samples.
 
-At the top right corner is a toggle to display the raw TXT profile data files
-and a button to delete all profiling results.
+At the top right corner there is a link to delete all profiling results.
 
 #### Default options
 
@@ -126,8 +126,7 @@ When you control the profiler from the REPL, it is easier to provide the
 profiling options ad-hoc. But you can't do that when launching the profiler from
 the UI. In that case, you can call `set-default-profiling-options` during
 initialization and give it a map of options. This option map will then be passed
-to all profiling commands, invoked both from the code and the UI.
-
-Setting the default options is most beneficial to establish [predefined
+to all profiling commands, invoked both from the code and the UI. For example,
+you can set the default [predefined
 transforms](/kb/profiling/clj-async-profiler/exploring-flamegraphs/#predefined-transforms)
 for all flamegraphs generated on this machine.

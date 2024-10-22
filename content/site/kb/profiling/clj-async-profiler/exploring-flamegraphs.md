@@ -12,7 +12,7 @@ make the hot regions stand out more prominently.
 A flamegraph is a visualization of stack traces of profiled software that makes
 the hot paths of code stand out distinctly so they can be easily identified.
 
-Let's work through a simple example. Imagine we profile a program that has a
+Let's go through a simple example. Imagine we profile a program that has a
 function `foo`, which does some work of its own and calls another function
 `bar`, which in turn calls `baz`. There is another top-level function, `qux`,
 that calls into `corge`. We take 10 samples of the executed code, which means we
@@ -20,10 +20,10 @@ count the times each stack appears on the running thread. Let's say we obtained
 something like this:
 
 ```text
-;foo;         1
-;foo;bar;     2
-;foo;bar;baz; 5
-;qux;corge;   2
+foo         1
+foo;bar     2
+foo;bar;baz 5
+qux;corge   2
 ```
 
 The stack is recorded as semicolon-separated stack frames, and next to it is the
@@ -33,7 +33,7 @@ sample count. But a flamegraph is more lucid:
 
 <center>
 <figure class="figure">
-<iframe src="/img/kb/cljap-exploring-primitive-fg.html" style="width: 500px; height:130px;"></iframe>
+<iframe src="/img/kb/cljap-exploring-primitive-fg.html" style="width: 500px; height:120px;"></iframe>
 </figure>
 </center>
 
@@ -78,16 +78,16 @@ into a webpage using `<iframe>`.
 ### Interpreting a real flamegraph
 
 Let's study in detail the flamegraph that we generated back in [Basic
-usage](/kb/profiling/clj-async-profiler/basic-usage/). Feel free to work with it
-on this page or open it in a separate tab.
+usage](/kb/profiling/clj-async-profiler/basic-usage/). Feel free to interact
+with it on this page or open it in a separate tab.
 
 <center>
 <figure class="figure">
 <div class="downscale-iframe-66" style="height:500px">
-<iframe src="/img/kb/cljap-basic-usage-flamegraph.html" style="height:750px"></iframe>
+<iframe src="/img/kb/cljap-basic-usage-flamegraph.html?sidebar=expanded" style="height:750px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
-    <a href="/img/kb/cljap-basic-usage-flamegraph.html" target="_blank">Open in a separate tab.</a>
+    <a href="/img/kb/cljap-basic-usage-flamegraph.html?sidebar=expanded" target="_blank">Open in a separate tab.</a>
 </figcaption>
 </figure>
 </center>
@@ -101,34 +101,29 @@ in the tooltip. Clicking a grayed-out frame will zoom out to that level, and you
 can always reset the zoom by clicking the bottom-most `all` frame.
 
 The sidebar on the right provides additional ways to interact with the
-flamegraph. First from the top is the Highlight section. You may notice that
-because of how Clojure sequence iteration is implemented, the execution of
-lambda inside `iterate-trees` is split into several codepaths. Let's type
-`bottom-up` into the highlight field and click Highlight. The frames that
-contain this string will get a magenta tint, and on the bottom of the
-flamegraph, it will say "Matched: 52.64%". This means that the function
-`bottom-up-tree` spends 52% of the total time across all codepaths it is called
-in. Now, change the highlight to `item-check`. See that it now says "Matched:
-33.55%".
+flamegraph. Let's start with the field that says "Search string or /regex/". You
+may notice that because of how Clojure sequence iteration is implemented, the
+execution of lambda inside `iterate-trees` is split into several codepaths.
+Let's type `bottom-up` into that field click the magnifying glass button or
+press Return. The frames that contain this string will get a magenta tint, and
+on the bottom of the flamegraph, it will say "Matched: 59.01%". This means that
+the function `bottom-up-tree` spends 59% of the total time across all codepaths
+it is called in. Now, change the highlight to `item-check`. See that it now says
+"Matched: 29.53%". You can also highlight specific frames accross the whole
+flamegraph by right-clicking a frame and selecting "Highlight" in the pop-up
+menu.
 
-Next goes the field for setting the minimal frame width. It is used as an
-optimization for very large flamegraphs since hairbreadth frames (meaning they
-have few samples) are not very helpful, but skipping them can improve rendering
-speed even further. Try changing the value to 0 and click Apply. A few thin
-flames will appear here and there.
+The Reversed button enables an interesting view. Toggling it will draw the
+stacks from top to bottom. This basically highlights the functions with the
+highest self time. You can quickly see that the `Numbers.multiply` method has
+27.98% of self time, and the next expensive function is `item-check` with
+20.94%.
 
-Toggling the Sort by name/width radiobox and clicking Apply changes the order of
-the frames on the X-axis. As we said before, the position of frames on the
-X-axis is arbitrary and carries no information. Sorting frames by width can
-simplify visually identifying the most expensive callees of a function if there
-are many of them.
-
-The Reversed flag enables an interesting view. Toggling it and clicking Apply
-will draw the stacks from top to bottom. This basically highlights the functions
-with the highest self time. When coupled with Sort by width, you can quickly see
-that the `item-check` function has 28.44% of self time, and the next expensive
-method is `Numbers.multiply` with 23.61%. In the Reversed view, setting the
-minimal frame width to 0 might sometimes make sense to recover some hidden data.
+Toggling the Sort by name/width selector changes the order of the frames on the
+X-axis. As was said before, the position of frames on the X-axis is arbitrary
+and carries no information. Sorting frames by width simplifies visually
+identifying the most expensive callees of a function if there are many of them;
+but sorting by name can sometimes be useful too.
 
 <center>
 <figure class="figure">
@@ -184,32 +179,31 @@ at right now. Sure, you can just zoom into your own code, and those GC stacks
 will be hidden, but this way, they are still counted in the total percentage.
 Sometimes we don't want that, let's right-click the frame `thread_start` at the
 bottom (as it's a common entrypoint to that GC code) and select "Remove
-containing stacks". Now, `clojure.main.main` accounts for 99.16% of execution
+containing stacks". Now, `clojure.main.main` accounts for 99.79% of execution
 time.
 
 One final step that can clear things up for us. We've already seen that the
 execution inside the function `iterate-trees` got split into two code paths
-because that's how Clojure lazy sequences work. Let's try to converge those code
-paths, and this time, we'll have to write a transform manually. First, select
-"Replace" in the dropdown on the right and click "Add". By looking at the
-flamegraph, we have to find where the paths diverged and at which frame we want
-to bring them back together. Here, they split at
-`clojure.core.protocols/seq-reduce`, and we can merge them at
-`iterate-trees/fn--442`. The regex for the first empty field will look like
-this:
+because that's how Clojure lazy sequences behave. Let's try to converge those
+code paths, and this time, we'll have to write a transform manually. First,
+click the "+Replace" button on the sidebar. By looking at the flamegraph, we
+have to find where the paths diverged and at which frame we want to bring them
+back together. Here, they split at `clojure.core.protocols/seq-reduce`, and we
+can merge them at `iterate-trees/fn--10479`. The regex for the first empty field
+will look like this:
 
 ```
-/(seq-reduce;).+;(tutorial.binary-trees\/iterate-trees\/fn--442)/
+/(seq-reduce;).+;(tutorial.binary-trees\/iterate-trees\/fn--10479)/
 ```
 
 This regex matches the end of the `seq-reduce` frame, then an arbitrary number
-of frames after it, and ends with the mentioned `fn--442` frame. Finally, we can
-type `$1$2` as a replacement to drop all those frames in between.
+of frames after it, and ends with the mentioned `fn--10479` frame. Finally, we can
+type `$1$2` as a replacement to drop all those frames in between, and press Return.
 
 <center>
 <figure class="figure">
 <div class="downscale-iframe-66" style="height:500px">
-<iframe src="/img/kb/cljap-exploring-final-flamegraph.html" style="height:750px"></iframe>
+<iframe src="/img/kb/cljap-exploring-final-flamegraph.html?sidebar=expanded" style="height:750px"></iframe>
 </div>
 <figcaption class="figure-caption text-center">
     Flamegraph with all transforms.
@@ -218,16 +212,16 @@ type `$1$2` as a replacement to drop all those frames in between.
 </center>
 
 Behold the result of our work. Try unchecking the checkboxes next to each
-transform and clicking Apply. This is what we started with. Check them back
-again. The flamegraph got (subjectively) much more revealing.
+transform. This is what we started with. Check them back again. The flamegraph
+got much more revealing.
 
 #### Predefined transforms
 
 The live transforms are great for ad-hoc exploring, but unfortunately, you can't
 save and transfer them across different profiles (besides manually copying
 regexps). But in big stable applications which you regularly profile, you might
-have transforms that you always need, and it's too much work to redo them every
-time. To accommodate this scenario, the functions `profile`, `stop`,
+have transforms that you always need and don't want to redo them every time. To
+accommodate this scenario, the functions `profile`, `stop`,
 `generate-flamegraph` accept an option called `:predefined-transforms`.
 
 ```clj

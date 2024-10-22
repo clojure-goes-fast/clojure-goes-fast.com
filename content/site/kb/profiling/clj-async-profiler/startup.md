@@ -24,7 +24,7 @@ want to profile the startup time. In fact, you can launch it outside of any
 project, only specifying the clj-async-profiler dependency, like this:
 
 ```shell
-$ clj -Sdeps "{:deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version \"1.2.0\"}}}"
+$ clj -Sdeps "{:deps {com.clojure-goes-fast/clj-async-profiler {:mvn/version \"1.4.0\"}}}"
 ```
 
 Then, type this into the REPL:

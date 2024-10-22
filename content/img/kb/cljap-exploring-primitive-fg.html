@@ -1,68 +1,333 @@
 <html>
   <head>
+    <meta charset="utf-8"/>
+    <link rel='icon' href='favicon.png' type='image/x-icon'/>
     <style>
-      body {margin: 0; padding: 5px; background-color: #ffffff}
-      button {font: 12px sans-serif;}
+      body {margin:0; padding:0; background:linear-gradient(70deg, #ffffd0 0%, #fff 100%)}
       p {margin: 5px 0 5px 0}
       #hl {position: absolute; display: none; overflow: hidden; white-space: nowrap; pointer-events: none; background-color: #00000000; outline: 0.5px solid #222; height: 15px}
       #hl span {padding: 0 3px 0 3px}
-      #status {overflow: hidden; white-space: nowrap}
-      #match {overflow: hidden; white-space: nowrap; display: none; float: right; text-align: right}
-      * {box-sizing:border-box,margin:.25em 0}
-      .col{display:table-cell}
-      .col-1{width:5%}
-      .col-2{width:15%}
-      .col-3{width:22%}
-      .col-4{width:30%}
-      .col-5{width:40%}
-      .col-6{width:50%}
-      .row{display:table;border-spacing:0.2em 0;width:100%;display:flex}
+      #tooltip {position: absolute; display: none; overflow: hidden; white-space: normal;
+                pointer-events: none; background: #DCE3E5; box-shadow:#00000019 0px 2px 6px;
+                max-width: 250px; animation: .2s fadeIn; animation-fill-mode: forwards;
+                visibility: hidden; font-size: 11px; border-radius:4px;}
+      #tooltip span {overflow-wrap: anywhere; color: #4C4E4F; display: inline-block; margin: 4px 6px;}
+      #tooltip span.sep {margin: 4px 0; color:#fff;}
+      #tooltip .framediv {padding:0 0; border-bottom: 1px solid #fff;}
+      #tooltip .statdiv {display:flex; justify-content:space-around;}
+      #tooltipRightClickHint {font-size:9px; width:100%; display:flex; justify-content:center;}
+      @keyframes fadeIn { 99% { visibility:hidden; } 100% { visibility:visible; }}
+      #statusBox {background-color:#ffffe6; position:fixed; left:0; bottom:0; width:100%;
+                  box-sizing: border-box; padding:5px 1em; display:inline-flex;
+                  justify-content:space-between;}
+      #hoverTip {overflow: hidden; white-space: nowrap}
+      #matchContainer {/* overflow: hidden; white-space: nowrap; */ display: none; /* float: right; text-align: right */}
+      .wrapper {position:relative;}
+      .row{border-spacing:0.2em 0; width:100%; display:flex;}
+      .sidebar-row{display:table; border-spacing:0.2em 0; width:100%; display:inline-flex;
+                   margin:5px 0; align-items: center;}
+      .vpadding5{padding:5px 0;}
       .w-100{width:100%;display:flex}
-      .graphCol{flex: 80%; padding: 0.25em;}
-      .configCol{flex: 20%; padding: 0.25em;}
-      .configBlock{position:fixed; overflow-y:auto; top: 5px; bottom: 5px; width:19%;}
-      .sidebarToggle{font: 10px; width:10; padding:0; display:none;}
-      .margins {margin: 5px 1px}
+      .graphCol{flex: 80%; padding:5 10; box-sizing:border-box;}
+      #sidebar{flex:20%;}
+      .configBlock{position:fixed; overflow-y:auto; top:1em; bottom:2.5em; padding:10px 6px;
+                   background: #fff; box-sizing: border-box; margin-right:1em;
+                   border-radius:10px; box-shadow:#00000061 0px 3px 8px;}
+      #titleDiv {justify-content:center;}
+      .text-field {border:none; border-bottom:1.5px solid #b0b0b0; outline:none;
+                   padding:5px 0; transition:border-color 0.3s ease-in-out; background:transparent;}
+      .text-field:focus {border-bottom-color:#006d5b;}
+      #graphTitleSpan{display:inline-block; max-height:28px; font-size:9px;
+                      overflow:hidden; white-space:normal;}
+      .radio-input {display:none;}
+      .radio-label {display:inline-block; padding:5px 10px; position:relative;
+                    transition: color 0.3s ease; cursor:pointer;}
+      .radio-input:checked + .radio-label::after {
+          content:''; display:block; width:100%; height:2px; position:absolute;
+          background-color: #006d5b; bottom:0; left:0;}
+      .radio-input:checked + .radio-label {color:#006d5b;}
+      .btn:active {transform:scale(0.90);}
+      .toggle {background:none; border:none; padding:6px; transition: all 0.3s ease;}
+      .toggle svg {width:16px; height:16px; fill:#006d5b; stroke:#006d5b;
+                   transition: all 0.3s ease;}
+      .toggle.arcs svg {fill:white;}
+      .toggle:hover {background-color: #e6f2ff; border-radius: 5px;}
+      .toggle.arcs:hover svg {fill:#e6f2ff;}
+      .toggle:active {transform:scale(0.90);}
+      .toggle.toggled {background-color: #006d5b; border-radius: 5px;}
+      .toggle.toggled svg {stroke:#fff; fill:#fff;}
+      .toggle.toggled.arcs svg {fill:#006d5b;}
+      input {accent-color:#006d5b;}
+      input#isNormalized {weight:16; height:16; margin:6;}
+      .chip {background:none; border: 1.5px solid #a5a5a5; border-radius:4px;
+             font-size:10px; width:70px; color:#575757; padding: 2px 0;}
+      .chip-row {justify-content:space-evenly; margin-top: 1.5em;}
+      .xform-odd-block {background:#f4f4f4; margin-left:-3px; margin-right:-3px;
+                        padding-left:3px; padding-right:3px}
+      .xform-action-row {display:flex; justify-content:space-between; width:100%;
+                         align-items:center;}
+      .flx {display:flex; gap:5px; align-items:center;}
+      .minibtn {background:none; border:none;}
+      .minibtn svg {width:12px; height:12px;}
+      
+      #smallbar{box-sizing:border-box; padding:10px 6px; right:1em; top:1em;
+                position:fixed; z-index:100; background:#fff; border-radius:10px;
+                box-shadow:#00000061 0px 3px 8px;}
+      .margins {margin-top:5px; margin-bottom:5px;}
       .vmargins {margin: 0px 1px;}
+
+      .context {display: inline-block; position:fixed; top:0px; left:0px; min-width:200px;
+                color:#fff;  background:#262933; font-size:9pt; border:1px solid #333333;
+                border-radius:6px; box-shadow:2px 2px 2px -1px #00000088;
+                padding:3px 0px; -webkit-touch-callout:none; -webkit-user-select:none;
+                -khtml-user-select:none; -moz-user-select:none; -ms-user-select:none;
+                user-select:none; z-index:200;}
+      .context .item {padding:4px 19px; cursor:default; color:inherit;}
+      .context .item:hover {background:#006d5b;}
+      .context .disabled {color:#878b90;}
+      .context .disabled:hover {background:inherit;}
+      .context .disabled:hover .hotkey {color: #878b90;}
+      .context .separator {margin:4px 0px; height:0; padding:0; border-top:1px solid #454545;}
+      span.status {overflow:hidden;}
+
+      #spinner {color:#006d5b;}
+      #spinner, #spinner:after {box-sizing: border-box;}
+      #spinner {display:inline-block; width:12px; height:12px; margin-right: 5px;}
+      #spinner:after {content:" "; display:block; width:12px; height:12px;
+                      border-radius:50%; border:3px solid currentColor;
+                      border-color:currentColor transparent currentColor transparent;
+                      animation:spinner 1.2s cubic-bezier(.75,-0.55,.28,1.71) infinite;}
+      @keyframes spinner {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}
     </style>
   </head>
   <body style='font: 12px Verdana, sans-serif'>
-    <div class="c">
+    <div class="wrapper">
       <div class="row">
         <div class="graphCol">
-          <canvas id='canvas' style='width: 100%;'></canvas>
-          <div id='box'><div id='hl'><span></span></div></div>
-          <p id='match'>Matched: <span id='matchedLabel'></span></p>
-          <p id='status'>&nbsp;</p>
+          <div id='canvasDiv'><canvas id='canvas' style='width:100%; margin-bottom:20px;'></canvas></div>
+          <div id='hl'><span></span></div>
+          <div id='tooltip'>
+            <div class="framediv"><span id='tooltipFrameSpan'></span></div>
+            <div class="statdiv">
+              <span id='tooltipSamplesSpan'><b>123,456</b> samples</span>
+              <span class="sep">|</span>
+              <span id='tooltipPctSelfSpan'><b>-41.67%</b> self</span>
+              <span class="sep" id="tooltipSep2">|</span>
+              <span id='tooltipPctTotalSpan'><b>+41.67%</b> total</span>
+            </div>
+            <div id="tooltipRightClickHint" style="display:none"><span><i>Right click for options</i></span></div>
+          </div>
+          <div id='statusBox'>
+            <span id="spinner"></span>
+            <span id='hoverTip'></span>
+            <span id='matchContainer'>Matched: <span id='matchedLabel'></span></span>
+          </div>
+        </div>
+        <!-- Collapsed sidebar (smallbar) -->
+        <div id="smallbar" style="visibility:hidden; display:none;">
+          <div class="vpadding5"><button class="toggle" onclick="setSidebarVisibility(true)" title="Expand sidebar">
+              <svg><use href="#expand-icon"/></svg>
+          </button></div>
+          <div class="vpadding5"><button id="highlightButton1" class="toggle arcs" onclick="smallbarHighlightButtonOnClick()">
+              <svg><use href="#search-icon"/></svg>
+          </button></div>
+          <div class="vpadding5"><button id="inverseButton1" class="toggle" onclick="inverseOnClick()">
+              <svg><use href="#reverse-icon"/></svg>
+          </button> </div>
+        </div>
+        <!-- Full sidebar -->
+        <div id="sidebar" style="visibility:hidden;">
+          <div class="configBlock">
+            <div class="sidebar-row">
+              <div id="titleDiv" class="w-100">
+                <b><span id="graphTitleSpan">Flamegraph</span></b>
+              </div>
+              <button class="toggle" onclick="setSidebarVisibility(false)" title="Collapse sidebar">
+                <svg><use href="#collapse-icon"/></svg>
+              </button>
+            </div>
+            <div class="sidebar-row">
+              <input class="w-100 text-field" placeholder="Search string or /regex/" id="highlightInput"/>
+              &nbsp;
+              <button id="highlightButton2" class="toggle arcs" onclick="highlightButtonOnClick()">
+                <svg><use href="#search-icon"/></svg>
+              </button>
+            </div>
+            <div class="sidebar-row">
+              <div class="w-100"><strong>Reversed</strong></div>
+              <button id="inverseButton2" class="toggle" onclick="inverseOnClick()">
+                <svg><use href="#reverse-icon"/></svg>
+              </button>
+            </div>
+            <div class="sidebar-row" id="isNormalizedDiv">
+              <div class="w-100"><strong>Normalized</strong></div>
+              <input type="checkbox" id="isNormalized" name="isNormalized" onchange="onTransformsChangedDontRecreate()">
+            </div>
+            <div class="sidebar-row">
+              <div class="w-100"><strong>Sort by</strong></div>
+              <input type="radio" id="sortByNameRadio" name="sortBy" value="name" class="radio-input" onchange="sortRadioChange(this)">
+              <label for="sortByNameRadio" class="radio-label">Name</label>
+              <input type="radio" id="sortByWidthRadio" name="sortBy" value="width" class="radio-input" onchange="sortRadioChange(this)" checked>
+              <label for="sortByWidthRadio" class="radio-label">Width</label>
+            </div>
+            <div class="sidebar-row chip-row">
+              <button class="chip btn" onclick="addNewTransform('filter')" >+ Filter</button>
+              <button class="chip btn" onclick="addNewTransform('remove')" >+ Remove</button>
+              <button class="chip btn" onclick="addNewTransform('replace')">+ Replace</button>
+            </div>
+            <div id="transformsContainer">
+            </div>
+
+            <div id="transformReplaceTemplate" style="display:none" class="margins vpadding5">
+              <div class="xform-action-row">
+                <div class="flx">
+                  <input type="checkbox" class="chkEnabled" onchange="onTransformsChangedDontRecreate()" checked>
+                  <label>Replace</label>
+                </div>
+                <div class="flx">
+                  <button class="minibtn btn btnMoveUp" title="Move up" onclick="moveTransformUp(this)"><svg><use href="#arrow-up-icon"/></svg></button>
+                  <button class="minibtn btn btnDelete" title="Delete" onclick="deleteTransform(this)"><svg><use href="#delete-icon"/></svg></button>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="w-100 no-vmargins">
+                  <input class="what no-vmargins w-100 text-field" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+              <div class="row" style="margin-top:1px;margin-bottom:1px">
+                <div class="w-100 no-vmargins">
+                  <input class="replacement no-vmargins w-100 text-field" placeholder="Replacement"/><br>
+                </div>
+              </div>
+            </div>
+
+            <div id="transformFilterTemplate" style="display:none" class="margins vpadding5">
+              <div class="xform-action-row">
+                <div class="flx">
+                  <input type="checkbox" class="chkEnabled" onchange="onTransformsChangedDontRecreate()" checked>
+                  <label class="label">Filter</label>
+                </div>
+                <div class="flx">
+                  <button class="minibtn btn btnMoveUp" title="Move up" onclick="moveTransformUp(this)"><svg><use href="#arrow-up-icon"/></svg></button>
+                  <button class="minibtn btn btnDelete" title="Delete" onclick="deleteTransform(this)"><svg><use href="#delete-icon"/></svg></button>
+                </div>
+              </div>
+              <div class="row">
+                <div class="w-100">
+                  <input class="what w-100 text-field" placeholder="String or /regex/"/><br>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="reverse-icon" viewBox="0 0 112.62 120.72">
+            <path d="M11.64,100.12l-.4-.47-1.06,8.63a5.08,5.08,0,0,1-1.92,3.41A5.11,5.11,0,0,1,0,107L2.79,84.65v-.07a3.28,3.28,0,0,1,.08-.41h0A5.09,5.09,0,0,1,9,80.39q11.22,2.53,22.42,5.15a5,5,0,0,1,3.17,2.25,5.14,5.14,0,0,1,.64,3.84v0a5,5,0,0,1-2.25,3.16,5.08,5.08,0,0,1-3.83.65c-3.31-.75-6.62-1.52-9.92-2.28a40.71,40.71,0,0,0,2.84,3,50.09,50.09,0,0,0,26.23,13.49,48.67,48.67,0,0,0,14.71.34A47.35,47.35,0,0,0,77,106h0q2.52-1.19,4.83-2.54c1.56-.93,3.07-1.92,4.51-3a50.8,50.8,0,0,0,8.56-7.88,48.92,48.92,0,0,0,6.39-9.45l.56-1.1,10,2.69-.8,1.66a58.64,58.64,0,0,1-7.9,12.24,61.28,61.28,0,0,1-10.81,10.1c-1.68,1.23-3.46,2.4-5.32,3.5s-3.73,2.07-5.74,3a58,58,0,0,1-17,5,58.56,58.56,0,0,1-17.79-.39,60.21,60.21,0,0,1-31.58-16.26c-1.2-1.16-2.26-2.31-3.24-3.45ZM101,20.6l.4.47,1-8.63a5.11,5.11,0,1,1,10.14,1.26l-2.74,22.37,0,.07c0,.13,0,.27-.07.41h0a5.09,5.09,0,0,1-6.08,3.78c-7.47-1.69-15-3.4-22.42-5.15a5,5,0,0,1-3.16-2.25,5.1,5.1,0,0,1-.65-3.84v0a5,5,0,0,1,2.25-3.16,5.1,5.1,0,0,1,3.84-.65c3.31.75,6.61,1.52,9.92,2.28-.84-1-1.77-2-2.84-3.05a50.09,50.09,0,0,0-12.13-8.73A49.49,49.49,0,0,0,64.37,11a48.6,48.6,0,0,0-14.7-.34,47.26,47.26,0,0,0-14,4.1h0q-2.53,1.18-4.83,2.54c-1.57.93-3.07,1.92-4.52,3a50.34,50.34,0,0,0-8.55,7.88,48,48,0,0,0-6.39,9.45l-.57,1.1L.76,36l.8-1.66A58.9,58.9,0,0,1,9.46,22.1,61.63,61.63,0,0,1,20.27,12q2.54-1.85,5.32-3.5c1.81-1.06,3.73-2.07,5.74-3a58,58,0,0,1,17-5A58.56,58.56,0,0,1,66.16.89a59.77,59.77,0,0,1,17,5.74A60.4,60.4,0,0,1,97.75,17.15c1.19,1.16,2.26,2.31,3.24,3.45Z"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="search-icon" viewBox="0 0 12 12">
+            <path d="M11 11L8.58333 8.58333M9.88889 5.44444C9.88889 7.89906 7.89906 9.88889 5.44444 9.88889C2.98984 9.88889 1 7.89906 1 5.44444C1 2.98984 2.98984 1 5.44444 1C7.89906 1 9.88889 2.98984 9.88889 5.44444Z" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="expand-icon" viewBox="0 0 12 12">
+            <path d="M7.11111 4.88889L11 1M11 1H7.66667M11 1V4.33333M4.88889 7.11111L1 11M1 11H4.33333M1 11V7.66667" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="collapse-icon" viewBox="0 0 12 12">
+            <path d="M1.55556 7.11111H4.88889M4.88889 7.11111V10.4444M4.88889 7.11111L1 11M10.4444 4.88889H7.11111M7.11111 4.88889V1.55556M7.11111 4.88889L11 1" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="info-icon" viewBox="0 0 16 16" fill="none">
+            <path d="M8 10.8V8V10.8ZM8 5.2H8.007H8ZM15 8C15 11.866 11.866 15 8 15C4.13401 15 1 11.866 1 8C1 4.13401 4.13401 1 8 1C11.866 1 15 4.13401 15 8Z" fill="#EEEEEE"/>
+            <path d="M8 10.8V8M8 5.2H8.007M15 8C15 11.866 11.866 15 8 15C4.13401 15 1 11.866 1 8C1 4.13401 4.13401 1 8 1C11.866 1 15 4.13401 15 8Z" stroke="#5B5B5B" stroke-linecap="round" stroke-linejoin="round"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="arrow-up-icon" viewBox="0 0 6 12" fill="none">
+            <path d="M3 4.76837e-07L0.113249 5H5.88675L3 4.76837e-07ZM3.5 12L3.5 4.5H2.5L2.5 12H3.5Z" fill="black"/>
+          </symbol>
+        </defs>
+      </svg>
+      <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <symbol id="delete-icon" viewBox="0 0 16 16" fill="none">
+            <line x1="3.8892" y1="3.88912" x2="11.6674" y2="11.6673" stroke="black"/><line x1="3.88912" y1="11.6674" x2="11.6673" y2="3.88927" stroke="black"/>
+          </symbol>
+        </defs>
+      </svg>
     </div>
     <script>
-      // This file was derived from flamegraph.html from the project
-// https://github.com/jvm-profiling-tools/async-profiler
-// Licensed under the Apache License, Version 2.0. Copyright 2020 Andrei Pangin
+      // SPDX-License-Identifier: EPL-1.0
+// Copyright 2021-2024 Oleksandr Yakushev
+// Contains code from https://github.com/async-profiler/async-profiler, licensed
+// under Apache License, Version 2.0.
 
 /// Constants
-const canvas = document.getElementById('canvas');
 const c = canvas.getContext('2d');
-const hl = document.getElementById('hl');
-const status = document.getElementById('status');
-const sidebarWidth = 0
+const sidebarWidth = sidebar.offsetWidth; // Remember while sidebar is visible.
+const qString = new URLSearchParams(window.location.search)
+const transformFilterTemplate = document.getElementById('transformFilterTemplate');
+const transformReplaceTemplate = document.getElementById('transformReplaceTemplate');
 
-function calculateCanvasWidth() {
-    return window.innerWidth - 36;
+var sidebarVisible = false;
+var canvasWidth, canvasHeight;
+
+if (qString.get('sidebar') == 'expanded') {
+  sidebarVisible = true;
 }
 
-var canvasWidth = calculateCanvasWidth();
-var graphTitle = "";
+function updateSidebarState() {
+  let availableWidth = Math.min(window.innerWidth, document.documentElement.clientWidth);
+  if (sidebarVisible) {
+    sidebar.style.display = 'block';
+    // smallbar.style.display = 'none';
+    canvasWidth = availableWidth - sidebarWidth;
+  } else {
+    sidebar.style.display = 'none';
+    // smallbar.style.display = 'block';
+    canvasWidth = availableWidth;
+  }
+  canvasWidth -= 20; // Reduce by the padding of .graphCol
+}
+
+updateSidebarState();
+
+var graphTitle = "20241022_202853-00-cpu-flamegraph.html" || "Flamegraph";
 var isDiffgraph = false;
-var normalizeDiff = true, b_scale_factor;
+var b_scale_factor;
 var reverseGraph = false;
-var idToFrame = ["foo","bar","baz","qux","corge"];
 var initialStacks = [];
 var stacks;
-
+// idToFrame gets defined at the end of the file
 var _lastInsertedStack = null;
+
+var maxTooltipWidth = 250;
+if (isDiffgraph) {
+  maxTooltipWidth = 350;
+} else {
+  isNormalizedDiv.remove();
+  tooltipSep2.remove();
+  tooltipPctTotalSpan.remove();
+}
+tooltip.style['max-width'] = maxTooltipWidth + 'px';
+graphTitleSpan.innerText = graphTitle;
+graphTitleSpan.title = graphTitle;
 
 function a(frameIds, samples) {
   var same = frameIds[0];
@@ -97,7 +362,7 @@ function d(frameIds, samples_a, samples_b) {
 function _extractRegexPrefix(s) {
   let parsed = s.match(/^\/\.\+(.+)\/g$/);
   if (parsed != null) {
-    return new RegExp(parsed[1]);
+    return new RegExp(parsed[1], 'g');
   }
 }
 
@@ -112,8 +377,9 @@ function _stringToMaybeRegex(s) {
 
 function _makeTransform(type, enabled, what, replacement) {
   let what2 = (typeof(what) == 'string') ? _stringToMaybeRegex(what) : what;
+  let what2Str = what2.toString();
   let prefix = (what2 instanceof RegExp) ?
-      _extractRegexPrefix(what2.toString()) : null;
+      _extractRegexPrefix(what2Str) : null;
   if (type == 'replace')
     return { type: type, enabled: enabled, what: what2, replacement: replacement, prefix: prefix}
   else
@@ -131,25 +397,34 @@ function match(string, obj) {
 
 function applyReplacement(string, what, replacement, prefix) {
   var s = string;
+  var prevMatch = null;
   if (prefix != null) {
-    let match = prefix.exec(string);
-    if (match == null)
-      return s;
-    else
-      s = string.substring(Math.max(match.index-1, 0));
+    while (true) {
+      let match = prefix.exec(string);
+      if (match == null) {
+        if (prevMatch == null)
+          return s;
+        else {
+          s = string.substring(Math.max(prevMatch.index, 0));
+          return s.replace(prefix, replacement);
+        }
+      } else {
+        prevMatch = match;
+      }
+    }
   }
   return s.replaceAll(what, replacement);
 }
 
 function transformStacks() {
-  console.time("transformStacks");
+  console.time("[clj-async-profiler] Transform stacks");
   let diff = isDiffgraph;
   var result;
   if (userTransforms.length > 0) {
     var xformedMap = {};
     for (var i = 0; i < initialStacks.length; i++) {
       var stack = initialStacks[i];
-      var xformedStr = stack.stackStr;
+      var xformedStr = ";" + stack.stackStr + ";";
       var useIt = true;
 
       for (var t = 0; t < userTransforms.length; t++) {
@@ -168,6 +443,8 @@ function transformStacks() {
         }
         if (!useIt) break;
       }
+
+      xformedStr = xformedStr.substring(1,xformedStr.length-1);
 
       if (useIt)
         if (diff) {
@@ -191,18 +468,9 @@ function transformStacks() {
   } else
     result = initialStacks;
 
-  console.timeEnd("transformStacks");
+  console.timeEnd("[clj-async-profiler] Transform stacks");
   return result;
 }
-
-console.time("data exec time");
-
-a([0,0],1);
-a([1,1],2);
-a([2,2],5);
-a([0,3,4],2);
-
-console.timeEnd("data exec time");
 
 function makeTreeNode() {
   if (isDiffgraph)
@@ -224,101 +492,97 @@ function getChildNode(node, childTitle) {
 }
 
 function parseStacksToTreeSimple(stacks, treeRoot) {
-  console.time("parseStacksToTreeSimple");
-  var depth = 0;
-  for (var i = 0, len = stacks.length; i < len; i++) {
-    var stack = stacks[i];
-    var stackframes = stack.stackStr.split(";");
-    var stackLen = stackframes.length;
-    depth = Math.max(depth, stackLen);
-    var node = treeRoot;
+  for (let i = 0, len = stacks.length; i < len; i++) {
+    let stack = stacks[i];
+    let stackframes = stack.stackStr.split(";");
+    let stackLen = stackframes.length;
+    let node = treeRoot;
+    let samples = stack.samples;
     if (reverseGraph) {
-      for (var j = stackLen-1; j >= 0; j--) {
-        var stackframe = stackframes[j];
-        node.total += stack.samples;
-        node = getChildNode(node, stackframe);
+      for (let j = stackLen-1; j >= 0; j--) {
+        node.total += samples;
+        node = getChildNode(node, stackframes[j]);
       }
     } else {
-      for (var j = 0; j < stackLen; j++) {
-        var stackframe = stackframes[j];
-        node.total += stack.samples;
-        node = getChildNode(node, stackframe);
+      for (let j = 0; j < stackLen; j++) {
+        node.total += samples;
+        node = getChildNode(node, stackframes[j]);
       }
     }
-    node.total += stack.samples;
-    node.self += stack.samples;
+    node.total += samples;
+    node.self += samples;
   }
-  console.timeEnd("parseStacksToTreeSimple");
-  return depth;
 }
 
 function parseStacksToTreeDiffgraph(stacks, treeRoot) {
-  console.time("parseStacksToTreeDiffgraph");
-  var depth = 0;
-
-  for (var i = 0, len = stacks.length; i < len; i++) {
-    var stack = stacks[i];
-    var stackframes = stack.stackStr.split(";");
-    var stackLen = stackframes.length;
-    depth = Math.max(depth, stackLen);
+  let normalizeDiff = isNormalized.checked;
+  for (let i = 0, len = stacks.length; i < len; i++) {
+    let stack = stacks[i];
+    let stackframes = stack.stackStr.split(";");
+    let stackLen = stackframes.length;
     var node = treeRoot;
 
-    var samplesA = stack.samples_a;
-    var samplesB = stack.samples_b;
+    let samplesA = stack.samples_a;
+    let samplesB = stack.samples_b;
     if (normalizeDiff) samplesB = Math.round(samplesB * b_scale_factor);
-    var delta = samplesB - samplesA;
-
+    let delta = samplesB - samplesA;
 
     if (reverseGraph) {
-      for (var j = stackLen-1; j >= 0; j--) {
-        var stackframe = stackframes[j];
+      for (let j = stackLen-1; j >= 0; j--) {
         node.total_samples_a += samplesA;
         node.total_samples_b += samplesB;
         node.total_delta += delta;
         node.delta_abs += Math.abs(delta);
-        node = getChildNode(node, stackframe);
+        node = getChildNode(node, stackframes[j]);
       }
     } else {
-      for (var j = 0; j < stackLen; j++) {
-        var stackframe = stackframes[j];
+      for (let j = 0; j < stackLen; j++) {
         node.total_samples_a += samplesA;
         node.total_samples_b += samplesB;
         node.total_delta += delta;
         node.delta_abs += Math.abs(delta);
-        node = getChildNode(node, stackframe);
+        node = getChildNode(node, stackframes[j]);
       }
     }
     node.self_samples_a += samplesA;
     node.self_samples_b += samplesB;
     node.self_delta += delta;
+    node.total_samples_a += samplesA;
+    node.total_samples_b += samplesB;
+    node.total_delta += delta;
     node.delta_abs += Math.abs(delta);
   }
-  console.timeEnd("parseStacksToTreeDiffgraph");
-  return depth;
 }
 
 function parseStacksToTree(stacks, treeRoot) {
+  console.time("[clj-async-profiler] Generate tree");
   if (isDiffgraph)
-    return parseStacksToTreeDiffgraph(stacks, treeRoot);
+    parseStacksToTreeDiffgraph(stacks, treeRoot);
   else
-    return parseStacksToTreeSimple(stacks, treeRoot);
+    parseStacksToTreeSimple(stacks, treeRoot);
+  console.timeEnd("[clj-async-profiler] Generate tree");
 }
 
 const palette = {
-  green: "#50e150",
-  aqua: "#50bebe",
-  orange: "#e17d00",
-  yellow: "#c8c83c",
-  red: "#e15a5a",
-  clojure_green: "#91dc51",
-  clojure_blue: "#8fb5fe",
-};
+  green     : "#50e150",
+  inlined   : "#46c4bf",
+  unknown   : "#f7a65b",
+  cpp       : "#d9d800",
+  kernel    : "#f15964",
+  java      : "#91dc51",
+  clojure   : "#8fb5fe",
+  highlight : "#ee00ee",
+  total     : "#999999",
+  diff      : { blue    : [51, 119, 255],    // #3377FF
+                neutral : [245, 245, 245],   // #F5F5F5
+                red     : [253, 59, 73] } }; // #FD3B49
 
-function getColor(title) {
+function frameColor(title) {
   if (title == "foo" || title == "baz") return palette.green;
-  else if (title == "bar") return palette.clojure_green;
-  else if (title == "qux") return palette.clojure_blue;
-  else if (title == "corge") return palette.aqua;
+  else if (title == "bar") return palette.java;
+  else if (title == "qux") return palette.clojure;
+  else if (title == "corge") return palette.inlined;
+  else if (title == "Total") return palette.total;
   else return palette.red;
 }
 
@@ -327,141 +591,178 @@ function decToHex(n) {
   return hex.length == 1 ? "0" + hex : hex;
 }
 
-function getDiffColor(isRed, intensity) {
-  return "hsl(" + ((isRed) ? 0 : 220) + ",100%," + Math.round(90 - intensity * 30) + "%)";
-  // return "hsl(" + ((isRed) ? 0 : 220) + "," + Math.round(100 * intensity) + "%, 60%)";
+function getDiffColor(value) {
+  // Clamp the value between -1 and 1
+  value = Math.max(-1.0, Math.min(1.0, value));
+
+  // Find the correct color range
+  let start, end;
+  if (value <= 0) {
+    start = palette.diff.blue;
+    end = palette.diff.neutral;
+    value = value + 1.0; // Normalize to 0.0-1.0
+  } else {
+    start = palette.diff.neutral;
+    end = palette.diff.red;
+  }
+
+  // Interpolate between colors
+  const r = Math.round(start[0] + (end[0] - start[0]) * value);
+  const g = Math.round(start[1] + (end[1] - start[1]) * value);
+  const b = Math.round(start[2] + (end[2] - start[2]) * value);
+
+  // Convert to hex
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-function scaleColorMap(colorMap, intensity) {
-  return '#' + decToHex(intensity * colorMap.red) +
-    decToHex(intensity * colorMap.green) + decToHex(intensity * colorMap.blue);
-}
+var stacks, tree, levels, depth, minSamplesToShow = 0;
 
-var stacks, tree, levels, depth;
-
-var smallestPixelsPerSample, minPixelsPerFrame = 0.25, minSamplesToShow;
-
-function generateLevelsSimple(levels, node, title, level, x, minSamplesToShow) {
+function generateLevelsSimple(levels, node, title, level, x) {
   var left = x;
 
   levels[level] = levels[level] || [];
-  if (node.total >= minSamplesToShow) {
-    levels[level].push({left: left, width: node.total, color: getColor(title),
-                        title: title});
+  levels[level].push({left: left, width: node.total, color: frameColor(title),
+                      title: title});
 
-    left += node.self;
+  left += node.self;
 
-    let children = Object.entries(node.children);
+  let children = Object.entries(node.children);
+  if (sortByNameRadio.checked)
     children.sort((a, b) => a[0].localeCompare(b[0]));
-
-    for (let i in children) {
-      let title = children[i][0];
-      let child = children[i][1];
-      generateLevelsSimple(levels, child, title, level+1, left, minSamplesToShow);
-      left += child.total;
-    }
-  }
-}
-
-function generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow) {
-  var left = x;
-
-  levels[level] = levels[level] || [];
-  if (node.delta_abs >= minSamplesToShow) {
-    var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
-    var color = getDiffColor((node.total_delta > 0), Math.min(Math.abs(change), 1.0));
-    levels[level].push({left: left, width: node.delta_abs,
-                        self_samples_a: node.self_samples_a,
-                        self_samples_b: node.self_samples_b,
-                        self_delta: node.self_delta,
-                        total_samples_a: node.total_samples_a,
-                        total_samples_b: node.total_samples_b,
-                        total_delta: node.total_delta,
-                        color: color,
-                        title: title});
-
-    left += Math.abs(node.self_delta);
-
-    let children = Object.entries(node.children);
-    children.sort((a, b) => a[0].localeCompare(b[0]));
-
-
-    for (let i in children) {
-      let title = children[i][0];
-      let child = children[i][1];
-      generateLevelsDiffgraph(levels, child, title, level+1, left, minSamplesToShow);
-      left += child.delta_abs;
-    }
-  }
-}
-
-function generateLevels(levels, node, title, level, x, minSamplesToShow) {
-  if (isDiffgraph)
-    generateLevelsDiffgraph(levels, node, title, level, x, minSamplesToShow);
   else
-    generateLevelsSimple(levels, node, title, level, x, minSamplesToShow);
+    children.sort((a, b) => b[1].total - a[1].total);
+
+  for (let i in children) {
+    let title = children[i][0];
+    let child = children[i][1];
+    generateLevelsSimple(levels, child, title, level+1, left);
+    left += child.total;
+  }
 }
 
-function refreshData() {
-  if (isDiffgraph && normalizeDiff)
+function generateLevelsDiffgraph(levels, node, title, level, x) {
+  var left = x;
+
+  levels[level] = levels[level] || [];
+  var change = (node.total_samples_a == 0) ? 1.0 : node.total_delta / node.total_samples_a;
+  var color = getDiffColor(change);
+  levels[level].push({left: left, width: node.delta_abs,
+                      self_samples_a: node.self_samples_a,
+                      self_samples_b: node.self_samples_b,
+                      self_delta: node.self_delta,
+                      total_samples_a: node.total_samples_a,
+                      total_samples_b: node.total_samples_b,
+                      total_delta: node.total_delta,
+                      color: color,
+                      title: title});
+
+  left += Math.abs(node.self_delta);
+
+  let children = Object.entries(node.children);
+  if (sortByNameRadio.checked)
+    children.sort((a, b) => a[0].localeCompare(b[0]));
+  else
+    children.sort((a, b) => b[1].delta_abs - a[1].delta_abs);
+
+  for (let i in children) {
+    let title = children[i][0];
+    let child = children[i][1];
+    generateLevelsDiffgraph(levels, child, title, level+1, left);
+    left += child.delta_abs;
+  }
+}
+
+function generateLevels(node, title) {
+  console.time("[clj-async-profiler] Generate flat levels");
+  levels = [];
+  if (isDiffgraph)
+    generateLevelsDiffgraph(levels, node, title, 0, 0);
+  else
+    generateLevelsSimple(levels, node, title, 0, 0);
+  console.timeEnd("[clj-async-profiler] Generate flat levels");
+}
+
+function recomputeDataModel() {
+  console.time("[clj-async-profiler] recomputeDataModel");
+  if (isDiffgraph && isNormalized.checked)
     b_scale_factor = totalSamplesA / totalSamplesB;
 
   stacks = transformStacks();
-
   tree = makeTreeNode();
+  parseStacksToTree(stacks, tree);
 
-  depth = parseStacksToTree(stacks, tree);
-  smallestPixelsPerSample = canvasWidth / (tree.total || tree.delta_abs);
-  minSamplesToShow = minPixelsPerFrame / smallestPixelsPerSample;
-
-  levels = [];
-  generateLevels(levels, tree, "all", 0, 0, minSamplesToShow);
+  generateLevels(tree, "Total");
   depth = levels.length;
+  if (depth > 511) depth = 511;
+  console.timeEnd("[clj-async-profiler] recomputeDataModel");
 }
 
-refreshData();
-
-var canvasHeight;
-
-function initCanvas() {
+function reinitCanvas() {
   canvasHeight = (depth + 1) * 16;
   canvas.style.width = canvasWidth + 'px';
-  canvas.width = canvasWidth * (devicePixelRatio || 1);
-  canvas.height = canvasHeight * (devicePixelRatio || 1);
-  if (devicePixelRatio) c.scale(devicePixelRatio, devicePixelRatio);
+  if (devicePixelRatio) {
+    canvas.width = canvasWidth * devicePixelRatio;
+    canvas.height = canvasHeight * devicePixelRatio;
+    c.scale(devicePixelRatio, devicePixelRatio);
+  } else {
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+  }
+  canvas.onclick = canvasOnClick;
+  canvas.onmousemove = canvasOnMouseMove;
+  canvas.onmouseout = canvasOnMouseOut;
   c.font = document.body.style.font;
+  if (window.innerWidth < canvasWidth) {
+    // This is probably caused by vertical scrollbar appearing when it wasn't
+    // there before. Force a recompute of canvasWidth and reinit canvas again.
+    updateSidebarState(); // This recomputes canvasWidth
+    reinitCanvas();
+  }
 }
 
-initCanvas();
+var highlightState = {
+  pattern: null, lastPatternAsText: null
+}
 
-var highlightPattern = null, currentRootFrame, currentRootLevel, px;
+var highlightPattern = null, currentRootFrame, currentRootLevel, currentFrameUnderCursor, currentLevelUnderCursor, px;
+var totalRenderedFrames = 0;
+
+function applyHighlight(stringOrRegex) {
+  let newPattern = _stringToMaybeRegex(stringOrRegex);
+  highlightState.pattern = newPattern;
+  highlightState.lastPatternAsText = stringOrRegex;
+  highlightButton1.classList.add("toggled");
+  highlightButton2.classList.add("toggled");
+  performSlowAction(function() { render(currentRootFrame, currentRootLevel); });
+}
+
+function clearHighlight() {
+  highlightState.pattern = null;
+  highlightButton1.classList.remove("toggled");
+  highlightButton2.classList.remove("toggled");
+  render(currentRootFrame, currentRootLevel);
+}
 
 function render(newRootFrame, newLevel) {
-  console.time("render");
+  var totalRenderedFrames = 0;
+  console.time("[clj-async-profiler] Render");
   // Background
-  var gradient = c.createLinearGradient(0, 0, 0, canvasHeight);
-  gradient.addColorStop(0.05, "#eeeeee");
-  gradient.addColorStop(0.95, "#eeeeb0");
-  c.fillStyle = gradient;
-  c.fillRect(0, 0, canvasWidth, canvasHeight);
+  c.clearRect(0, 0, canvas.width, canvas.height);
 
   currentRootFrame = newRootFrame || levels[0][0];
   currentRootLevel = newLevel || 0;
   px = canvasWidth / currentRootFrame.width;
 
-  const marked = [];
+  const matchedSpans = [];
 
-  function mark(f) {
-    return marked[f.left] >= f.width || (marked[f.left] = f.width);
-  }
-
-  function totalMarked() {
+  function totalMatched() {
     let total = 0;
     let left = 0;
-    for (let x in marked) {
+    for (let x in matchedSpans) {
       if (+x >= left) {
-        total += marked[x];
-        left = +x + marked[x];
+        let width = matchedSpans[x];
+        total += width;
+        left = +x + width;
       }
     }
     return total;
@@ -470,21 +771,43 @@ function render(newRootFrame, newLevel) {
   const x0 = currentRootFrame.left;
   const x1 = x0 + currentRootFrame.width;
 
-  function drawFrame(f, y, alpha) {
-    if (f.left < x1 && f.left + f.width > x0) {
-      c.fillStyle = highlightPattern && f.title.match(highlightPattern) && mark(f) ? '#ee00ee' : f.color;
-      c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+  let highlightPattern = highlightState.pattern;
 
-      if (f.width * px >= 21) {
-        const chars = Math.floor(f.width * px / 7);
-        const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 2) + '..';
-        c.fillStyle = '#000000';
-        c.fillText(title, Math.max(f.left - x0, 0) * px + 3, y + 12, f.width * px - 6);
+  let lastL = -1;
+
+  function drawFrame(f, y, alpha, h) {
+    totalRenderedFrames += 1;
+    // if (h == 78) return;
+    if (f.left < x1 && f.left + f.width > x0) {
+      let color = f.color;
+      if (highlightPattern && f.title.match(highlightPattern)) {
+        if (!(matchedSpans[f.left] >= f.width))
+          matchedSpans[f.left] = f.width;
+        color = palette.highlight;
       }
 
-      if (alpha) {
-        c.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        c.fillRect((f.left - x0) * px, y, f.width * px, 15);
+      if (f.width >= minSamplesToShow && y >= 0 && y <= canvasHeight) {
+        c.fillStyle = color;
+        let w = f.width * px;
+        let l = (f.left - x0) * px;
+        let newL = Math.floor(l * 8);
+        // Optimization to sample the rendering of thin frames.
+        if (w < 0.125 && newL <= lastL) return;
+
+        c.fillRect(l, y, w, 15);
+        lastL = newL;
+
+        if (w >= 21) {
+          const chars = Math.floor((w - 6) / 7);
+          const title = f.title.length <= chars ? f.title : f.title.substring(0, chars - 1) + "…";
+          c.fillStyle = '#000000';
+          c.fillText(title, Math.max(l, 0) + 3, y + 12, w - 6);
+        }
+
+        if (alpha) {
+          c.fillStyle = 'rgba(255, 255, 255, 0.5)';
+          c.fillRect(l, y, w, 15);
+        }
       }
     }
   }
@@ -492,16 +815,44 @@ function render(newRootFrame, newLevel) {
   for (let h = 0; h < levels.length; h++) {
     const y = reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16;
     const frames = levels[h];
-    for (let i = 0; i < frames.length; i++) {
-      if (frames[i].width >= minSamplesToShow)
-        drawFrame(frames[i], y, h < currentRootLevel);
+    lastL = -1;
+    if (totalRenderedFrames > 10000000) break;
+
+    // Binary search left bound
+    let lo = 0, hi = frames.length;
+    let fromIdx = lo, toIdx = hi;
+    if (currentRootLevel > 0) {
+      while (lo < hi) {
+        let mid = Math.floor((lo + hi) / 2);
+        let frame = frames[mid];
+        if (frame.left + frame.width < x0) lo = mid + 1;
+        else hi = mid;
+      }
+      fromIdx = lo;
+
+      // Binary search right bound
+      hi = frames.length;
+      while (lo < hi) {
+        let mid = Math.floor((lo + hi) / 2);
+        if (frames[mid].left < x1) lo = mid + 1;
+        else hi = mid;
+      }
+      toIdx = lo;
+    }
+
+    for (let i = fromIdx; i < toIdx; i++) {
+      drawFrame(frames[i], y, h < currentRootLevel, h);
     }
   }
 
-  console.timeEnd("render");
+  if (highlightPattern != null) {
+    matchContainer.style.display = 'inherit';
+    matchedLabel.textContent = pct(totalMatched(), currentRootFrame.width);
+  } else
+    matchContainer.style.display = 'none';
+  console.log("[clj-async-profiler] Total frames rendered:", totalRenderedFrames);
+  console.timeEnd("[clj-async-profiler] Render");
 }
-
-render();
 
 function round2dig(n) {
   return Math.round(n * 100) / 100;
@@ -534,73 +885,497 @@ function findFrame(frames, x) {
   return null;
 }
 
-canvas.onmousemove = function() {
+function samples(n, add_plus, bold) {
+  let num = (add_plus && n > 0 ? "+" : "") + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  if (bold) num = '<b>' + num + '</b>';
+  return num + (n === 1 ? ' sample' : ' samples');
+}
+
+function pct(a, b) {
+  let val = a >= b ? '100' : (100 * a / b).toFixed(2);
+  return val + '%';
+}
+
+function bold(t) {
+  return '<b>' + t + '</b>';
+}
+
+function canvasOnMouseMove(e) {
   const h = Math.floor((reverseGraph ? event.offsetY : (canvasHeight - event.offsetY)) / 16);
-  if (h >= 0 && h < levels.length) {
+  if (!ctxMenu.shown && h >= 0 && h < levels.length) {
     const f = findFrame(levels[h], event.offsetX / px + currentRootFrame.left);
+    var earlyReturn = h === currentLevelUnderCursor && f === currentFrameUnderCursor;
+    currentLevelUnderCursor = h;
+    currentFrameUnderCursor = f;
     if (f && f.width >= minSamplesToShow) {
       hl.style.left = (Math.max(f.left - currentRootFrame.left, 0) * px + canvas.offsetLeft) + 'px';
       hl.style.width = (Math.min(f.width, currentRootFrame.width) * px) + 'px';
       hl.style.top = ((reverseGraph ? h * 16 : canvasHeight - (h + 1) * 16) + canvas.offsetTop) + 'px';
-      // hl.firstChild.textContent = f.title;
       hl.style.display = 'block';
+
+      if (earlyReturn) return;
+
+      tooltipFrameSpan.textContent = f.title;
+
+      tooltip.style.display = 'block';
+      tooltip.style.animation = 'none';
+      tooltip.offsetHeight; /* trigger reflow */
+      tooltip.style.animation = null;
+
+      var hoverTipText;
       if (isDiffgraph) {
         var rel_change = (f.total_samples_a == 0) ? 1.0 : f.total_delta / f.total_samples_a;
         var total_change = f.total_delta / tree.total_samples_a;
-        canvas.title = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
+        tooltipSamplesSpan.innerHTML = samples(f.total_delta, true, true);
+        tooltipPctSelfSpan.innerHTML = bold(ratioToPct(rel_change)) + ' self';
+        tooltipPctTotalSpan.innerHTML = bold(ratioToPct(total_change)) + ' total';
+        hoverTipText = `${f.title}\n(${samples(f.total_delta, true)}, ${ratioToPct(rel_change)} self, ${ratioToPct(total_change)} total)`;
         // , self_samples_a: ${f.self_samples_a}, self_samples_b: ${f.self_samples_b},  self_delta: ${f.self_delta},  total_samples_a: ${f.total_samples_a},  total_samples_b: ${f.total_samples_b}, total_delta: ${f.total_delta})`;
-      } else
-        canvas.title = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + '%)';
+      } else {
+        tooltipSamplesSpan.innerHTML = samples(f.width, false, true);
+        tooltipPctSelfSpan.innerHTML = bold(pct(f.width, levels[0][0].width));
+        hoverTipText = f.title + '\n(' + samples(f.width) + ', ' + pct(f.width, levels[0][0].width) + ')';
+      }
+
+      let cursor_x  = e.clientX + window.pageXOffset;
+      let cursor_y  = e.clientY + window.pageYOffset;
+      let tooltip_w = tooltip.clientWidth;
+      let tooltip_h = tooltip.clientHeight;
+      var tooltip_x = cursor_x;
+      var tooltip_y = cursor_y + 20; // Below cursor
+
+      if (cursor_x + tooltip_w + 20 > canvas.clientWidth) {
+        tooltip_x = cursor_x - tooltip_w;
+      }
+
+      if (e.clientY + tooltip_h + 20 > window.innerHeight - statusBox.clientHeight) {
+        tooltip_y = cursor_y - tooltip_h;
+      }
+
+      // console.log("e.clientY", e.clientY, "cursor_y", cursor_y, "window.innerHeight", window.innerHeight, "tooltip_h", tooltip_h, "tooltip_y", tooltip_y);
+
+      tooltip.style.left = tooltip_x;
+      tooltip.style.top = tooltip_y;
+
       canvas.style.cursor = 'pointer';
-      canvas.onclick = function() {
-        if (f != currentRootFrame) {
-          render(f, h);
-          canvas.onmousemove();
-        }
-      };
-      status.textContent = 'Function: ' + canvas.title;
+      hoverTip.textContent = 'Function: ' + hoverTipText;
       return;
     }
   }
   canvas.onmouseout();
 }
 
-canvas.onmouseout = function() {
+function canvasOnClick() {
+  if (currentFrameUnderCursor && currentFrameUnderCursor != currentRootFrame) {
+    render(currentFrameUnderCursor, currentLevelUnderCursor);
+    hl.style.display = 'none';
+    canvas.onmousemove();
+  }
+}
+
+function canvasOnMouseOut() {
   hl.style.display = 'none';
-  status.textContent = '\xa0';
+  tooltip.style.display = 'none';
+  hoverTip.textContent = '\xa0';
   canvas.title = '';
   canvas.style.cursor = '';
-  canvas.onclick = '';
-}
-
-function samples(n, add_plus) {
-  return (add_plus && n > 0 ? "+" : "") + (n === 1 ? '1 sample' : n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')) + ' samples';
-}
-
-function pct(a, b) {
-  return a >= b ? '100' : (100 * a / b).toFixed(2);
+  currentLevelUnderCursor = -1;
+  currentFrameUnderCursor = null;
 }
 
 //// Configuration panel
+
+function performSlowAction(action) {
+  spinner.style.display = 'inline-block';
+  setTimeout(function() {
+    action();
+    spinner.style.display = 'none';
+  }, 20);
+}
+
+function userTransformsSwap(idx1, idx2) {
+  const swap = userTransforms[idx1];
+  userTransforms[idx1] = userTransforms[idx2];
+  userTransforms[idx2] = swap;
+}
+
+function addNewTransformParameterized(type, what, replacement) {
+  syncTransformsModelWithUI();
+  userTransforms.push(_makeTransform(type, true, what, replacement));
+  redrawTransformsSection();
+}
+
+function addNewTransform(type) {
+  addNewTransformParameterized(type, "", "");
+}
+
+function onTransformsChanged() {
+  redrawTransformsSection();
+  performSlowAction(fullRedraw);
+}
+
+function onTransformsChangedDontRecreate() {
+  syncTransformsModelWithUI();
+  performSlowAction(fullRedraw);
+}
+
+function deleteTransform(originator) {
+  syncTransformsModelWithUI();
+  userTransforms.splice(originator.internalId, 1);
+  onTransformsChanged();
+}
+
+function moveTransformUp(originator) {
+  const idx = originator.internalId;
+  if (idx == 0) return;
+  syncTransformsModelWithUI();
+  userTransformsSwap(idx-1, idx);
+  onTransformsChanged();
+}
 
 function oneByClass(container, classname) {
   return container.getElementsByClassName(classname)[0];
 }
 
-function applyConfiguration() {
-  console.time("apply config");
-  minPixelsPerFrame = minFrameWidthInPx.value || 0.25;
-  normalizeDiff = isNormalized.checked;
-  let reverseChanged = (reverseGraph != isReversedInput.checked);
-  reverseGraph = isReversedInput.checked;
-  syncTransformsModelWithUI();
-  refreshData();
-  initCanvas();
-  render();
-  if (reverseChanged)
-    scrollToTopOrBottom();
-  console.timeEnd("apply config");
+function syncTransformsModelWithUI() {
+  userTransforms = [];
+  for (var i = 0; i < transformsContainer.children.length; i++) {
+    let el = transformsContainer.children[i];
+    let transformType = el.transformType;
+    userTransforms.push(
+      _makeTransform(transformType, oneByClass(el, 'chkEnabled').checked,
+                     oneByClass(el, 'what').value,
+                     transformType == 'replace' ? oneByClass(el, 'replacement').value : null));
+  }
 }
+
+function redrawTransformsSection() {
+  transformsContainer.innerHTML = "";
+  for (var i = 0; i < userTransforms.length; i++) {
+    const transform = userTransforms[i];
+    var newEl = (transform.type == 'replace') ?
+        transformReplaceTemplate.cloneNode(true) :
+        transformFilterTemplate.cloneNode(true);
+    newEl.transformType = transform.type;
+    newEl.style = '';
+    newEl.internalId = i;
+    if (i % 2 == 1)
+      newEl.classList.add("xform-odd-block");
+
+    const what = transform.what;
+    const whatInput = oneByClass(newEl, 'what');
+    if (typeof(what) == 'string')
+      whatInput.value = what;
+    else
+      whatInput.value = what.toString().match(/^(\/.+\/)g?$/)[1];
+    addOnEnter(whatInput, onTransformsChangedDontRecreate);
+
+    if (transform.type == 'replace') {
+      oneByClass(newEl, 'replacement').value = transform.replacement;
+      addOnEnter(oneByClass(newEl, 'replacement'), onTransformsChangedDontRecreate);
+    } else if (transform.type == 'remove')
+      oneByClass(newEl, 'label').textContent = "Remove";
+    oneByClass(newEl, 'chkEnabled').checked = transform.enabled;
+
+    oneByClass(newEl, 'chkEnabled').internalId = i;
+    oneByClass(newEl, 'btnMoveUp').internalId = i;
+    oneByClass(newEl, 'btnDelete').internalId = i;
+    transformsContainer.appendChild(newEl);
+  }
+}
+
+function smallbarHighlightButtonOnClick() {
+  if (highlightState.pattern == null) {
+    let userInput = window.prompt("Search string or /regex/", highlightState.lastPatternAsText || "");
+    if (userInput != null && userInput != "") {
+      highlightInput.value = userInput;
+      applyHighlight(userInput);
+    }
+  } else {
+    clearHighlight();
+  }
+}
+
+function highlightButtonOnClick() {
+  let pattern = highlightState.pattern;
+  let inputVal = highlightInput.value;
+  if (pattern == null) {
+    if (inputVal == "") {
+      highlightInput.focus();
+    } else {
+      applyHighlight(inputVal);
+    }
+  } else {
+    if (inputVal == "" || inputVal == highlightState.lastPatternAsText) {
+      clearHighlight();
+    } else {
+      applyHighlight(inputVal);
+    }
+  }
+}
+
+function addOnEnter(obj, f) {
+  obj.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      f();
+    }
+  });
+}
+
+addOnEnter(highlightInput, highlightButtonOnClick);
+
+function scrollToTopOrBottom() {
+  window.scrollTo(0, reverseGraph ? 0 : document.body.scrollHeight);
+}
+
+function inverseOnClick() {
+  reverseGraph = !reverseGraph;
+  if (reverseGraph) {
+    inverseButton1.classList.add("toggled");
+    inverseButton2.classList.add("toggled");
+  } else {
+    inverseButton1.classList.remove("toggled");
+    inverseButton2.classList.remove("toggled");
+  }
+  performSlowAction(function() { fullRedraw(true); });
+}
+
+function sortRadioChange() {
+  performSlowAction(fullRedraw);
+}
+
+function fullRedraw(doScroll) {
+  console.time("[clj-async-profiler] Full redraw");
+  syncTransformsModelWithUI();
+  recomputeDataModel();
+  reinitCanvas();
+  render();
+  if (doScroll) scrollToTopOrBottom();
+  console.timeEnd("[clj-async-profiler] Full redraw");
+}
+
+function setSidebarVisibility(isVisible) {
+  sidebarVisible = isVisible;
+  updateSidebarState();
+  reinitCanvas();
+  render(currentRootFrame, currentRootLevel);
+}
+
+// Context menu implementation was taken from https://github.com/heapoverride/context-js
+// and modified to suit our needs. Licensed Under MIT License, author: @UnrealSec
+class ContextMenu {
+  constructor(container, items) {
+    this.container = container;
+    this.dom = null;
+    this.shown = false;
+    this.root = true;
+    this.items = items;
+    this._onclick = e => {
+      if (this.dom && e.target != this.dom &&
+          e.target.parentElement != this.dom &&
+          !e.target.classList.contains('item') &&
+          !e.target.parentElement.classList.contains('item')) {
+        this.hide();
+      }
+    };
+    this._oncontextmenu = e => {
+      if (e.target != this.dom &&
+          e.target.parentElement != this.dom &&
+          !e.target.classList.contains('item') &&
+          !e.target.parentElement.classList.contains('item') &&
+          currentFrameUnderCursor) {
+        e.preventDefault();
+        tooltipRightClickHint.style.display = 'none';
+        this.hide();
+        this.frame = currentFrameUnderCursor;
+        this.show(e.clientX, e.clientY);
+      }
+    };
+    this._oncontextmenu_keydown = e => {
+      if (e.keyCode == 27) {
+        this.hideAll();
+        return;
+      }
+      if (e.keyCode != 93) return;
+      e.preventDefault();
+
+      this.hideAll();
+      this.show(e.clientX, e.clientY);
+    };
+
+
+    this._onblur = e => { this.hide(); };
+  }
+  getMenuDom() {
+    const menu = document.createElement('div');
+    menu.classList.add('context');
+    for (const item of this.items)
+      menu.appendChild(this.itemToDomEl(item));
+    return menu;
+  }
+  itemToDomEl(data) {
+    const item = document.createElement('div');
+    if (data === null) {
+      item.classList = 'separator';
+      return item;
+    }
+    if (data.hasOwnProperty('color') && /^#([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(data.color.toString())) {
+      item.style.cssText = `color: ${data.color}`;
+    }
+    item.classList.add('item');
+
+    const label = document.createElement('span');
+    label.classList = 'label';
+    label.innerText = data.hasOwnProperty('text') ? data['text'].toString() : '';
+    item.appendChild(label);
+
+    if (data.hasOwnProperty('disabled') && data['disabled'])
+      item.classList.add('disabled');
+    else
+      item.classList.add('enabled');
+
+    item.addEventListener('click', e => {
+      if (item.classList.contains('disabled')) return;
+      if (data.hasOwnProperty('onclick') && typeof data['onclick'] === 'function') {
+        const event = {handled: false, item: item, label: label, items: this.items, data: data};
+        data['onclick'](event, this.frame);
+        if (!event.handled)
+          this.hide();
+      } else {
+        this.hide();
+      }
+    });
+    return item;
+  }
+  hide() {
+    if (this.dom && this.shown) {
+      this.shown = false;
+      this.container.removeChild(this.dom);
+    }
+  }
+  show(x, y) {
+    this.dom = this.getMenuDom();
+    this.dom.style.visibility = 'hidden';
+    this.dom.style.left = `${x}px`;
+    this.dom.style.top = `${y}px`;
+    this.shown = true;
+    this.container.appendChild(this.dom);
+
+    if (this.dom.offsetWidth + x > document.body.clientWidth)
+      this.dom.style.left = `${x-this.dom.offsetWidth}px`;
+    if (this.dom.offsetHeight + y > document.body.clientHeight)
+      this.dom.style.top = `${y-this.dom.offsetHeight}px`;
+    this.dom.style.visibility = 'visible';
+  }
+
+  install() {
+    this.container.addEventListener('contextmenu', this._oncontextmenu, false);
+    this.container.addEventListener('keydown', this._oncontextmenu_keydown);
+    this.container.addEventListener('click', this._onclick);
+    document.addEventListener('keydown', (event) => {
+      if (event.keyCode == 27) this.hide();
+    });
+    window.addEventListener('blur', this._onblur);
+  }
+}
+
+function escapeRegex(regexString) {
+  return regexString.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function menuHighlight(e, frame) {
+  let rx = escapeRegex(frame.title);
+  highlightInput.value = "/^" + rx + "$/";
+  applyHighlight(highlightInput.value);
+}
+
+function menuCopyAsText(e, frame) {
+  navigator.clipboard.writeText(frame.title);
+}
+
+function menuCopyAsRegex(e, frame) {
+  let rx = escapeRegex(frame.title);
+  navigator.clipboard.writeText(rx);
+}
+
+function menuFilterContaining(e, frame) {
+  addNewTransformParameterized('filter', ";" + frame.title + ";", "");
+  onTransformsChanged();
+}
+
+function menuRemoveContaining(e, frame) {
+  addNewTransformParameterized('remove', ";" + frame.title + ";", "");
+  onTransformsChanged();
+}
+
+function menuHideFramesAbove(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/(;" + rx + ";).*/", "$1");
+  onTransformsChanged();
+}
+
+function menuHideFramesBelow(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/.+(" + rx + ";)/", ";$1");
+  onTransformsChanged();
+}
+
+function menuCollapseRecursive(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/;(" + rx + ";)+/", ";$1");
+  onTransformsChanged();
+}
+
+function menuCollapseRecursiveWithGaps(e, frame) {
+  let rx = escapeRegex(frame.title);
+  addNewTransformParameterized('replace', "/;(" + rx + ";).*\\1/", ";$1");
+  onTransformsChanged();
+}
+
+const ctxMenuData = [
+  {text: 'Highlight', onclick: menuHighlight },
+  {text: 'Copy as text', onclick: menuCopyAsText },
+  {text: 'Copy as regex', onclick: menuCopyAsRegex },
+  null,
+  {text: 'Filter containing stacks', onclick: menuFilterContaining },
+  {text: 'Remove containing stacks', onclick: menuRemoveContaining },
+  {text: 'Hide frames above', onclick: menuHideFramesAbove },
+  {text: 'Hide frames below', onclick: menuHideFramesBelow },
+  null,
+  {text: 'Collapse recursive', onclick: menuCollapseRecursive },
+  {text: 'Collapse recursive (with gaps)', onclick: menuCollapseRecursiveWithGaps},
+];
+
+const ctxMenu = new ContextMenu(document.getElementById('canvasDiv'), ctxMenuData);
+ctxMenu.install();
+
+//// "Data" is inserted here
+
+console.time("[clj-async-profiler] Data load/eval");
+
+var idToFrame = ["foo",
+"bar",
+"baz",
+"qux",
+"corge",
+];
+
+a([0,0,],1);
+a([1,1,],2);
+a([2,2,],5);
+a([0,3,4,],2);
+
+
+console.timeEnd("[clj-async-profiler] Data load/eval");
+
+performSlowAction(function() {
+  redrawTransformsSection();
+  fullRedraw(true);
+  sidebar.style.visibility = 'visible';
+  smallbar.style.visibility = 'visible';
+});
+
     </script>
   </body>
 </html>
